@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Platform>x86</Platform>
+    <ProjectGuid>{1EC58884-222D-4100-9D00-E971C4FB752A}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SkyFloe.Test</RootNamespace>
+    <AssemblyName>Test</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <VisualStudioVersion>11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PlatformTarget>x86</PlatformTarget>
+    <OutputPath>..\..\Bin\</OutputPath>
+    <WarningLevel>4</WarningLevel>
+    <ProjectConfigFileName>App.config</ProjectConfigFileName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineConstants>$(DefineConstants);DEBUG</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Transactions" />
+    <Reference Include="System.XML" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Core.csproj">
+      <Project>{b0e755f5-be17-4756-8b14-43eea8698c5d}</Project>
+      <Name>Core</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Sqlite\Sqlite.csproj">
+      <Project>{de3ab975-4449-441b-a763-64c356be2b70}</Project>
+      <Name>Sqlite</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Stores\FileStore\FileStore.csproj">
+      <Project>{6a005674-9556-47a4-aa42-0276d14bacaf}</Project>
+      <Name>FileStore</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
