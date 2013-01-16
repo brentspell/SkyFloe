@@ -2,7 +2,7 @@
 // MODULE:  Version.cs
 // PURPOSE: project version assembly properties
 // 
-// Copyright © 2012
+// Copyright © 2013
 // Brent M. Spell. All rights reserved.
 //
 // This library is free software; you can redistribute it and/or modify it 

@@ -12,18 +12,70 @@ namespace SkyFloe.Test
    {
       static void Main (String[] args)
       {
-         var crypto = Aes.Create();
-         crypto.Key = 
-            new Rfc2898DeriveBytes("", BitConverter.GetBytes(0xDEADBEEF600DF00D))
-            .GetBytes(crypto.KeySize / 8);
-         using (var input = File.OpenRead(@"c:\test.txt"))
-         using (var output = File.OpenWrite(@"c:\test.txt.aes"))
-         using (var encoder = new CryptoStream(input, crypto.CreateEncryptor(), CryptoStreamMode.Read))
-            encoder.CopyTo(output);
-         using (var input = File.OpenRead(@"c:\test.txt.aes"))
-         using (var output = File.OpenWrite(@"c:\test.txt.aes.txt"))
-         using (var decoder = new CryptoStream(input, crypto.CreateDecryptor(), CryptoStreamMode.Read))
-            decoder.CopyTo(output);
+         using (var connect = new Connection(@"Store=File;Path=c:\temp\store;"))
+         using (var archive = connect.OpenArchive("Test"))
+         {
+            Func<Model.Node, IEnumerable<Model.Node>> nodeSelector = null;
+            nodeSelector =
+               node => new[] { node }.Concat(archive.GetChildren(node).SelectMany(nodeSelector));
+            var engine = new Engine() { Connection = connect };
+            engine.Restore(
+               new RestoreRequest()
+               {
+                  Archive = archive.Name,
+                  Password = "secret",
+                  OverwriteReadOnly = true,
+                  VerifyResults = true,
+                  Entries = archive.Roots
+                     .SelectMany(nodeSelector)
+                     .Where(n => n.Type == Model.NodeType.File)
+                     .Select(
+                        n => archive.GetEntries(n)
+                           .OrderBy(e => e.Session.Created)
+                           .Where(e => e.State == Model.EntryState.Completed)
+                           .Select(e => e.ID)
+                           .DefaultIfEmpty(0)
+                           .Last()
+                     ).Where(id => id != 0),
+                  RootPathMap = new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase)
+                  {
+                     { @"c:\temp\source", @"c:\temp\Result" }
+                  }
+               }
+            );
+         }
+
+         /*
+         using (var connect = new Connection("Store=AwsGlacier;AccessKey=1V0BC55SS0SF3V9SRG02;SecretKey=h0QC/K4JGcx6MkJ/I7ZpEDTbMX49Eja0S+HOEpDS;"))
+         using (var archive = connect.OpenArchive("Liono"))
+         {
+            Func<Model.Node, IEnumerable<Model.Node>> nodeSelector = null;
+            nodeSelector =
+               node => new [] { node }.Concat(archive.GetChildren(node).SelectMany(nodeSelector));
+            var entry = archive.Roots
+               .SelectMany(nodeSelector)
+               .Where(n => n.Name == "13 - Express Yourself.mp3")
+               .SelectMany(n => archive.GetEntries(n))
+               .Single(e => e.State == Model.EntryState.Completed);
+            Console.WriteLine("{0}: {1} ({2})  {3}", entry.Offset, entry.Length, entry.Crc32, entry.Blob.Name);
+         }
+         */
+         /*
+         using (var connect = new Connection("Store=AwsGlacier;AccessKey=1V0BC55SS0SF3V9SRG02;SecretKey=h0QC/K4JGcx6MkJ/I7ZpEDTbMX49Eja0S+HOEpDS;"))
+         using (var archive = connect.OpenArchive("Liono"))
+            Console.WriteLine(
+               "{0:0.00}MB",
+               ((Double)archive.Sessions.OrderBy(s => s.Created).Last().ActualLength) / 1048576
+            );
+         */
+         /*
+         using (var connect = new Connection("Store=AwsGlacier;AccessKey=1V0BC55SS0SF3V9SRG02;SecretKey=h0QC/K4JGcx6MkJ/I7ZpEDTbMX49Eja0S+HOEpDS;"))
+         using (var archive = connect.OpenArchive("Test"))
+            foreach (var blob in archive.Blobs)
+               Console.WriteLine("{0} bytes, {1}", blob.Length, blob.Name);
+         */
+         Console.Write("Press enter to exit.");
+         Console.ReadLine();
       }
       static void DumpArchive (Connection.Archive arch)
       {

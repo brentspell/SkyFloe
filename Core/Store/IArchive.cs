@@ -9,8 +9,12 @@ namespace SkyFloe.Store
    {
       String Name { get; }
       IIndex Index { get; }
-      Stream LoadEntry (Model.Entry entry);
+      // backup operations
+      void PrepareBackup ();
       void StoreEntry (Model.Entry entry, Stream stream);
       void Checkpoint ();
+      // restore operations
+      void PrepareRestore (IList<BlobRestore> blobs);
+      Stream LoadEntry (Model.Entry entry);
    }
 }

@@ -18,6 +18,13 @@ namespace SkyFloe.Model
       public NodeType Type { get; set; }
       public String Name { get; set; }
 
+      public Node GetRoot ()
+      {
+         var node = this;
+         while (node.Parent != null)
+            node = node.Parent;
+         return node;
+      }
       public String GetAbsolutePath ()
       {
          return (this.Parent != null) ? 

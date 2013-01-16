@@ -13,19 +13,15 @@ namespace SkyFloe.Aws
    public class GlacierArchive : IArchive
    {
       public const String IndexS3KeyExtension = ".db.gz";
-      Amazon.S3.AmazonS3 s3;
-      Amazon.Glacier.AmazonGlacierClient glacier;
-      String vault;
-      String bucket;
-      String name;
-      String indexPath;
-      Sqlite.SqliteIndex index;
-      Byte[] partBuffer;
-      Int32 partLength;
-      Stream partStream;
-      List<String> partChecksums;
-      Model.Blob currentBlob;
-      Int64 blobOffset;
+      public const Int32 PartSize = 16 * 1024 * 1024;
+      private Amazon.S3.AmazonS3 s3;
+      private Amazon.Glacier.AmazonGlacierClient glacier;
+      private String vault;
+      private String bucket;
+      private String name;
+      private String indexPath;
+      private Sqlite.SqliteIndex index;
+      private GlacierUploader uploader;
 
       private String IndexS3Key
       {
@@ -103,114 +99,43 @@ namespace SkyFloe.Aws
       {
          get { return this.index; }
       }
-      public Stream LoadEntry (Model.Entry entry)
+      public void PrepareBackup ()
       {
-         throw new NotImplementedException();
       }
       public void StoreEntry (Model.Entry entry, Stream stream)
       {
-         if (this.currentBlob == null)
+         if (this.uploader == null)
          {
-            if (this.partBuffer == null)
-               this.partBuffer = new Byte[16 * 1024 * 1024];
-            this.partStream = new MemoryStream(this.partBuffer);
-            this.partLength = 0;
-            this.partChecksums = new List<String>();
-            var partUploadID = this.glacier.InitiateMultipartUpload(
-               new Amazon.Glacier.Model.InitiateMultipartUploadRequest()
-               {
-                  VaultName = this.vault,
-                  PartSize = this.partBuffer.Length
-               }
-            ).InitiateMultipartUploadResult.UploadId;
-            this.currentBlob = this.index.InsertBlob(
+            this.uploader = new GlacierUploader(
+               this.glacier, 
+               this.vault,
+               PartSize
+            );
+            this.index.InsertBlob(
                new Model.Blob()
                {
-                  Name = partUploadID
+                  Name = this.uploader.UploadID
                }
             );
          }
-         var entryOffset = this.currentBlob.Length;
-         var entryLength = 0;
-         for (; ; )
-         {
-            if (this.partLength == this.partBuffer.Length)
-            {
-               this.partStream.Position = 0;
-               var checksum = Amazon.Glacier.TreeHashGenerator.CalculateTreeHash(this.partStream);
-               this.partChecksums.Add(checksum);
-               this.partStream.Position = 0;
-               this.glacier.UploadMultipartPart(
-                  new Amazon.Glacier.Model.UploadMultipartPartRequest()
-                  {
-                     VaultName = this.vault,
-                     UploadId = this.currentBlob.Name,
-                     Body = this.partStream,
-                     Range = String.Format(
-                        "bytes {0}-{1}/*",
-                        this.blobOffset,
-                        this.blobOffset + this.partLength - 1
-                     ),
-                     Checksum = checksum
-                  }
-               );
-               this.blobOffset += this.partLength;
-               this.partLength = 0;
-            }
-            var read = stream.Read(
-               this.partBuffer,
-               this.partLength,
-               this.partBuffer.Length - this.partLength);
-            if (read == 0)
-               break;
-            this.partLength += read;
-            entryLength += read;
-         }
-         entry.Blob = this.currentBlob;
-         entry.Offset = entryOffset;
-         entry.Length = entryLength;
+         var blob = this.index.LookupBlob(this.uploader.UploadID);
+         var offset = blob.Length = this.uploader.Length;
+         var length = this.uploader.Upload(stream);
+         entry.Blob = blob;
+         entry.Offset = offset;
+         entry.Length = length;
       }
       public void Checkpoint ()
       {
-         if (this.currentBlob != null)
+         if (this.uploader != null)
          {
-            if (this.partLength > 0)
-            {
-               this.partStream.SetLength(this.partLength);
-               this.partStream.Position = 0;
-               var checksum = Amazon.Glacier.TreeHashGenerator.CalculateTreeHash(this.partStream);
-               this.partChecksums.Add(checksum);
-               this.partStream.Position = 0;
-               this.glacier.UploadMultipartPart(
-                  new Amazon.Glacier.Model.UploadMultipartPartRequest()
-                  {
-                     VaultName = this.vault,
-                     UploadId = this.currentBlob.Name,
-                     Body = this.partStream,
-                     Range = String.Format(
-                        "bytes {0}-{1}/*",
-                        this.blobOffset,
-                        this.blobOffset + this.partLength - 1
-                     ),
-                     Checksum = checksum
-                  }
-               );
-            }
-            this.currentBlob.Name = this.glacier.CompleteMultipartUpload(
-               new Amazon.Glacier.Model.CompleteMultipartUploadRequest()
-               {
-                  VaultName = this.vault,
-                  UploadId = this.currentBlob.Name,
-                  ArchiveSize = this.currentBlob.Length.ToString(),
-                  Checksum = Amazon.Glacier.TreeHashGenerator.CalculateTreeHash(this.partChecksums)
-               }
-            ).CompleteMultipartUploadResult.ArchiveId;
-            this.index.UpdateBlob(this.currentBlob);
-            this.partStream = null;
-            this.partLength = 0;
-            this.partChecksums = null;
-            this.currentBlob = null;
-            this.blobOffset = 0;
+            var blob = this.index.LookupBlob(this.uploader.UploadID);
+            this.uploader.Flush();
+            blob.Length = this.uploader.Length;
+            var archiveID = this.uploader.Complete();
+            blob.Name = archiveID;
+            this.index.UpdateBlob(blob);
+            this.uploader = null;
          }
          using (var s3File = new FileStream(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.DeleteOnClose))
          {
@@ -227,6 +152,13 @@ namespace SkyFloe.Aws
                }
             );
          }
+      }
+      public void PrepareRestore (IList<BlobRestore> blobs)
+      {
+      }
+      public Stream LoadEntry (Model.Entry entry)
+      {
+         throw new NotImplementedException();
       }
       #endregion
    }

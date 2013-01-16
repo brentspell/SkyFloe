@@ -12,6 +12,8 @@ CREATE TABLE Blob (
    Created DateTime DEFAULT CURRENT_TIMESTAMP NOT NULL,
    Updated DateTime DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
+CREATE UNIQUE INDEX AK_Blob_Name
+   ON Blob (Name);
 CREATE TABLE Session (
    ID Integer PRIMARY KEY NOT NULL,
    State SmallInt NOT NULL CHECK (State IN (1, 2, 3)),

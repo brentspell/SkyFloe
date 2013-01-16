@@ -137,6 +137,20 @@ namespace SkyFloe.Sqlite
                   Updated = DateTime.SpecifyKind(Convert.ToDateTime(reader[4]), DateTimeKind.Utc),
                };
       }
+      public Model.Blob LookupBlob (String name)
+      {
+         using (var reader = ExecuteReader("SELECT ID, Length, Created, Updated FROM Blob WHERE Name = @p0;", name))
+            if (reader.Read())
+               return new Model.Blob()
+               {
+                  ID = Convert.ToInt32(reader[0]),
+                  Name = name,
+                  Length = Convert.ToInt64(reader[1]),
+                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[2]), DateTimeKind.Utc),
+                  Updated = DateTime.SpecifyKind(Convert.ToDateTime(reader[3]), DateTimeKind.Utc),
+               };
+         return null;
+      }
       public Model.Blob FetchBlob (Int32 id)
       {
          using (var reader = ExecuteReader("SELECT Name, Length, Created, Updated FROM Blob WHERE ID = @p0;", id))
@@ -329,7 +343,7 @@ namespace SkyFloe.Sqlite
                   Crc32 = BitConverter.ToUInt32((Byte[])reader[6], 0)
                };
       }
-      public Model.Entry FetchNextPendingEntry (Model.Session session)
+      public Model.Entry LookupNextPendingEntry (Model.Session session)
       {
          using (var reader =
                ExecuteReader(

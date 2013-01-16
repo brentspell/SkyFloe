@@ -19,6 +19,11 @@ namespace SkyFloe.IO
             throw new ArgumentOutOfRangeException("offset");
          if (length < 0)
             throw new ArgumentOutOfRangeException("length");
+         var streamLen = stream.Length;
+         if (offset > streamLen)
+            throw new ArgumentOutOfRangeException("offset");
+         if (offset + length > streamLen)
+            throw new ArgumentOutOfRangeException("length");
          this.stream = stream;
          this.offset = offset;
          this.length = length;
@@ -57,8 +62,14 @@ namespace SkyFloe.IO
       }
       public override Int32 Read (Byte[] buffer, Int32 offset, Int32 count)
       {
-         
-         throw new NotImplementedException();
+         return this.stream.Read(
+            buffer, 
+            offset,
+            (Int32)Math.Min(
+               count,
+               this.length - (this.stream.Position - this.offset)
+            )
+         );
       }
       public override Int64 Seek (Int64 offset, SeekOrigin origin)
       {
@@ -73,7 +84,6 @@ namespace SkyFloe.IO
             default:
                throw new ArgumentException("origin");
          }
-         throw new NotImplementedException();
       }
       public override void SetLength (Int64 value)
       {

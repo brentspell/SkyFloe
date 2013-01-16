@@ -16,6 +16,7 @@ namespace SkyFloe.Store
       Header FetchHeader ();
       // blob operations
       IEnumerable<Blob> ListBlobs ();
+      Blob LookupBlob (String name);
       Blob FetchBlob (Int32 id);
       Blob InsertBlob (Blob blob);
       Blob UpdateBlob (Blob blob);
@@ -34,7 +35,7 @@ namespace SkyFloe.Store
       void DeleteNode (Node node);
       // entry operations
       IEnumerable<Entry> ListNodeEntries (Node node);
-      Entry FetchNextPendingEntry (Session session);
+      Entry LookupNextPendingEntry (Session session);
       Entry FetchEntry (Int32 id);
       Entry InsertEntry (Entry entry);
       Entry UpdateEntry (Entry entry);

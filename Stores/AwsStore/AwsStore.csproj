@@ -40,6 +40,7 @@
     </Compile>
     <Compile Include="GlacierArchive.cs" />
     <Compile Include="GlacierStore.cs" />
+    <Compile Include="GlacierUploader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -37,15 +37,27 @@ namespace SkyFloe
          if (store.ListArchives().Contains(request.Archive, StringComparer.OrdinalIgnoreCase))
          {
             archive = store.OpenArchive(request.Archive);
-            var header = archive.Index.FetchHeader();
-            var crypto = new Rfc2898DeriveBytes(
-               request.Password,
-               header.PasswordSalt,
-               header.CryptoIterations
-            );
-            var passwordHash = crypto.GetBytes(header.PasswordHash.Length);
-            if (!passwordHash.SequenceEqual(header.PasswordHash))
-               throw new InvalidOperationException("TODO: authentication failed");
+            try
+            {
+               var header = archive.Index.FetchHeader();
+               using (var crypto =
+                  new Rfc2898DeriveBytes(
+                     request.Password,
+                     header.PasswordSalt,
+                     header.CryptoIterations
+                  )
+               )
+               {
+                  var hash = crypto.GetBytes(header.PasswordHash.Length);
+                  if (!hash.SequenceEqual(header.PasswordHash))
+                     throw new InvalidOperationException("TODO: authentication failed");
+               }
+            }
+            catch
+            {
+               archive.Dispose();
+               throw;
+            }
          }
          else
          {
@@ -58,36 +70,323 @@ namespace SkyFloe
             };
             rng.GetBytes(header.ArchiveSalt);
             rng.GetBytes(header.PasswordSalt);
-            header.PasswordHash = new Rfc2898DeriveBytes(
-               request.Password,
-               header.PasswordSalt,
-               header.CryptoIterations
-            ).GetBytes(CryptoHashLength);
+            using (var crypto = 
+               new Rfc2898DeriveBytes(
+                  request.Password,
+                  header.PasswordSalt,
+                  header.CryptoIterations
+               )
+            )
+               header.PasswordHash = crypto.GetBytes(CryptoHashLength);
             archive = store.CreateArchive(request.Archive, header);
-            archive.Checkpoint();
+            try
+            {
+               archive.Checkpoint();
+            }
+            catch
+            {
+               archive.Dispose();
+               throw;
+            }
          }
-         // initialize the new backup session
-         var session = archive.Index
-            .ListSessions()
-            .SingleOrDefault(s => s.State != Model.SessionState.Completed);
-         if (session == null)
-            session = archive.Index.InsertSession(
-               new Model.Session()
-               {
-                  State = Model.SessionState.Pending
-               }
-            );
-         // start the backup task
          try
          {
+            archive.PrepareBackup();
+            var session = archive.Index
+               .ListSessions()
+               .SingleOrDefault(s => s.State != Model.SessionState.Completed);
+            if (session == null)
+               session = archive.Index.InsertSession(
+                  new Model.Session()
+                  {
+                     State = Model.SessionState.Pending
+                  }
+               );
             if (session.State == Model.SessionState.Pending)
+            {
                foreach (var source in request.Sources)
-                  AddSource(archive.Index, session, source, request.DiffMethod);
-            BackupSession(request, store, archive, session);
+               {
+                  // TODO: validate source is directory
+                  using (var txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
+                  {
+                     var root = archive.Index
+                        .ListNodes(null)
+                        .FirstOrDefault(n => String.Compare(n.Name, source, true) == 0);
+                     if (root == null)
+                        root = archive.Index.InsertNode(
+                           new Model.Node()
+                           {
+                              Type = Model.NodeType.Root,
+                              Name = source
+                           }
+                        );
+                     var differencer = new Differencer()
+                     {
+                        Method = request.DiffMethod,
+                        Index = archive.Index,
+                        Root = root,
+                        Path = source
+                     };
+                     foreach (var diff in differencer.Enumerate())
+                     {
+                        if (diff.Node.ID == 0)
+                           archive.Index.InsertNode(diff.Node);
+                        if (diff.Node.Type == Model.NodeType.File)
+                        {
+                           archive.Index.InsertEntry(
+                              new Model.Entry()
+                              {
+                                 Session = session,
+                                 Node = diff.Node,
+                                 State = (diff.Type != DiffType.Deleted) ?
+                                    Model.EntryState.Pending :
+                                    Model.EntryState.Deleted,
+                                 Offset = -1,
+                                 Length = -1,
+                                 Crc32 = IO.Crc32Stream.InitialValue
+                              }
+                           );
+                           if (diff.Type != DiffType.Deleted)
+                              session.EstimatedLength += new FileInfo(diff.Node.GetAbsolutePath()).Length;
+                        }
+                     }
+                     txn.Complete();
+                  }
+               }
+               session.State = Model.SessionState.InProgress;
+               archive.Index.UpdateSession(session);
+               archive.Checkpoint();
+            }
+            var header = archive.Index.FetchHeader();
+            var aes = new AesCryptoServiceProvider();
+            using (var crypto =
+               new Rfc2898DeriveBytes(
+                  request.Password,
+                  header.ArchiveSalt,
+                  header.CryptoIterations
+               )
+            )
+            {
+               aes.Key = crypto.GetBytes(aes.KeySize / 8);
+               aes.IV = header.ArchiveSalt.Take(aes.BlockSize / 8).ToArray();
+            }
+            var checkpointSize = 0L;
+            for (; ; )
+            {
+               var entry = archive.Index.LookupNextPendingEntry(session);
+               if (entry == null)
+                  break;
+               try
+               {
+                  using (var fileStream = new FileStream(entry.Node.GetAbsolutePath(), FileMode.Open, FileAccess.Read, FileShare.Read))
+                  using (var crcStream = new IO.Crc32Stream(fileStream, IO.StreamMode.Read))
+                  using (var cryptoStream = new CryptoStream(crcStream, aes.CreateEncryptor(), CryptoStreamMode.Read))
+                  {
+                     archive.StoreEntry(entry, cryptoStream);
+                     entry.Crc32 = crcStream.Value;
+                  }
+               }
+               catch (Exception e)
+               {
+                  ErrorEvent error = new ErrorEvent()
+                  {
+                     Entry = entry,
+                     Exception = e,
+                     Result = ErrorResult.Abort
+                  };
+                  try
+                  {
+                     if (this.OnError != null)
+                        this.OnError(error);
+                  }
+                  catch { }
+                  switch (error.Result)
+                  {
+                     case ErrorResult.Abort:
+                        throw;
+                     case ErrorResult.Retry:
+                        continue;
+                     case ErrorResult.Fail:
+                        entry = archive.Index.FetchEntry(entry.ID);
+                        entry.State = Model.EntryState.Failed;
+                        archive.Index.UpdateEntry(entry);
+                        continue;
+                  }
+               }
+               entry.State = Model.EntryState.Completed;
+               entry.Blob.Length += entry.Length;
+               session.ActualLength += entry.Length;
+               using (var txn = new TransactionScope())
+               {
+                  archive.Index.UpdateEntry(entry);
+                  archive.Index.UpdateBlob(entry.Blob);
+                  archive.Index.UpdateSession(session);
+                  txn.Complete();
+               }
+               if (this.OnProgress != null)
+               {
+                  var progress = new ProgressEvent()
+                  {
+                     Entry = entry
+                  };
+                  this.OnProgress(progress);
+                  if (progress.Cancel)
+                  {
+                     archive.Checkpoint();
+                     break;
+                  }
+               }
+               // TODO: set checkpoint size based on configuration/request
+               checkpointSize += entry.Length;
+               if (checkpointSize > 1024 * 1024 * 1024)
+               {
+                  checkpointSize = 0;
+                  try
+                  {
+                     archive.Checkpoint();
+                  }
+                  catch (Exception e)
+                  {
+                     ErrorEvent error = new ErrorEvent()
+                     {
+                        Exception = e,
+                        Result = ErrorResult.Abort
+                     };
+                     try
+                     {
+                        if (this.OnError != null)
+                           this.OnError(error);
+                     }
+                     catch { }
+                     switch (error.Result)
+                     {
+                        case ErrorResult.Retry:
+                           var name = archive.Name;
+                           try { archive.Dispose(); }
+                           catch { }
+                           archive = store.OpenArchive(name);
+                           archive.PrepareBackup();
+                           session = archive.Index.FetchSession(session.ID);
+                           continue;
+                        default:
+                           throw;
+                     }
+                  }
+               }
+            }
+            session.State = Model.SessionState.Completed;
+            archive.Index.UpdateSession(session);
+            archive.Checkpoint();
          }
          finally
          {
             archive.Dispose();
+         }
+      }
+
+      public void Restore (RestoreRequest request)
+      {
+         // TODO: validate request
+         if (this.Connection == null)
+            throw new InvalidOperationException("TODO: Not connected");
+         // load the archive/index
+         var store = this.Connection.Store;
+         var archive = (Store.IArchive)null;
+         if (!store.ListArchives().Contains(request.Archive, StringComparer.OrdinalIgnoreCase))
+            throw new InvalidOperationException("TODO: archive not found");
+         archive = store.OpenArchive(request.Archive);
+         try
+         {
+            var blobs = new List<Store.BlobRestore>();
+            foreach (var entryID in request.Entries)
+            {
+               var entry = archive.Index.FetchEntry(entryID);
+               var rblob = blobs.FirstOrDefault(b => b.Blob.ID == entry.Blob.ID);
+               if (rblob == null)
+                  blobs.Add(
+                     rblob = new Store.BlobRestore()
+                     {
+                        Blob = entry.Blob,
+                        Offset = entry.Offset,
+                        Length = entry.Length
+                     }
+                  );
+               if (entry.Offset < rblob.Offset)
+               {
+                  rblob.Length += rblob.Offset - entry.Offset;
+                  rblob.Offset = entry.Offset;
+               }
+               if (entry.Offset + entry.Length > rblob.Offset + rblob.Length)
+                  rblob.Length = entry.Offset - rblob.Offset + entry.Length;
+            }
+            archive.PrepareRestore(blobs);
+            var header = archive.Index.FetchHeader();
+            using (var crypto =
+               new Rfc2898DeriveBytes(
+                  request.Password,
+                  header.PasswordSalt,
+                  header.CryptoIterations
+               )
+            )
+            {
+               var hash = crypto.GetBytes(header.PasswordHash.Length);
+               if (!hash.SequenceEqual(header.PasswordHash))
+                  throw new InvalidOperationException("TODO: authentication failed");
+            }
+            var aes = new AesCryptoServiceProvider();
+            using (var crypto =
+               new Rfc2898DeriveBytes(
+                  request.Password,
+                  header.ArchiveSalt,
+                  header.CryptoIterations
+               )
+            )
+            {
+               aes.Key = crypto.GetBytes(aes.KeySize / 8);
+               aes.IV = header.ArchiveSalt.Take(aes.BlockSize / 8).ToArray();
+            }
+            foreach (var entryID in request.Entries)
+            {
+               var entry = archive.Index.FetchEntry(entryID);
+               var path = entry.Node.GetRelativePath();
+               var root = entry.Node.GetRoot();
+               var rootPath = "";
+               if (!request.RootPathMap.TryGetValue(root.Name, out rootPath))
+                  rootPath = root.Name;
+               path = Path.Combine(rootPath, path);
+               Directory.CreateDirectory(Path.GetDirectoryName(path));
+               var fileInfo = new FileInfo(path);
+               if (fileInfo.Exists)
+               {
+                  if (fileInfo.Attributes.HasFlag(FileAttributes.ReadOnly))
+                     if (!request.OverwriteReadOnly)
+                        throw new InvalidOperationException("TODO: cannot overwrite read-only file");
+                     else
+                        fileInfo.Attributes &= ~FileAttributes.ReadOnly;
+               }
+               try
+               {
+                  // TODO: fault tolerance
+                  using (var archiveStream = archive.LoadEntry(entry))
+                  using (var cryptoStream = new CryptoStream(archiveStream, aes.CreateDecryptor(), CryptoStreamMode.Read))
+                  using (var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
+                     cryptoStream.CopyTo(fileStream);
+                  if (request.VerifyResults)
+                     if (IO.Crc32Stream.Calculate(fileInfo) != entry.Crc32)
+                        throw new InvalidOperationException("TODO: CRC does not match");
+               }
+               catch
+               {
+                  try { File.Delete(path); }
+                  catch { }
+                  throw;
+               }
+            }
+         }
+         finally
+         {
+            if (archive != null)
+               archive.Dispose();
          }
       }
 
@@ -130,169 +429,6 @@ namespace SkyFloe
          }
       }
 
-      public void AddSource (Store.IIndex index, Model.Session session, String path, DiffMethod diffMethod)
-      {
-         // TODO: validate source is directory
-         using (var txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
-         {
-            var root = index
-               .ListNodes(null)
-               .FirstOrDefault(n => String.Compare(n.Name, path, true) == 0);
-            if (root == null)
-               root = index.InsertNode(
-                  new Model.Node()
-                  {
-                     Type = Model.NodeType.Root,
-                     Name = path
-                  }
-               );
-            var differencer = new Differencer()
-            {
-               Method = diffMethod,
-               Index = index,
-               Root = root,
-               Path = path
-            };
-            foreach (var diff in differencer.Enumerate())
-            {
-               if (diff.Node.ID == 0)
-                  index.InsertNode(diff.Node);
-               if (diff.Node.Type == Model.NodeType.File)
-               {
-                  index.InsertEntry(
-                     new Model.Entry()
-                     {
-                        Session = session,
-                        Node = diff.Node,
-                        State = (diff.Type != DiffType.Deleted) ?
-                           Model.EntryState.Pending :
-                           Model.EntryState.Deleted,
-                        Offset = -1,
-                        Length = -1,
-                        Crc32 = IO.Crc32Stream.InitialValue
-                     }
-                  );
-                  if (diff.Type != DiffType.Deleted)
-                     session.EstimatedLength += new FileInfo(diff.Node.GetAbsolutePath()).Length;
-               }
-            }
-            txn.Complete();
-         }
-      }
-      private void BackupSession (BackupRequest request, Store.IStore store, Store.IArchive archive, Model.Session session)
-      {
-         if (session.State == Model.SessionState.Pending)
-         {
-            session.State = Model.SessionState.InProgress;
-            archive.Index.UpdateSession(session);
-            archive.Checkpoint();
-         }
-         var header = archive.Index.FetchHeader();
-         var crypto = AesManaged.Create();
-         crypto.Key = new Rfc2898DeriveBytes(request.Password, header.ArchiveSalt, header.CryptoIterations)
-            .GetBytes(crypto.KeySize / 8);
-         var checkpointSize = 0L;
-         for ( ; ; )
-         {
-            var entry = archive.Index.FetchNextPendingEntry(session);
-            if (entry == null)
-               break;
-            try
-            {
-               using (var fileStream = new FileStream(entry.Node.GetAbsolutePath(), FileMode.Open, FileAccess.Read, FileShare.Read))
-               using (var crcStream = new IO.Crc32Stream(fileStream, IO.StreamMode.Read))
-               using (var cryptoStream = new CryptoStream(crcStream, crypto.CreateEncryptor(), CryptoStreamMode.Read))
-               {
-                  archive.StoreEntry(entry, cryptoStream);
-                  entry.Crc32 = crcStream.Value;
-               }
-            }
-            catch (Exception e)
-            {
-               ErrorEvent error = new ErrorEvent()
-               {
-                  Entry = entry,
-                  Exception = e,
-                  Result = ErrorResult.Abort
-               };
-               try
-               {
-                  if (this.OnError != null)
-                     this.OnError(error);
-               }
-               catch { }
-               switch (error.Result)
-               {
-                  case ErrorResult.Abort:
-                     throw;
-                  case ErrorResult.Retry:
-                     continue;
-                  case ErrorResult.Fail:
-                     entry = archive.Index.FetchEntry(entry.ID);
-                     entry.State = Model.EntryState.Failed;
-                     archive.Index.UpdateEntry(entry);
-                     continue;
-               }
-            }
-            entry.State = Model.EntryState.Completed;
-            entry.Blob.Length += entry.Length;
-            session.ActualLength += entry.Length;
-            using (var txn = new TransactionScope())
-            {
-               archive.Index.UpdateEntry(entry);
-               archive.Index.UpdateBlob(entry.Blob);
-               archive.Index.UpdateSession(session);
-               txn.Complete();
-            }
-            if (this.OnProgress != null)
-               this.OnProgress(
-                  new ProgressEvent()
-                  {
-                     Entry = entry
-                  }
-               );
-            // TODO: set checkpoint size based on configuration/request
-            checkpointSize += entry.Length;
-            if (checkpointSize > 1024 * 1024 * 1024)
-            {
-               checkpointSize = 0;
-               try
-               {
-                  archive.Checkpoint();
-               }
-               catch (Exception e)
-               {
-                  ErrorEvent error = new ErrorEvent()
-                  {
-                     Exception = e,
-                     Result = ErrorResult.Abort
-                  };
-                  try
-                  {
-                     if (this.OnError != null)
-                        this.OnError(error);
-                  }
-                  catch { }
-                  switch (error.Result)
-                  {
-                     case ErrorResult.Retry:
-                        var name = archive.Name;
-                        try { archive.Dispose(); }
-                        catch { }
-                        archive = store.OpenArchive(name);
-                        session = archive.Index.FetchSession(session.ID);
-                        continue;
-                     default:
-                        throw;
-                  }
-               }
-            }
-         }
-         session.State = Model.SessionState.Completed;
-         archive.Index.UpdateSession(session);
-         archive.Checkpoint();
-      }
-
       public enum ErrorResult
       {
          Abort = 1,
@@ -310,6 +446,7 @@ namespace SkyFloe
       public class ProgressEvent
       {
          public Model.Entry Entry { get; set; }
+         public Boolean Cancel { get; set; }
       }
    }
 }

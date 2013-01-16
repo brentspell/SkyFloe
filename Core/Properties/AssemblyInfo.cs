@@ -2,7 +2,7 @@
 // MODULE:  AssemblyInfo.cs
 // PURPOSE: assembly configuration properties
 // 
-// Copyright © 2012
+// Copyright © 2013
 // Brent M. Spell. All rights reserved.
 //
 // This library is free software; you can redistribute it and/or modify it 
@@ -30,7 +30,7 @@ using System.Runtime.InteropServices;
 [assembly:AssemblyDescription("SkyFloe Cloud Backup Core Library")]
 [assembly:AssemblyCompany("Brent M. Spell")]
 [assembly:AssemblyProduct("SkyFloe")]
-[assembly:AssemblyCopyright("Copyright © 2012 Brent M. Spell. All Rights Reserved.")]
+[assembly:AssemblyCopyright("Copyright © 2013 Brent M. Spell. All Rights Reserved.")]
 [assembly:CLSCompliant(true)]
 [assembly:ComVisible(false)]
 #if DEBUG

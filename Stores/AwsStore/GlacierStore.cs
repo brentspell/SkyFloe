@@ -10,8 +10,8 @@ namespace SkyFloe.Aws
 {
    public class GlacierStore : IStore
    {
-      Amazon.S3.AmazonS3 s3;
-      Amazon.Glacier.AmazonGlacierClient glacier;
+      private Amazon.S3.AmazonS3 s3;
+      private Amazon.Glacier.AmazonGlacierClient glacier;
 
       #region Connection Properties
       public String AccessKey { get; set; }

@@ -49,12 +49,6 @@ namespace SkyFloe
          {
             Directory.CreateDirectory(this.Path);
             this.index = Sqlite.SqliteIndex.Create(this.tempIndexPath, header);
-            this.blobFile = new FileStream(
-               this.BlobPath,
-               FileMode.OpenOrCreate,
-               FileAccess.Read | FileAccess.Write,
-               FileShare.Read
-            );
             this.index.InsertBlob(
                new Model.Blob()
                {
@@ -75,12 +69,6 @@ namespace SkyFloe
          {
             File.Copy(this.IndexPath, this.tempIndexPath, true);
             this.index = Sqlite.SqliteIndex.Open(this.tempIndexPath);
-            this.blobFile = new FileStream(
-               this.BlobPath,
-               FileMode.OpenOrCreate,
-               FileAccess.Read | FileAccess.Write,
-               FileShare.Read
-            );
          }
          catch
          {
@@ -99,9 +87,14 @@ namespace SkyFloe
       {
          get { return this.index; }
       }
-      public Stream LoadEntry (Model.Entry entry)
+      public void PrepareBackup ()
       {
-         return new IO.SubStream(this.blobFile, entry.Offset, entry.Length);
+         this.blobFile = new FileStream(
+            this.BlobPath,
+            FileMode.OpenOrCreate,
+            FileAccess.Write,
+            FileShare.Read
+         );
       }
       public void StoreEntry (Model.Entry entry, Stream stream)
       {
@@ -119,6 +112,19 @@ namespace SkyFloe
          using (var ckptIndex = new FileStream(this.IndexPath, FileMode.Create, FileAccess.Write, FileShare.Read))
          using (var tempIndex = this.index.Serialize())
             tempIndex.CopyTo(ckptIndex);
+      }
+      public void PrepareRestore (IList<Store.BlobRestore> blobs)
+      {
+         this.blobFile = new FileStream(
+            this.BlobPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read
+         );
+      }
+      public Stream LoadEntry (Model.Entry entry)
+      {
+         return new IO.SubStream(this.blobFile, entry.Offset, entry.Length);
       }
       #endregion
    }
