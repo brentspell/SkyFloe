@@ -18,12 +18,20 @@ namespace SkyFloe.Test
             Func<Model.Node, IEnumerable<Model.Node>> nodeSelector = null;
             nodeSelector =
                node => new[] { node }.Concat(archive.GetChildren(node).SelectMany(nodeSelector));
+            /*
+            var entries = archive.Roots
+               .SelectMany(nodeSelector)
+               .SelectMany(n => archive.GetEntries(n))
+               .Where(e => new[] { 273, 274, 275 }.Contains(e.ID))
+               .OrderBy(e => e.ID)
+               .ToArray();
+            */
             var engine = new Engine() { Connection = connect };
             engine.Restore(
                new RestoreRequest()
                {
                   Archive = archive.Name,
-                  Password = "secret",
+                  Password = "y7df3bn#",
                   OverwriteReadOnly = true,
                   VerifyResults = true,
                   Entries = archive.Roots
@@ -34,12 +42,14 @@ namespace SkyFloe.Test
                            .OrderBy(e => e.Session.Created)
                            .Where(e => e.State == Model.EntryState.Completed)
                            .Select(e => e.ID)
+                           .Where(id => new[] { 8529, 8530, 8531, 8532 }.Contains(id))
                            .DefaultIfEmpty(0)
                            .Last()
                      ).Where(id => id != 0),
                   RootPathMap = new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase)
                   {
-                     { @"c:\temp\source", @"c:\temp\Result" }
+                     { @"c:\temp\source", @"c:\temp\Result" },
+                     { @"l:\", @"c:\temp\Liono" }
                   }
                }
             );
@@ -54,12 +64,13 @@ namespace SkyFloe.Test
                node => new [] { node }.Concat(archive.GetChildren(node).SelectMany(nodeSelector));
             var entry = archive.Roots
                .SelectMany(nodeSelector)
-               .Where(n => n.Name == "13 - Express Yourself.mp3")
+               .Where(n => n.Name == "04 - Like a Virgin.mp3")
                .SelectMany(n => archive.GetEntries(n))
                .Single(e => e.State == Model.EntryState.Completed);
             Console.WriteLine("{0}: {1} ({2})  {3}", entry.Offset, entry.Length, entry.Crc32, entry.Blob.Name);
          }
          */
+
          /*
          using (var connect = new Connection("Store=AwsGlacier;AccessKey=1V0BC55SS0SF3V9SRG02;SecretKey=h0QC/K4JGcx6MkJ/I7ZpEDTbMX49Eja0S+HOEpDS;"))
          using (var archive = connect.OpenArchive("Liono"))
@@ -101,7 +112,6 @@ namespace SkyFloe.Test
             new XElement(
                "Index",
                new XAttribute("Name", arch.Name),
-               new XAttribute("IndexSize", arch.IndexSize),
                new XElement(
                   "Sessions",
                   arch.Sessions.Select(

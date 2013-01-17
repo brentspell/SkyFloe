@@ -123,10 +123,6 @@ namespace SkyFloe
          { 
             get { return this.archive.Name; }
          }
-         public Int64 IndexSize
-         {
-            get { return this.archive.Index.Size; }
-         }
          public IEnumerable<Model.Blob> Blobs
          {
             get { return this.archive.Index.ListBlobs(); }

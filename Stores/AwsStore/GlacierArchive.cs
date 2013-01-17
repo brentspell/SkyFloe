@@ -102,7 +102,7 @@ namespace SkyFloe.Aws
       public void PrepareBackup ()
       {
       }
-      public void StoreEntry (Model.Entry entry, Stream stream)
+      public void BackupEntry (Model.Entry entry, Stream stream)
       {
          if (this.uploader == null)
          {
@@ -119,6 +119,8 @@ namespace SkyFloe.Aws
             );
          }
          var blob = this.index.LookupBlob(this.uploader.UploadID);
+         if (blob.Length != this.uploader.Length)
+            this.uploader.Resync(blob.Length);
          var offset = blob.Length = this.uploader.Length;
          var length = this.uploader.Upload(stream);
          entry.Blob = blob;
@@ -153,10 +155,11 @@ namespace SkyFloe.Aws
             );
          }
       }
-      public void PrepareRestore (IList<BlobRestore> blobs)
+      public void PrepareRestore (IEnumerable<Int32> entries)
       {
+         throw new NotImplementedException();
       }
-      public Stream LoadEntry (Model.Entry entry)
+      public Stream RestoreEntry (Model.Entry entry)
       {
          throw new NotImplementedException();
       }

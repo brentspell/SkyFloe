@@ -9,6 +9,7 @@ namespace SkyFloe.Aws
    {
       private Amazon.Glacier.AmazonGlacierClient glacier;
       private String vault;
+      private Int32 partSize;
       private Byte[] partBuffer;
       private Int32 partLength;
       private Stream partStream;
@@ -26,7 +27,8 @@ namespace SkyFloe.Aws
       {
          this.glacier = glacier;
          this.vault = vault;
-         this.partBuffer = new Byte[partSize];
+         this.partSize = partSize;
+         this.partBuffer = new Byte[this.partSize];
          this.partStream = new MemoryStream(this.partBuffer);
          this.partLength = 0;
          this.partChecksums = new List<String>();
@@ -34,7 +36,7 @@ namespace SkyFloe.Aws
             new Amazon.Glacier.Model.InitiateMultipartUploadRequest()
             {
                VaultName = this.vault,
-               PartSize = this.partBuffer.Length
+               PartSize = this.partSize
             }
          ).InitiateMultipartUploadResult.UploadId;
          this.archiveOffset = 0;
@@ -45,12 +47,12 @@ namespace SkyFloe.Aws
          var streamLength = 0L;
          for (; ; )
          {
-            if (this.partLength == this.partBuffer.Length)
+            if (this.partLength == this.partSize)
                Flush();
             var read = stream.Read(
                this.partBuffer,
                this.partLength,
-               this.partBuffer.Length - this.partLength);
+               this.partSize - this.partLength);
             if (read == 0)
                break;
             this.partLength += read;
@@ -83,9 +85,34 @@ namespace SkyFloe.Aws
                   Checksum = checksum
                }
             );
-            this.partChecksums.Add(checksum);
+            var partIdx = (Int32)(this.archiveOffset / this.partSize);
+            while (partIdx >= this.partChecksums.Count)
+               this.partChecksums.Add(null);
+            this.partChecksums[partIdx] = checksum;
             this.archiveOffset += this.partLength;
             this.partLength = 0;
+         }
+      }
+
+      public void Resync (Int64 commitLength)
+      {
+         if (commitLength > this.Length)
+            throw new ArgumentException("commitLength");
+         if (commitLength < this.Length)
+         {
+            // if there are outstanding buffered changes
+            // for other archive entries, flush them to Glacier
+            if (this.partLength > 0)
+            {
+               this.partLength = this.partSize;
+               Flush();
+            }
+            // resync the archive offset with the known commit
+            // length, and align on the next part boundary,
+            // to avoid wasting archive parts for large files
+            var commitOffset = commitLength % this.partSize;
+            if (commitOffset > 0)
+               this.archiveOffset = commitLength + this.partSize - commitOffset;
          }
       }
 
@@ -93,6 +120,9 @@ namespace SkyFloe.Aws
       {
          if (this.partLength > 0)
             Flush();
+         var partCount = (Int32)(this.Length / this.partSize);
+         if (this.Length % this.partSize > 0)
+            partCount++;
          var archiveID = this.glacier.CompleteMultipartUpload(
             new Amazon.Glacier.Model.CompleteMultipartUploadRequest()
             {
@@ -100,7 +130,7 @@ namespace SkyFloe.Aws
                UploadId = this.uploadID,
                ArchiveSize = this.Length.ToString(),
                Checksum = Amazon.Glacier.TreeHashGenerator.CalculateTreeHash(
-                  this.partChecksums
+                  this.partChecksums.Take(partCount)
                )
             }
          ).CompleteMultipartUploadResult.ArchiveId;

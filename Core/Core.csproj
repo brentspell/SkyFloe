@@ -51,7 +51,6 @@
     <Compile Include="Request\DiffResult.cs" />
     <Compile Include="Request\DiffMethod.cs" />
     <Compile Include="Request\RestoreRequest.cs" />
-    <Compile Include="Store\BlobRestore.cs" />
     <Compile Include="Store\IArchive.cs" />
     <Compile Include="Store\IIndex.cs" />
     <Compile Include="Store\IStore.cs" />

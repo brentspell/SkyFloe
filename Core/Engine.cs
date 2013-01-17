@@ -173,7 +173,7 @@ namespace SkyFloe
             var checkpointSize = 0L;
             for (; ; )
             {
-               var entry = archive.Index.LookupNextPendingEntry(session);
+               var entry = archive.Index.LookupEntry(session, Model.EntryState.Pending);
                if (entry == null)
                   break;
                try
@@ -182,7 +182,7 @@ namespace SkyFloe
                   using (var crcStream = new IO.Crc32Stream(fileStream, IO.StreamMode.Read))
                   using (var cryptoStream = new CryptoStream(crcStream, aes.CreateEncryptor(), CryptoStreamMode.Read))
                   {
-                     archive.StoreEntry(entry, cryptoStream);
+                     archive.BackupEntry(entry, cryptoStream);
                      entry.Crc32 = crcStream.Value;
                   }
                }
@@ -297,29 +297,7 @@ namespace SkyFloe
          archive = store.OpenArchive(request.Archive);
          try
          {
-            var blobs = new List<Store.BlobRestore>();
-            foreach (var entryID in request.Entries)
-            {
-               var entry = archive.Index.FetchEntry(entryID);
-               var rblob = blobs.FirstOrDefault(b => b.Blob.ID == entry.Blob.ID);
-               if (rblob == null)
-                  blobs.Add(
-                     rblob = new Store.BlobRestore()
-                     {
-                        Blob = entry.Blob,
-                        Offset = entry.Offset,
-                        Length = entry.Length
-                     }
-                  );
-               if (entry.Offset < rblob.Offset)
-               {
-                  rblob.Length += rblob.Offset - entry.Offset;
-                  rblob.Offset = entry.Offset;
-               }
-               if (entry.Offset + entry.Length > rblob.Offset + rblob.Length)
-                  rblob.Length = entry.Offset - rblob.Offset + entry.Length;
-            }
-            archive.PrepareRestore(blobs);
+            archive.PrepareRestore(request.Entries);
             var header = archive.Index.FetchHeader();
             using (var crypto =
                new Rfc2898DeriveBytes(
@@ -367,7 +345,7 @@ namespace SkyFloe
                try
                {
                   // TODO: fault tolerance
-                  using (var archiveStream = archive.LoadEntry(entry))
+                  using (var archiveStream = archive.RestoreEntry(entry))
                   using (var cryptoStream = new CryptoStream(archiveStream, aes.CreateDecryptor(), CryptoStreamMode.Read))
                   using (var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
                      cryptoStream.CopyTo(fileStream);

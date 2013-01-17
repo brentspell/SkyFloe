@@ -96,7 +96,7 @@ namespace SkyFloe
             FileShare.Read
          );
       }
-      public void StoreEntry (Model.Entry entry, Stream stream)
+      public void BackupEntry (Model.Entry entry, Stream stream)
       {
          var blob = this.index.FetchBlob(1);
          this.blobFile.Seek(blob.Length, SeekOrigin.Begin);
@@ -113,7 +113,7 @@ namespace SkyFloe
          using (var tempIndex = this.index.Serialize())
             tempIndex.CopyTo(ckptIndex);
       }
-      public void PrepareRestore (IList<Store.BlobRestore> blobs)
+      public void PrepareRestore (IEnumerable<Int32> entries)
       {
          this.blobFile = new FileStream(
             this.BlobPath,
@@ -122,7 +122,7 @@ namespace SkyFloe
             FileShare.Read
          );
       }
-      public Stream LoadEntry (Model.Entry entry)
+      public Stream RestoreEntry (Model.Entry entry)
       {
          return new IO.SubStream(this.blobFile, entry.Offset, entry.Length);
       }

@@ -11,10 +11,10 @@ namespace SkyFloe.Store
       IIndex Index { get; }
       // backup operations
       void PrepareBackup ();
-      void StoreEntry (Model.Entry entry, Stream stream);
+      void BackupEntry (Model.Entry entry, Stream stream);
       void Checkpoint ();
       // restore operations
-      void PrepareRestore (IList<BlobRestore> blobs);
-      Stream LoadEntry (Model.Entry entry);
+      void PrepareRestore (IEnumerable<Int32> entries);
+      Stream RestoreEntry (Model.Entry entry);
    }
 }

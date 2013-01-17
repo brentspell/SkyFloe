@@ -10,7 +10,6 @@ namespace SkyFloe.Store
    public interface IIndex : IDisposable
    {
       // administrative operations
-      Int64 Size { get; }
       Stream Serialize ();
       // header operations
       Header FetchHeader ();
@@ -35,7 +34,7 @@ namespace SkyFloe.Store
       void DeleteNode (Node node);
       // entry operations
       IEnumerable<Entry> ListNodeEntries (Node node);
-      Entry LookupNextPendingEntry (Session session);
+      Entry LookupEntry (Session session, EntryState state);
       Entry FetchEntry (Int32 id);
       Entry InsertEntry (Entry entry);
       Entry UpdateEntry (Entry entry);

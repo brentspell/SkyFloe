@@ -96,10 +96,6 @@ namespace SkyFloe.Sqlite
       }
 
       #region IIndex Implementation
-      public Int64 Size
-      {
-         get { return new FileInfo(this.path).Length; }
-      }
       public Stream Serialize ()
       {
          Execute("VACUUM;");
@@ -343,13 +339,13 @@ namespace SkyFloe.Sqlite
                   Crc32 = BitConverter.ToUInt32((Byte[])reader[6], 0)
                };
       }
-      public Model.Entry LookupNextPendingEntry (Model.Session session)
+      public Model.Entry LookupEntry (Model.Session session, Model.EntryState state)
       {
          using (var reader =
                ExecuteReader(
                   "SELECT ID, NodeID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE SessionID = @p0 AND State = @p1 LIMIT 1;",
                   session.ID,
-                  Model.EntryState.Pending
+                  state
                )
             )
             if (reader.Read())
