@@ -15,7 +15,7 @@ namespace SkyFloe.Test
          using (var connect = new Connection(@"Store=File;Path=c:\temp\store;"))
          using (var archive = connect.OpenArchive("Test"))
          {
-            Func<Model.Node, IEnumerable<Model.Node>> nodeSelector = null;
+            Func<Backup.Node, IEnumerable<Backup.Node>> nodeSelector = null;
             nodeSelector =
                node => new[] { node }.Concat(archive.GetChildren(node).SelectMany(nodeSelector));
             /*
@@ -27,7 +27,7 @@ namespace SkyFloe.Test
                .ToArray();
             */
             var engine = new Engine() { Connection = connect };
-            engine.Restore(
+            engine.ExecuteRestore(
                new RestoreRequest()
                {
                   Archive = archive.Name,
@@ -36,11 +36,11 @@ namespace SkyFloe.Test
                   VerifyResults = true,
                   Entries = archive.Roots
                      .SelectMany(nodeSelector)
-                     .Where(n => n.Type == Model.NodeType.File)
+                     .Where(n => n.Type == Backup.NodeType.File)
                      .Select(
                         n => archive.GetEntries(n)
                            .OrderBy(e => e.Session.Created)
-                           .Where(e => e.State == Model.EntryState.Completed)
+                           .Where(e => e.State == Backup.EntryState.Completed)
                            .Select(e => e.ID)
                            .Where(id => new[] { 8529, 8530, 8531, 8532 }.Contains(id))
                            .DefaultIfEmpty(0)
@@ -91,7 +91,7 @@ namespace SkyFloe.Test
       static void DumpArchive (Connection.Archive arch)
       {
          var doc = new XDocument();
-         Func<Model.Node, XElement> nodeSelector = null;
+         Func<Backup.Node, XElement> nodeSelector = null;
          nodeSelector = n => new XElement(
             "Node",
             new XAttribute("Name", n.Name),

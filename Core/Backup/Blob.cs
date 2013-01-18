@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SkyFloe.Model
+namespace SkyFloe.Backup
 {
    public class Blob
    {

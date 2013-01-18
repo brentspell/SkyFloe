@@ -64,7 +64,7 @@ namespace SkyFloe.Aws
             .Where(o => o.Key.EndsWith(GlacierArchive.IndexS3KeyExtension))
             .Select(o => o.Key.Substring(0, o.Key.LastIndexOf(GlacierArchive.IndexS3KeyExtension)));
       }
-      public IArchive CreateArchive (String name, Model.Header header)
+      public IArchive CreateArchive (String name, Backup.Header header)
       {
          var archive = new GlacierArchive(
             this.s3,

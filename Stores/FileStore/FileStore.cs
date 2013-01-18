@@ -23,7 +23,7 @@ namespace SkyFloe
          foreach (var dir in Directory.GetDirectories(this.Path))
             yield return System.IO.Path.GetFileName(dir);
       }
-      public Store.IArchive CreateArchive (String name, Model.Header header)
+      public Store.IArchive CreateArchive (String name, Backup.Header header)
       {
          var archive = new FileArchive()
          {

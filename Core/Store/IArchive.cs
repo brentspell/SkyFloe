@@ -8,13 +8,14 @@ namespace SkyFloe.Store
    public interface IArchive : IDisposable
    {
       String Name { get; }
-      IIndex Index { get; }
+      IBackupIndex Index { get; }
       // backup operations
       void PrepareBackup ();
-      void BackupEntry (Model.Entry entry, Stream stream);
+      void BackupEntry (Backup.Entry entry, Stream stream);
       void Checkpoint ();
       // restore operations
-      void PrepareRestore (IEnumerable<Int32> entries);
-      Stream RestoreEntry (Model.Entry entry);
+      IRestoreSession PrepareRestore (IEnumerable<Int32> entries);
+      IRestoreSession AttachRestore (Stream stream);
+      Stream RestoreEntry (Backup.Entry entry);
    }
 }

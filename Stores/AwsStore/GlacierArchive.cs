@@ -20,7 +20,7 @@ namespace SkyFloe.Aws
       private String bucket;
       private String name;
       private String indexPath;
-      private Sqlite.SqliteIndex index;
+      private Sqlite.BackupIndex index;
       private GlacierUploader uploader;
 
       private String IndexS3Key
@@ -48,12 +48,12 @@ namespace SkyFloe.Aws
          if (this.index != null)
             this.index.Dispose();
          if (this.indexPath != null)
-            Sqlite.SqliteIndex.Delete(this.indexPath);
+            Sqlite.BackupIndex.Delete(this.indexPath);
          this.index = null;
          this.indexPath = null;
       }
 
-      public void Create (Model.Header header)
+      public void Create (Backup.Header header)
       {
          // create the Glacier vault, fail if it exists
          // create the S3 bucket, if it does not exist
@@ -71,7 +71,7 @@ namespace SkyFloe.Aws
                BucketName = this.bucket
             }
          );
-         this.index = Sqlite.SqliteIndex.Create(this.indexPath, header);
+         this.index = Sqlite.BackupIndex.Create(this.indexPath, header);
       }
       public void Open ()
       {
@@ -87,7 +87,7 @@ namespace SkyFloe.Aws
             )
          using (var gzip = new GZipStream(s3Object, CompressionMode.Decompress))
             gzip.CopyTo(indexStream);
-         this.index = Sqlite.SqliteIndex.Open(this.indexPath);
+         this.index = Sqlite.BackupIndex.Open(this.indexPath);
       }
 
       #region IArchive Implementation
@@ -95,14 +95,14 @@ namespace SkyFloe.Aws
       {
          get { return this.name; }
       }
-      public IIndex Index
+      public IBackupIndex Index
       {
          get { return this.index; }
       }
       public void PrepareBackup ()
       {
       }
-      public void BackupEntry (Model.Entry entry, Stream stream)
+      public void BackupEntry (Backup.Entry entry, Stream stream)
       {
          if (this.uploader == null)
          {
@@ -112,7 +112,7 @@ namespace SkyFloe.Aws
                PartSize
             );
             this.index.InsertBlob(
-               new Model.Blob()
+               new Backup.Blob()
                {
                   Name = this.uploader.UploadID
                }
@@ -155,11 +155,15 @@ namespace SkyFloe.Aws
             );
          }
       }
-      public void PrepareRestore (IEnumerable<Int32> entries)
+      public Store.IRestoreSession PrepareRestore (IEnumerable<Int32> entries)
       {
          throw new NotImplementedException();
       }
-      public Stream RestoreEntry (Model.Entry entry)
+      public Store.IRestoreSession AttachRestore (Stream stream)
+      {
+         throw new NotImplementedException();
+      }
+      public Stream RestoreEntry (Backup.Entry entry)
       {
          throw new NotImplementedException();
       }

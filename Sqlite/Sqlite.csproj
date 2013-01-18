@@ -39,14 +39,17 @@
     <Compile Include="..\Version.cs">
       <Link>Properties\Version.cs</Link>
     </Compile>
-    <Compile Include="SqliteIndex.cs" />
+    <Compile Include="BackupIndex.cs" />
+    <Compile Include="RestoreSession.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Database.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Resources\index.sql" />
+    <EmbeddedResource Include="Resources\BackupIndex.sql" />
     <Content Include="Mono.Data.Sqlite.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <EmbeddedResource Include="Resources\RestoreSession.sql" />
     <Content Include="sqlite3.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

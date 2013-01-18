@@ -8,8 +8,8 @@ namespace SkyFloe
    public class Differencer
    {
       public DiffMethod Method { get; set; }
-      public Store.IIndex Index { get; set; }
-      public Model.Node Root { get; set; }
+      public Store.IBackupIndex Index { get; set; }
+      public Backup.Node Root { get; set; }
       public String Path { get; set; }
 
       public IEnumerable<Diff> Enumerate ()
@@ -18,7 +18,7 @@ namespace SkyFloe
             .Concat(DiffIndexPath(this.Root, this.Path));
       }
 
-      private IEnumerable<Diff> DiffPathIndex (Model.Node parentNode, String parentPath)
+      private IEnumerable<Diff> DiffPathIndex (Backup.Node parentNode, String parentPath)
       {
          var nodes = this.Index.ListNodes(parentNode).ToList();
          foreach (var path in Directory.EnumerateFileSystemEntries(parentPath))
@@ -33,30 +33,30 @@ namespace SkyFloe
                   yield return new Diff()
                   {
                      Type = DiffType.New,
-                     Node = node = new Model.Node()
+                     Node = node = new Backup.Node()
                      {
                         Parent = parentNode,
                         Type = (Directory.Exists(path)) ?
-                           Model.NodeType.Directory :
-                           Model.NodeType.File,
+                           Backup.NodeType.Directory :
+                           Backup.NodeType.File,
                         Name = name
                      }
                   };
-               if (node.Type == Model.NodeType.Directory)
+               if (node.Type == Backup.NodeType.Directory)
                   foreach (var diff in DiffPathIndex(node, path))
                      yield return diff;
             }
          }
       }
 
-      private IEnumerable<Diff> DiffIndexPath (Model.Node parentNode, String parentPath)
+      private IEnumerable<Diff> DiffIndexPath (Backup.Node parentNode, String parentPath)
       {
          foreach (var node in this.Index.ListNodes(parentNode))
          {
             var path = System.IO.Path.Combine(parentPath, node.Name);
             if (!File.GetAttributes(path).HasFlag(FileAttributes.System))
             {
-               if (node.Type == Model.NodeType.Directory)
+               if (node.Type == Backup.NodeType.Directory)
                   foreach (var diff in DiffIndexPath(node, path))
                      yield return diff;
                else
@@ -67,14 +67,14 @@ namespace SkyFloe
                      .LastOrDefault();
                   if (!File.Exists(path))
                   {
-                     if (entry != null && entry.State != Model.EntryState.Deleted)
+                     if (entry != null && entry.State != Backup.EntryState.Deleted)
                         yield return new Diff()
                         {
                            Type = DiffType.Deleted,
                            Node = node
                         };
                   }
-                  else if (entry == null || entry.State == Model.EntryState.Deleted)
+                  else if (entry == null || entry.State == Backup.EntryState.Deleted)
                   {
                      yield return new Diff()
                      {
@@ -82,7 +82,7 @@ namespace SkyFloe
                         Node = node
                      };
                   }
-                  else if (entry != null && entry.State != Model.EntryState.Pending)
+                  else if (entry != null && entry.State != Backup.EntryState.Pending)
                   {
                      var isChanged = true;
                      switch (this.Method)
@@ -113,7 +113,7 @@ namespace SkyFloe
       public class Diff
       {
          public DiffType Type { get; set; }
-         public Model.Node Node { get; set; }
+         public Backup.Node Node { get; set; }
       }
    }
 }

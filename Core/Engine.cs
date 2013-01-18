@@ -26,7 +26,7 @@ namespace SkyFloe
          this.Connection.Store.DeleteArchive(archive);
       }
 
-      public void Backup (BackupRequest request)
+      public void ExecuteBackup (BackupRequest request)
       {
          // TODO: validate request
          if (this.Connection == null)
@@ -62,7 +62,7 @@ namespace SkyFloe
          else
          {
             var rng = RandomNumberGenerator.Create();
-            var header = new Model.Header()
+            var header = new Backup.Header()
             {
                CryptoIterations = Engine.CryptoIterations,
                ArchiveSalt = new Byte[CryptoSaltLength],
@@ -94,29 +94,29 @@ namespace SkyFloe
             archive.PrepareBackup();
             var session = archive.Index
                .ListSessions()
-               .SingleOrDefault(s => s.State != Model.SessionState.Completed);
+               .SingleOrDefault(s => s.State != Backup.SessionState.Completed);
             if (session == null)
                session = archive.Index.InsertSession(
-                  new Model.Session()
+                  new Backup.Session()
                   {
-                     State = Model.SessionState.Pending
+                     State = Backup.SessionState.Pending
                   }
                );
-            if (session.State == Model.SessionState.Pending)
+            if (session.State == Backup.SessionState.Pending)
             {
                foreach (var source in request.Sources)
                {
                   // TODO: validate source is directory
                   using (var txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
                   {
-                     var root = archive.Index
-                        .ListNodes(null)
-                        .FirstOrDefault(n => String.Compare(n.Name, source, true) == 0);
-                     if (root == null)
-                        root = archive.Index.InsertNode(
-                           new Model.Node()
+                     var root = 
+                        archive.Index
+                           .ListNodes(null)
+                           .FirstOrDefault(n => String.Compare(n.Name, source, true) == 0) ?? 
+                        archive.Index.InsertNode(
+                           new Backup.Node()
                            {
-                              Type = Model.NodeType.Root,
+                              Type = Backup.NodeType.Root,
                               Name = source
                            }
                         );
@@ -131,16 +131,16 @@ namespace SkyFloe
                      {
                         if (diff.Node.ID == 0)
                            archive.Index.InsertNode(diff.Node);
-                        if (diff.Node.Type == Model.NodeType.File)
+                        if (diff.Node.Type == Backup.NodeType.File)
                         {
                            archive.Index.InsertEntry(
-                              new Model.Entry()
+                              new Backup.Entry()
                               {
                                  Session = session,
                                  Node = diff.Node,
                                  State = (diff.Type != DiffType.Deleted) ?
-                                    Model.EntryState.Pending :
-                                    Model.EntryState.Deleted,
+                                    Backup.EntryState.Pending :
+                                    Backup.EntryState.Deleted,
                                  Offset = -1,
                                  Length = -1,
                                  Crc32 = IO.Crc32Stream.InitialValue
@@ -153,7 +153,7 @@ namespace SkyFloe
                      txn.Complete();
                   }
                }
-               session.State = Model.SessionState.InProgress;
+               session.State = Backup.SessionState.InProgress;
                archive.Index.UpdateSession(session);
                archive.Checkpoint();
             }
@@ -173,7 +173,7 @@ namespace SkyFloe
             var checkpointSize = 0L;
             for (; ; )
             {
-               var entry = archive.Index.LookupEntry(session, Model.EntryState.Pending);
+               var entry = archive.Index.LookupNextEntry(session);
                if (entry == null)
                   break;
                try
@@ -208,12 +208,12 @@ namespace SkyFloe
                         continue;
                      case ErrorResult.Fail:
                         entry = archive.Index.FetchEntry(entry.ID);
-                        entry.State = Model.EntryState.Failed;
+                        entry.State = Backup.EntryState.Failed;
                         archive.Index.UpdateEntry(entry);
                         continue;
                   }
                }
-               entry.State = Model.EntryState.Completed;
+               entry.State = Backup.EntryState.Completed;
                entry.Blob.Length += entry.Length;
                session.ActualLength += entry.Length;
                using (var txn = new TransactionScope())
@@ -274,7 +274,7 @@ namespace SkyFloe
                   }
                }
             }
-            session.State = Model.SessionState.Completed;
+            session.State = Backup.SessionState.Completed;
             archive.Index.UpdateSession(session);
             archive.Checkpoint();
          }
@@ -284,7 +284,7 @@ namespace SkyFloe
          }
       }
 
-      public void Restore (RestoreRequest request)
+      public void ExecuteRestore (RestoreRequest request)
       {
          // TODO: validate request
          if (this.Connection == null)
@@ -416,14 +416,14 @@ namespace SkyFloe
 
       public class ErrorEvent
       {
-         public Model.Entry Entry { get; set; }
+         public Backup.Entry Entry { get; set; }
          public Exception Exception { get; set; }
          public ErrorResult Result { get; set; }
       }
 
       public class ProgressEvent
       {
-         public Model.Entry Entry { get; set; }
+         public Backup.Entry Entry { get; set; }
          public Boolean Cancel { get; set; }
       }
    }

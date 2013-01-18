@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-using SkyFloe.Model;
+using SkyFloe.Backup;
 
 namespace SkyFloe.Store
 {
-   public interface IIndex : IDisposable
+   public interface IBackupIndex : IDisposable
    {
       // administrative operations
       Stream Serialize ();
@@ -34,7 +34,7 @@ namespace SkyFloe.Store
       void DeleteNode (Node node);
       // entry operations
       IEnumerable<Entry> ListNodeEntries (Node node);
-      Entry LookupEntry (Session session, EntryState state);
+      Entry LookupNextEntry (Session session);
       Entry FetchEntry (Int32 id);
       Entry InsertEntry (Entry entry);
       Entry UpdateEntry (Entry entry);

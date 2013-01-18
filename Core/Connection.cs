@@ -123,23 +123,23 @@ namespace SkyFloe
          { 
             get { return this.archive.Name; }
          }
-         public IEnumerable<Model.Blob> Blobs
+         public IEnumerable<Backup.Blob> Blobs
          {
             get { return this.archive.Index.ListBlobs(); }
          }
-         public IEnumerable<Model.Session> Sessions
+         public IEnumerable<Backup.Session> Sessions
          {
             get { return this.archive.Index.ListSessions(); }
          }
-         public IEnumerable<Model.Node> Roots
+         public IEnumerable<Backup.Node> Roots
          {
             get { return this.archive.Index.ListNodes(null); }
          }
-         public IEnumerable<Model.Node> GetChildren (Model.Node parent)
+         public IEnumerable<Backup.Node> GetChildren (Backup.Node parent)
          {
             return this.archive.Index.ListNodes(parent);
          }
-         public IEnumerable<Model.Entry> GetEntries (Model.Node node)
+         public IEnumerable<Backup.Entry> GetEntries (Backup.Node node)
          {
             return this.archive.Index.ListNodeEntries(node);
          }

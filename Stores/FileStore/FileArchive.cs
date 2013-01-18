@@ -7,9 +7,10 @@ namespace SkyFloe
 {
    internal class FileArchive : Store.IArchive
    {
-      private Sqlite.SqliteIndex index;
+      private Sqlite.BackupIndex index;
       private Stream blobFile;
       private String tempIndexPath;
+      private String tempSessionPath;
 
       public FileArchive ()
       {
@@ -23,7 +24,9 @@ namespace SkyFloe
          if (this.blobFile != null)
             this.blobFile.Dispose();
          if (this.tempIndexPath != null)
-            Sqlite.SqliteIndex.Delete(this.tempIndexPath);
+            Sqlite.BackupIndex.Delete(this.tempIndexPath);
+         if (this.tempSessionPath != null)
+            Sqlite.RestoreSession.Delete(this.tempSessionPath);
          this.index = null;
          this.blobFile = null;
          this.tempIndexPath = null;
@@ -43,14 +46,14 @@ namespace SkyFloe
       }
 
       #region Operations
-      public void Create (Model.Header header)
+      public void Create (Backup.Header header)
       {
          try
          {
             Directory.CreateDirectory(this.Path);
-            this.index = Sqlite.SqliteIndex.Create(this.tempIndexPath, header);
+            this.index = Sqlite.BackupIndex.Create(this.tempIndexPath, header);
             this.index.InsertBlob(
-               new Model.Blob()
+               new Backup.Blob()
                {
                   Name = "blob.dat"
                }
@@ -68,7 +71,7 @@ namespace SkyFloe
          try
          {
             File.Copy(this.IndexPath, this.tempIndexPath, true);
-            this.index = Sqlite.SqliteIndex.Open(this.tempIndexPath);
+            this.index = Sqlite.BackupIndex.Open(this.tempIndexPath);
          }
          catch
          {
@@ -83,7 +86,7 @@ namespace SkyFloe
       {
          get { return System.IO.Path.GetFileName(this.Path); }
       }
-      public Store.IIndex Index
+      public Store.IBackupIndex Index
       {
          get { return this.index; }
       }
@@ -96,7 +99,7 @@ namespace SkyFloe
             FileShare.Read
          );
       }
-      public void BackupEntry (Model.Entry entry, Stream stream)
+      public void BackupEntry (Backup.Entry entry, Stream stream)
       {
          var blob = this.index.FetchBlob(1);
          this.blobFile.Seek(blob.Length, SeekOrigin.Begin);
@@ -113,7 +116,7 @@ namespace SkyFloe
          using (var tempIndex = this.index.Serialize())
             tempIndex.CopyTo(ckptIndex);
       }
-      public void PrepareRestore (IEnumerable<Int32> entries)
+      public Store.IRestoreSession PrepareRestore (IEnumerable<Int32> entries)
       {
          this.blobFile = new FileStream(
             this.BlobPath,
@@ -121,8 +124,74 @@ namespace SkyFloe
             FileAccess.Read,
             FileShare.Read
          );
+         var session = Sqlite.RestoreSession.Create(
+            this.tempSessionPath = System.IO.Path.GetTempFileName(),
+            new Restore.Header()
+            {
+               Archive = this.Name
+            }
+         );
+         try
+         {
+            foreach (var entryID in entries)
+            {
+               var backupEntry = this.index.FetchEntry(entryID);
+               var retrieval = 
+                  session
+                     .ListBlobRetrievals(backupEntry.Blob.ID)
+                     .FirstOrDefault() ??
+                  session.InsertRetrieval(
+                     new Restore.Retrieval()
+                     {
+                        BlobID = backupEntry.Blob.ID,
+                        Offset = 0,
+                        Length = backupEntry.Blob.Length
+                     }
+                  );
+               session.InsertEntry(
+                  new Restore.Entry()
+                  {
+                     Retrieval = retrieval,
+                     State = Restore.EntryState.Pending,
+                     Offset = backupEntry.Offset,
+                     Length = backupEntry.Length
+                  }
+               );
+            }
+            return session;
+         }
+         catch
+         {
+            session.Dispose();
+            throw;
+         }
       }
-      public Stream RestoreEntry (Model.Entry entry)
+      public Store.IRestoreSession AttachRestore (Stream stream)
+      {
+         this.tempSessionPath = System.IO.Path.GetTempFileName();
+         using (var tempStream =
+            new FileStream(
+               this.tempSessionPath,
+               FileMode.Open,
+               FileAccess.Write,
+               FileShare.Read
+            )
+         )
+            stream.CopyTo(tempStream);
+         var session = Sqlite.RestoreSession.Open(this.tempSessionPath);
+         try
+         {
+            if (session.FetchHeader().Archive != this.Name)
+               throw new InvalidOperationException("TODO: invalid archive name");
+            return session;
+         }
+         catch
+         {
+            session.Dispose();
+            throw;
+         }
+      }
+      public Stream RestoreEntry (Backup.Entry entry)
       {
          return new IO.SubStream(this.blobFile, entry.Offset, entry.Length);
       }
