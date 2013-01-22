@@ -31,23 +31,40 @@ namespace SkyFloe.Backup
       {
          retries = 0;
          failures = 0;
-         var engine = new Engine()
+         Console.Write("   Connecting to archive {0}...", archiveName);
+         Engine engine = new Engine()
          {
             Connection = new Connection(connectionString)
          };
-         if (deleteArchive)
-            engine.DeleteArchive(archiveName);
          engine.OnProgress += ReportProgress;
          engine.OnError += HandleError;
-         engine.ExecuteBackup(
-            new BackupRequest()
-            {
-               Archive = archiveName,
-               Password = password,
-               DiffMethod = diffMethod,
-               Sources = sourcePaths
-            }
-         );
+         if (deleteArchive)
+            engine.DeleteArchive(archiveName);
+         if (engine.Connection.ListArchives().Contains(archiveName, StringComparer.OrdinalIgnoreCase))
+            engine.OpenArchive(archiveName, password);
+         else
+            engine.CreateArchive(archiveName, password);
+         Console.WriteLine("done.");
+         Backup.Session session = null;
+         using (Connection.Archive archive = engine.Connection.OpenArchive(archiveName))
+            session = archive.Backups.FirstOrDefault(s => s.State != SessionState.Completed);
+         if (session != null)
+            Console.WriteLine(
+               "   Resuming backup session started {0:MMM d, yyyy h:m tt}.",
+               session.Created
+            );
+         else
+         {
+            Console.WriteLine("   Creating a new backup session.");
+            session = engine.CreateBackup(
+               new BackupRequest()
+               {
+                  DiffMethod = diffMethod,
+                  Sources = sourcePaths
+               }
+            );
+         }
+         engine.StartBackup(session);
          Console.WriteLine();
          Console.WriteLine("Backup complete.");
       }
@@ -62,10 +79,10 @@ namespace SkyFloe.Backup
          maxRetries = 5;
          maxFailures = 5;
          // parse arguments
-         for (var i = 0; i < args.Length; i++)
+         for (Int32 i = 0; i < args.Length; i++)
          {
-            var arg = args[i].ToLower();
-            var val = (i < args.Length - 1) ? args[++i] : null;
+            String arg = args[i].ToLower();
+            String val = (i < args.Length - 1) ? args[++i] : null;
             if (arg[0] != '/' && arg[0] != '-')
                return false;
             switch (Char.ToLower(arg[1]))

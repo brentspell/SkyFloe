@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 
@@ -48,7 +49,7 @@ namespace SkyFloe.Sqlite
       }
       public static BackupIndex Open (String path)
       {
-         var index = new BackupIndex(path);
+         BackupIndex index = new BackupIndex(path);
          if (index.FetchHeader().Version != CurrentVersion)
             throw new InvalidOperationException("TODO: invalid version number");
          return index;
@@ -57,7 +58,7 @@ namespace SkyFloe.Sqlite
       #region IIndex Implementation
       public Header FetchHeader ()
       {
-         using (var reader = ExecuteReader("SELECT Version, CryptoIterations, ArchiveSalt, PasswordHash, PasswordSalt FROM Header;"))
+         using (IDataReader reader = ExecuteReader("SELECT Version, CryptoIterations, ArchiveSalt, PasswordHash, PasswordSalt FROM Header;"))
             if (reader.Read())
                return new Header()
                {
@@ -71,7 +72,7 @@ namespace SkyFloe.Sqlite
       }
       public IEnumerable<Blob> ListBlobs ()
       {
-         using (var reader = ExecuteReader("SELECT ID, Name, Length, Created, Updated FROM Blob;"))
+         using (IDataReader reader = ExecuteReader("SELECT ID, Name, Length, Created, Updated FROM Blob;"))
             while (reader.Read())
                yield return new Blob()
                {
@@ -84,7 +85,7 @@ namespace SkyFloe.Sqlite
       }
       public Blob LookupBlob (String name)
       {
-         using (var reader = ExecuteReader("SELECT ID, Length, Created, Updated FROM Blob WHERE Name = @p0;", name))
+         using (IDataReader reader = ExecuteReader("SELECT ID, Length, Created, Updated FROM Blob WHERE Name = @p0;", name))
             if (reader.Read())
                return new Blob()
                {
@@ -98,7 +99,7 @@ namespace SkyFloe.Sqlite
       }
       public Blob FetchBlob (Int32 id)
       {
-         using (var reader = ExecuteReader("SELECT Name, Length, Created, Updated FROM Blob WHERE ID = @p0;", id))
+         using (IDataReader reader = ExecuteReader("SELECT Name, Length, Created, Updated FROM Blob WHERE ID = @p0;", id))
             if (reader.Read())
                return new Blob()
                {
@@ -144,7 +145,7 @@ namespace SkyFloe.Sqlite
       #region Session Operations
       public IEnumerable<Session> ListSessions ()
       {
-         using (var reader = ExecuteReader("SELECT ID, State, Created, EstimatedLength, ActualLength FROM Session;"))
+         using (IDataReader reader = ExecuteReader("SELECT ID, State, Created, EstimatedLength, ActualLength FROM Session;"))
             while (reader.Read())
                yield return new Session()
                {
@@ -157,7 +158,7 @@ namespace SkyFloe.Sqlite
       }
       public Session FetchSession (Int32 id)
       {
-         using (var reader = ExecuteReader("SELECT State, Created, EstimatedLength, ActualLength FROM Session WHERE ID = @p0;", id))
+         using (IDataReader reader = ExecuteReader("SELECT State, Created, EstimatedLength, ActualLength FROM Session WHERE ID = @p0;", id))
             if (reader.Read())
                return new Session()
                {
@@ -204,7 +205,7 @@ namespace SkyFloe.Sqlite
       #region Node Operations
       public IEnumerable<Node> ListNodes (Node parent = null)
       {
-         using (var reader = (parent == null) ?
+         using (IDataReader reader = (parent == null) ?
                ExecuteReader(
                   "SELECT ID, Type, Name FROM Node WHERE ParentID IS NULL;"
                ) :
@@ -224,7 +225,7 @@ namespace SkyFloe.Sqlite
       }
       public Node FetchNode (Int32 id)
       {
-         using (var reader = ExecuteReader("SELECT ParentID, Type, Name FROM Node WHERE ID = @p0;", id))
+         using (IDataReader reader = ExecuteReader("SELECT ParentID, Type, Name FROM Node WHERE ID = @p0;", id))
             if (reader.Read())
                return new Node()
                {
@@ -269,7 +270,7 @@ namespace SkyFloe.Sqlite
       #region Entry Operations
       public IEnumerable<Entry> ListNodeEntries (Node node)
       {
-         using (var reader =
+         using (IDataReader reader =
                ExecuteReader(
                   "SELECT ID, SessionID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE NodeID = @p0;",
                   node.ID
@@ -290,7 +291,7 @@ namespace SkyFloe.Sqlite
       }
       public Entry LookupNextEntry (Session session)
       {
-         using (var reader =
+         using (IDataReader reader =
                ExecuteReader(
                   "SELECT ID, NodeID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE SessionID = @p0 AND State = @p1 LIMIT 1;",
                   session.ID,
@@ -313,7 +314,7 @@ namespace SkyFloe.Sqlite
       }
       public Entry FetchEntry (Int32 id)
       {
-         using (var reader = 
+         using (IDataReader reader = 
                ExecuteReader(
                   "SELECT SessionID, NodeID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE ID = @p0;", 
                   id

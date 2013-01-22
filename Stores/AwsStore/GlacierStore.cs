@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 using SkyFloe.Store;
@@ -37,10 +37,11 @@ namespace SkyFloe.Aws
       #region IStore Implementation
       public void Open ()
       {
-         var credentials = new Amazon.Runtime.BasicAWSCredentials(
-            this.AccessKey,
-            this.SecretKey
-         );
+         Amazon.Runtime.BasicAWSCredentials credentials = 
+            new Amazon.Runtime.BasicAWSCredentials(
+               this.AccessKey,
+               this.SecretKey
+            );
          if (this.Bucket == null)
             this.Bucket = "SkyFloe";
          this.s3 = Amazon.AWSClientFactory.CreateAmazonS3Client(credentials);
@@ -66,7 +67,7 @@ namespace SkyFloe.Aws
       }
       public IArchive CreateArchive (String name, Backup.Header header)
       {
-         var archive = new GlacierArchive(
+         GlacierArchive archive = new GlacierArchive(
             this.s3,
             this.glacier,
             this.VaultPrefix + name,
@@ -78,7 +79,7 @@ namespace SkyFloe.Aws
       }
       public IArchive OpenArchive (String name)
       {
-         var archive = new GlacierArchive(
+         GlacierArchive archive = new GlacierArchive(
             this.s3,
             this.glacier,
             this.VaultPrefix + name,
@@ -91,15 +92,15 @@ namespace SkyFloe.Aws
       public void DeleteArchive (String name)
       {
          // TODO: consider not using archive implementation here
-         var vault = this.VaultPrefix + name;
-         var blobs = new List<String>();
+         String vault = this.VaultPrefix + name;
+         List<String> blobs = new List<String>();
          try
          {
-            using (var archive = OpenArchive(name))
-               blobs.AddRange(archive.Index.ListBlobs().Select(b => b.Name));
+            using (Store.IArchive archive = OpenArchive(name))
+               blobs.AddRange(archive.BackupIndex.ListBlobs().Select(b => b.Name));
          }
          catch { }
-         foreach (var blob in blobs)
+         foreach (String blob in blobs)
             this.glacier.DeleteArchive(
                new Amazon.Glacier.Model.DeleteArchiveRequest()
                {

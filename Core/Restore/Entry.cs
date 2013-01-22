@@ -13,6 +13,7 @@ namespace SkyFloe.Restore
    public class Entry
    {
       public Int32 ID { get; set; }
+      public Int32 BackupEntryID { get; set; }
       public Retrieval Retrieval { get; set; }
       public EntryState State { get; set; }
       public Int64 Offset { get; set; }

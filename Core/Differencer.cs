@@ -20,13 +20,13 @@ namespace SkyFloe
 
       private IEnumerable<Diff> DiffPathIndex (Backup.Node parentNode, String parentPath)
       {
-         var nodes = this.Index.ListNodes(parentNode).ToList();
-         foreach (var path in Directory.EnumerateFileSystemEntries(parentPath))
+         IList<Backup.Node> nodes = this.Index.ListNodes(parentNode).ToList();
+         foreach (String path in Directory.EnumerateFileSystemEntries(parentPath))
          {
             if (!File.GetAttributes(path).HasFlag(FileAttributes.System))
             {
-               var name = System.IO.Path.GetFileName(path);
-               var node = nodes.FirstOrDefault(
+               String name = System.IO.Path.GetFileName(path);
+               Backup.Node node = nodes.FirstOrDefault(
                   n => String.Compare(n.Name, name, true) == 0
                );
                if (node == null)
@@ -43,7 +43,7 @@ namespace SkyFloe
                      }
                   };
                if (node.Type == Backup.NodeType.Directory)
-                  foreach (var diff in DiffPathIndex(node, path))
+                  foreach (Diff diff in DiffPathIndex(node, path))
                      yield return diff;
             }
          }
@@ -51,17 +51,17 @@ namespace SkyFloe
 
       private IEnumerable<Diff> DiffIndexPath (Backup.Node parentNode, String parentPath)
       {
-         foreach (var node in this.Index.ListNodes(parentNode))
+         foreach (Backup.Node node in this.Index.ListNodes(parentNode))
          {
-            var path = System.IO.Path.Combine(parentPath, node.Name);
+            String path = System.IO.Path.Combine(parentPath, node.Name);
             if (!File.GetAttributes(path).HasFlag(FileAttributes.System))
             {
                if (node.Type == Backup.NodeType.Directory)
-                  foreach (var diff in DiffIndexPath(node, path))
+                  foreach (Diff diff in DiffIndexPath(node, path))
                      yield return diff;
                else
                {
-                  var entry = this.Index
+                  Backup.Entry entry = this.Index
                      .ListNodeEntries(node)
                      .OrderBy(e => e.Session.Created)
                      .LastOrDefault();
@@ -84,7 +84,7 @@ namespace SkyFloe
                   }
                   else if (entry != null && entry.State != Backup.EntryState.Pending)
                   {
-                     var isChanged = true;
+                     Boolean isChanged = true;
                      switch (this.Method)
                      {
                         case DiffMethod.Timestamp:

@@ -42,27 +42,28 @@ namespace SkyFloe
          if (this.store != null)
             throw new InvalidOperationException("TODO: already connected");
          // parse connection string parameters
-         var paramMap = new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase);
-         foreach (var param in connect.Split(';'))
+         Dictionary<String, String> paramMap = 
+            new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase);
+         foreach (String param in connect.Split(';'))
          {
-            var sepIdx = param.IndexOf('=');
+            Int32 sepIdx = param.IndexOf('=');
             if (sepIdx != -1)
                paramMap[param.Substring(0, sepIdx).Trim()] =
                   param.Substring(sepIdx + 1).Trim();
          }
          // determine the store name
-         var storeName = "";
+         String storeName = null;
          if (!paramMap.TryGetValue("Store", out storeName))
             throw new InvalidOperationException("TODO: store not found");
          paramMap.Remove("Store");
-         var knownStore = "";
+         String knownStore = "";
          if (knownStores.TryGetValue(storeName, out knownStore))
             storeName = knownStore;
          // attempt to load the store type
-         var storeType = Type.GetType(storeName, true);
-         var store = (Store.IStore)Activator.CreateInstance(storeType);
+         Type storeType = Type.GetType(storeName, true);
+         Store.IStore store = (Store.IStore)Activator.CreateInstance(storeType);
          // bind the store properties
-         foreach (var param in paramMap)
+         foreach (KeyValuePair<String, String> param in paramMap)
          {
             PropertyDescriptor prop = TypeDescriptor.GetProperties(storeType)
                .Cast<PropertyDescriptor>()
@@ -125,23 +126,32 @@ namespace SkyFloe
          }
          public IEnumerable<Backup.Blob> Blobs
          {
-            get { return this.archive.Index.ListBlobs(); }
+            get { return this.archive.BackupIndex.ListBlobs(); }
          }
-         public IEnumerable<Backup.Session> Sessions
+         public IEnumerable<Backup.Session> Backups
          {
-            get { return this.archive.Index.ListSessions(); }
+            get { return this.archive.BackupIndex.ListSessions(); }
          }
          public IEnumerable<Backup.Node> Roots
          {
-            get { return this.archive.Index.ListNodes(null); }
+            get { return this.archive.BackupIndex.ListNodes(null); }
+         }
+         public IEnumerable<Restore.Session> Restores
+         {
+            get 
+            {
+               return this.archive.RestoreIndex
+                  .ListSessions()
+                  .Where(s => String.Compare(s.Archive, this.Name, true) == 0);
+            }
          }
          public IEnumerable<Backup.Node> GetChildren (Backup.Node parent)
          {
-            return this.archive.Index.ListNodes(parent);
+            return this.archive.BackupIndex.ListNodes(parent);
          }
          public IEnumerable<Backup.Entry> GetEntries (Backup.Node node)
          {
-            return this.archive.Index.ListNodeEntries(node);
+            return this.archive.BackupIndex.ListNodeEntries(node);
          }
       }
    }

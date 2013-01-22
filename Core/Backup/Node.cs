@@ -20,7 +20,7 @@ namespace SkyFloe.Backup
 
       public Node GetRoot ()
       {
-         var node = this;
+         Node node = this;
          while (node.Parent != null)
             node = node.Parent;
          return node;

@@ -38,8 +38,10 @@
     <Compile Include="..\..\Version.cs">
       <Link>Properties\Version.cs</Link>
     </Compile>
+    <Compile Include="GlacierDownloader.cs" />
     <Compile Include="GlacierArchive.cs" />
     <Compile Include="GlacierStore.cs" />
+    <Compile Include="GlacierStream.cs" />
     <Compile Include="GlacierUploader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

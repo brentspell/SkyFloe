@@ -20,12 +20,12 @@ namespace SkyFloe
       }
       public IEnumerable<String> ListArchives ()
       {
-         foreach (var dir in Directory.GetDirectories(this.Path))
+         foreach (String dir in Directory.GetDirectories(this.Path))
             yield return System.IO.Path.GetFileName(dir);
       }
       public Store.IArchive CreateArchive (String name, Backup.Header header)
       {
-         var archive = new FileArchive()
+         FileArchive archive = new FileArchive()
          {
             Path = System.IO.Path.Combine(this.Path, name)
          };
@@ -34,7 +34,7 @@ namespace SkyFloe
       }
       public Store.IArchive OpenArchive (String name)
       {
-         var archive = new FileArchive()
+         FileArchive archive = new FileArchive()
          {
             Path = System.IO.Path.Combine(this.Path, name)
          };
@@ -43,7 +43,7 @@ namespace SkyFloe
       }
       public void DeleteArchive (String name)
       {
-         var path = System.IO.Path.Combine(this.Path, name);
+         String path = System.IO.Path.Combine(this.Path, name);
          if (Directory.Exists(path))
             Directory.Delete(path, true);
       }

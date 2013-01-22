@@ -48,11 +48,11 @@ namespace SkyFloe.IO
          get { throw new NotSupportedException(); }
          set { throw new NotSupportedException(); }
       }
-      public override void SetLength (Int64 value)
+      public override Int64 Seek (Int64 offset, SeekOrigin origin)
       {
          throw new NotSupportedException();
       }
-      public override Int64 Seek (Int64 offset, SeekOrigin origin)
+      public override void SetLength (Int64 value)
       {
          throw new NotSupportedException();
       }

@@ -19,7 +19,7 @@ namespace SkyFloe.IO
             throw new ArgumentOutOfRangeException("offset");
          if (length < 0)
             throw new ArgumentOutOfRangeException("length");
-         var streamLen = stream.Length;
+         Int64 streamLen = stream.Length;
          if (offset > streamLen)
             throw new ArgumentOutOfRangeException("offset");
          if (offset + length > streamLen)
@@ -42,9 +42,6 @@ namespace SkyFloe.IO
       {
          get { return false; }
       }
-      public override void Flush ()
-      {
-      }
       public override Int64 Length
       {
          get { return this.length; }
@@ -60,6 +57,20 @@ namespace SkyFloe.IO
             Seek(value, SeekOrigin.Begin);
          }
       }
+      public override Int64 Seek (Int64 offset, SeekOrigin origin)
+      {
+         switch (origin)
+         {
+            case SeekOrigin.Begin:
+               return this.stream.Seek(this.offset + offset, origin) - this.offset;
+            case SeekOrigin.End:
+               return this.stream.Seek(this.offset + this.length + offset, origin) - this.offset;
+            case SeekOrigin.Current:
+               return this.stream.Seek(offset, origin) - this.offset;
+            default:
+               throw new ArgumentException("origin");
+         }
+      }
       public override Int32 Read (Byte[] buffer, Int32 offset, Int32 count)
       {
          return this.stream.Read(
@@ -71,25 +82,14 @@ namespace SkyFloe.IO
             )
          );
       }
-      public override Int64 Seek (Int64 offset, SeekOrigin origin)
-      {
-         switch (origin)
-         {
-            case SeekOrigin.Begin:
-               return this.stream.Seek(this.offset + offset, origin) - this.offset;
-            case SeekOrigin.End:
-               return this.stream.Seek(this.offset + this.length - offset, origin) - this.offset;
-            case SeekOrigin.Current:
-               return this.stream.Seek(offset, origin) - this.offset;
-            default:
-               throw new ArgumentException("origin");
-         }
-      }
-      public override void SetLength (Int64 value)
+      public override void Write (Byte[] buffer, Int32 offset, Int32 count)
       {
          throw new NotSupportedException();
       }
-      public override void Write (Byte[] buffer, Int32 offset, Int32 count)
+      public override void Flush ()
+      {
+      }
+      public override void SetLength (Int64 value)
       {
          throw new NotSupportedException();
       }

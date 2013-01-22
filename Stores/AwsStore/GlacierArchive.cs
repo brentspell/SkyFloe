@@ -14,14 +14,17 @@ namespace SkyFloe.Aws
    {
       public const String IndexS3KeyExtension = ".db.gz";
       public const Int32 PartSize = 16 * 1024 * 1024;
+      public const Int32 MinRetrievalSize = 1024 * 1024;
       private Amazon.S3.AmazonS3 s3;
       private Amazon.Glacier.AmazonGlacierClient glacier;
       private String vault;
       private String bucket;
       private String name;
-      private String indexPath;
-      private Sqlite.BackupIndex index;
+      private String backupIndexPath;
+      private Sqlite.BackupIndex backupIndex;
+      private Sqlite.RestoreIndex restoreIndex;
       private GlacierUploader uploader;
+      private GlacierDownloader downloader;
 
       private String IndexS3Key
       {
@@ -40,17 +43,20 @@ namespace SkyFloe.Aws
          this.vault = vault;
          this.bucket = bucket;
          this.name = name;
-         this.indexPath = Path.GetTempFileName();
+         this.backupIndexPath = Path.GetTempFileName();
       }
 
       public void Dispose ()
       {
-         if (this.index != null)
-            this.index.Dispose();
-         if (this.indexPath != null)
-            Sqlite.BackupIndex.Delete(this.indexPath);
-         this.index = null;
-         this.indexPath = null;
+         if (this.backupIndex != null)
+            this.backupIndex.Dispose();
+         if (this.restoreIndex != null)
+            this.restoreIndex.Dispose();
+         if (this.backupIndexPath != null)
+            Sqlite.BackupIndex.Delete(this.backupIndexPath);
+         this.backupIndex = null;
+         this.restoreIndex = null;
+         this.backupIndexPath = null;
       }
 
       public void Create (Backup.Header header)
@@ -71,12 +77,12 @@ namespace SkyFloe.Aws
                BucketName = this.bucket
             }
          );
-         this.index = Sqlite.BackupIndex.Create(this.indexPath, header);
+         this.backupIndex = Sqlite.BackupIndex.Create(this.backupIndexPath, header);
       }
       public void Open ()
       {
-         using (var indexStream = new FileStream(this.indexPath, FileMode.Open, FileAccess.Write, FileShare.None))
-         using (var s3Object = 
+         using (FileStream indexStream = new FileStream(this.backupIndexPath, FileMode.Open, FileAccess.Write, FileShare.None))
+         using (Stream s3Stream = 
                this.s3.GetObject(
                   new Amazon.S3.Model.GetObjectRequest()
                   {
@@ -85,9 +91,9 @@ namespace SkyFloe.Aws
                   }
                ).ResponseStream
             )
-         using (var gzip = new GZipStream(s3Object, CompressionMode.Decompress))
+         using (GZipStream gzip = new GZipStream(s3Stream, CompressionMode.Decompress))
             gzip.CopyTo(indexStream);
-         this.index = Sqlite.BackupIndex.Open(this.indexPath);
+         this.backupIndex = Sqlite.BackupIndex.Open(this.backupIndexPath);
       }
 
       #region IArchive Implementation
@@ -95,9 +101,29 @@ namespace SkyFloe.Aws
       {
          get { return this.name; }
       }
-      public IBackupIndex Index
+      public IBackupIndex BackupIndex
       {
-         get { return this.index; }
+         get { return this.backupIndex; }
+      }
+      public Store.IRestoreIndex RestoreIndex
+      {
+         get
+         {
+            if (this.restoreIndex == null)
+            {
+               String path = System.IO.Path.Combine(
+                  Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                  "SkyFloe",
+                  "AwsGlacier",
+                  "restore.db"
+               );
+               Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+               this.restoreIndex = (File.Exists(path)) ?
+                  Sqlite.RestoreIndex.Open(path) :
+                  Sqlite.RestoreIndex.Create(path, new Restore.Header());
+            }
+            return this.restoreIndex;
+         }
       }
       public void PrepareBackup ()
       {
@@ -111,18 +137,18 @@ namespace SkyFloe.Aws
                this.vault,
                PartSize
             );
-            this.index.InsertBlob(
+            this.backupIndex.InsertBlob(
                new Backup.Blob()
                {
                   Name = this.uploader.UploadID
                }
             );
          }
-         var blob = this.index.LookupBlob(this.uploader.UploadID);
+         Backup.Blob blob = this.backupIndex.LookupBlob(this.uploader.UploadID);
          if (blob.Length != this.uploader.Length)
             this.uploader.Resync(blob.Length);
-         var offset = blob.Length = this.uploader.Length;
-         var length = this.uploader.Upload(stream);
+         Int64 offset = blob.Length = this.uploader.Length;
+         Int64 length = this.uploader.Upload(stream);
          entry.Blob = blob;
          entry.Offset = offset;
          entry.Length = length;
@@ -131,18 +157,18 @@ namespace SkyFloe.Aws
       {
          if (this.uploader != null)
          {
-            var blob = this.index.LookupBlob(this.uploader.UploadID);
+            Backup.Blob blob = this.backupIndex.LookupBlob(this.uploader.UploadID);
             this.uploader.Flush();
             blob.Length = this.uploader.Length;
-            var archiveID = this.uploader.Complete();
+            String archiveID = this.uploader.Complete();
             blob.Name = archiveID;
-            this.index.UpdateBlob(blob);
+            this.backupIndex.UpdateBlob(blob);
             this.uploader = null;
          }
-         using (var s3File = new FileStream(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.DeleteOnClose))
+         using (FileStream s3File = new FileStream(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.DeleteOnClose))
          {
-            using (var gzip = new GZipStream(s3File, CompressionMode.Compress, true))
-            using (var idx = this.index.Serialize())
+            using (GZipStream gzip = new GZipStream(s3File, CompressionMode.Compress, true))
+            using (Stream idx = this.backupIndex.Serialize())
                idx.CopyTo(gzip);
             s3File.Position = 0;
             this.s3.PutObject(
@@ -155,17 +181,78 @@ namespace SkyFloe.Aws
             );
          }
       }
-      public Store.IRestoreSession PrepareRestore (IEnumerable<Int32> entries)
+      public void PrepareRestore (Restore.Session session)
       {
-         throw new NotImplementedException();
+         if (session.State == Restore.SessionState.Pending)
+         {
+            List<Restore.Retrieval> orphanRetrievals = new List<Restore.Retrieval>();
+            foreach (Restore.Retrieval oldRetrieval in this.RestoreIndex.ListRetrievals(session))
+            {
+               Restore.Retrieval newRetrieval = oldRetrieval;
+               newRetrieval.Length = 0;
+               foreach (Restore.Entry entry in this.restoreIndex.ListRetrievalEntries(newRetrieval))
+               {
+                  if (entry.Offset < newRetrieval.Offset + newRetrieval.Length + MinRetrievalSize)
+                  {
+                     newRetrieval.Length = entry.Offset - newRetrieval.Offset + entry.Length;
+                     newRetrieval.Length += MinRetrievalSize - newRetrieval.Length % MinRetrievalSize;
+                     this.RestoreIndex.UpdateRetrieval(newRetrieval);
+                  }
+                  else
+                  {
+                     newRetrieval = entry.Retrieval = this.RestoreIndex.InsertRetrieval(
+                        new Restore.Retrieval()
+                        {
+                           Session = session,
+                           BlobID = newRetrieval.BlobID,
+                           Name = newRetrieval.Name,
+                           Offset = entry.Offset - entry.Offset % MinRetrievalSize,
+                           Length = entry.Length + (MinRetrievalSize - entry.Length % MinRetrievalSize)
+                        }
+                     );
+                     entry.Offset -= entry.Retrieval.Offset;
+                     this.RestoreIndex.UpdateEntry(entry);
+                  }
+               }
+               if (!this.restoreIndex.ListRetrievalEntries(oldRetrieval).Any())
+                  orphanRetrievals.Add(oldRetrieval);
+            }
+            foreach (Restore.Retrieval orphan in orphanRetrievals)
+               this.RestoreIndex.DeleteRetrieval(orphan);
+            foreach (Restore.Retrieval retrieval in this.RestoreIndex.ListRetrievals(session))
+            {
+               Backup.Blob blob = this.BackupIndex.FetchBlob(retrieval.BlobID);
+               if (retrieval.Offset + retrieval.Length > blob.Length)
+               {
+                  retrieval.Length = blob.Length - retrieval.Offset;
+                  this.RestoreIndex.UpdateRetrieval(retrieval);
+               }
+            }
+         }
+         Double maxRetrievalRate =
+            0.05d * this.BackupIndex.ListSessions().Sum(s => s.ActualLength) /
+            TimeSpan.FromDays(1).TotalSeconds;
+         Restore.Entry firstEntry = this.RestoreIndex.LookupNextEntry(session);
+         if (firstEntry != null)
+         {
+            this.downloader = new GlacierDownloader(
+               this.glacier,
+               this.vault,
+               maxRetrievalRate,
+               this.RestoreIndex
+                  .ListRetrievals(session)
+                  .SkipWhile(r => r.ID != firstEntry.Retrieval.ID)
+                  .ToList()
+            );
+         }
       }
-      public Store.IRestoreSession AttachRestore (Stream stream)
+      public Stream RestoreEntry (Restore.Entry entry)
       {
-         throw new NotImplementedException();
-      }
-      public Stream RestoreEntry (Backup.Entry entry)
-      {
-         throw new NotImplementedException();
+         return this.downloader.Download(
+            entry.Retrieval, 
+            entry.Offset, 
+            entry.Length
+         );
       }
       #endregion
    }

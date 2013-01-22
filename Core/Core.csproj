@@ -53,8 +53,10 @@
     <Compile Include="Request\RestoreRequest.cs" />
     <Compile Include="Restore\Entry.cs" />
     <Compile Include="Restore\Header.cs" />
+    <Compile Include="Restore\PathMap.cs" />
     <Compile Include="Restore\Retrieval.cs" />
-    <Compile Include="Store\IRestoreSession.cs" />
+    <Compile Include="Restore\Session.cs" />
+    <Compile Include="Store\IRestoreIndex.cs" />
     <Compile Include="Store\IArchive.cs" />
     <Compile Include="Store\IBackupIndex.cs" />
     <Compile Include="Store\IStore.cs" />

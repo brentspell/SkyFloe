@@ -154,10 +154,6 @@ namespace SkyFloe.IO
       #endregion
 
       #region Stream Overrides
-      public override void Flush ()
-      {
-         this.stream.Flush();
-      }
       public override Int64 Length
       {
          get { return this.stream.Length; }
@@ -165,10 +161,6 @@ namespace SkyFloe.IO
       public override Int64 Position
       {
          get { return this.stream.Position; }
-      }
-      public override void SetLength (Int64 value)
-      {
-         this.stream.SetLength(value);
       }
       public override Int32 Read (Byte[] buffer, Int32 offset, Int32 length)
       {
@@ -184,6 +176,14 @@ namespace SkyFloe.IO
             throw new InvalidOperationException("Stream not opened for writing");
          this.value = CalculateIncremental(this.value, buffer, offset, length);
          this.stream.Write(buffer, offset, length);
+      }
+      public override void Flush ()
+      {
+         this.stream.Flush();
+      }
+      public override void SetLength (Int64 value)
+      {
+         this.stream.SetLength(value);
       }
       #endregion
    }

@@ -38,14 +38,14 @@ namespace SkyFloe.Sqlite
          try
          {
             // load the SQL script
-            var asm = Assembly.GetExecutingAssembly();
-            var ddl = "";
-            using (var stream = asm.GetManifestResourceStream(resource))
-            using (var reader = new StreamReader(stream))
+            Assembly asm = Assembly.GetExecutingAssembly();
+            String ddl = null;
+            using (Stream stream = asm.GetManifestResourceStream(resource))
+            using (StreamReader reader = new StreamReader(stream))
                ddl = reader.ReadToEnd();
             // execute the statements in the script
-            using (var db = new Database(path))
-               foreach (var stmt in ddl.Split(';'))
+            using (Database db = new Database(path))
+               foreach (String stmt in ddl.Split(';'))
                   db.Execute(stmt);
          }
          catch
@@ -80,12 +80,12 @@ namespace SkyFloe.Sqlite
             if (this.transaction != null)
                ((DbConnection)this.connection).EnlistTransaction(this.transaction);
          }
-         var dbcmd = this.connection.CreateCommand();
+         IDbCommand dbcmd = this.connection.CreateCommand();
          dbcmd.CommandText = command;
-         var paramIdx = 0;
-         foreach (var param in parameters)
+         Int32 paramIdx = 0;
+         foreach (Object param in parameters)
          {
-            var dbparam = dbcmd.CreateParameter();
+            IDbDataParameter dbparam = dbcmd.CreateParameter();
             dbparam.ParameterName = String.Format("@p{0}", paramIdx++);
             dbparam.Value = param ?? DBNull.Value;
             dbcmd.Parameters.Add(dbparam);
@@ -94,17 +94,17 @@ namespace SkyFloe.Sqlite
       }
       protected void Execute (String command, params Object[] parameters)
       {
-         using (var dbcmd = CreateCommand(command, parameters))
+         using (IDbCommand dbcmd = CreateCommand(command, parameters))
             dbcmd.ExecuteNonQuery();
       }
       protected Object ExecuteScalar (String command, params Object[] parameters)
       {
-         using (var dbcmd = CreateCommand(command, parameters))
+         using (IDbCommand dbcmd = CreateCommand(command, parameters))
             return dbcmd.ExecuteScalar();
       }
       protected IDataReader ExecuteReader (String command, params Object[] parameters)
       {
-         using (var dbcmd = CreateCommand(command, parameters))
+         using (IDbCommand dbcmd = CreateCommand(command, parameters))
             return dbcmd.ExecuteReader();
       }
       protected Int32 QueryRowID ()
