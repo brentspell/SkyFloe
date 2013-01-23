@@ -25,6 +25,7 @@ namespace SkyFloe.Aws
       private Sqlite.RestoreIndex restoreIndex;
       private GlacierUploader uploader;
       private GlacierDownloader downloader;
+      private Double maxRetrievalRate;
 
       private String IndexS3Key
       {
@@ -44,6 +45,16 @@ namespace SkyFloe.Aws
          this.bucket = bucket;
          this.name = name;
          this.backupIndexPath = Path.GetTempFileName();
+         String restoreIndexPath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SkyFloe",
+            "AwsGlacier",
+            "restore.db"
+         );
+         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(restoreIndexPath));
+         this.restoreIndex = (File.Exists(restoreIndexPath)) ?
+            Sqlite.RestoreIndex.Open(restoreIndexPath) :
+            Sqlite.RestoreIndex.Create(restoreIndexPath, new Restore.Header());
       }
 
       public void Dispose ()
@@ -107,23 +118,7 @@ namespace SkyFloe.Aws
       }
       public Store.IRestoreIndex RestoreIndex
       {
-         get
-         {
-            if (this.restoreIndex == null)
-            {
-               String path = System.IO.Path.Combine(
-                  Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                  "SkyFloe",
-                  "AwsGlacier",
-                  "restore.db"
-               );
-               Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
-               this.restoreIndex = (File.Exists(path)) ?
-                  Sqlite.RestoreIndex.Open(path) :
-                  Sqlite.RestoreIndex.Create(path, new Restore.Header());
-            }
-            return this.restoreIndex;
-         }
+         get { return this.restoreIndex; } 
       }
       public void PrepareBackup ()
       {
@@ -185,71 +180,117 @@ namespace SkyFloe.Aws
       {
          if (session.State == Restore.SessionState.Pending)
          {
-            List<Restore.Retrieval> orphanRetrievals = new List<Restore.Retrieval>();
-            foreach (Restore.Retrieval oldRetrieval in this.RestoreIndex.ListRetrievals(session))
+            foreach (Restore.Retrieval oldRetrieval in this.restoreIndex.ListRetrievals(session))
             {
+               Backup.Blob blob = this.backupIndex.LookupBlob(oldRetrieval.Blob);
+               oldRetrieval.Length = 0;
+               this.restoreIndex.UpdateRetrieval(oldRetrieval);
                Restore.Retrieval newRetrieval = oldRetrieval;
-               newRetrieval.Length = 0;
                foreach (Restore.Entry entry in this.restoreIndex.ListRetrievalEntries(newRetrieval))
                {
                   if (entry.Offset < newRetrieval.Offset + newRetrieval.Length + MinRetrievalSize)
                   {
                      newRetrieval.Length = entry.Offset - newRetrieval.Offset + entry.Length;
                      newRetrieval.Length += MinRetrievalSize - newRetrieval.Length % MinRetrievalSize;
-                     this.RestoreIndex.UpdateRetrieval(newRetrieval);
+                     this.restoreIndex.UpdateRetrieval(newRetrieval);
                   }
                   else
                   {
-                     newRetrieval = entry.Retrieval = this.RestoreIndex.InsertRetrieval(
+                     entry.Retrieval = newRetrieval = this.restoreIndex.InsertRetrieval(
                         new Restore.Retrieval()
                         {
                            Session = session,
-                           BlobID = newRetrieval.BlobID,
-                           Name = newRetrieval.Name,
+                           Blob = newRetrieval.Blob,
                            Offset = entry.Offset - entry.Offset % MinRetrievalSize,
                            Length = entry.Length + (MinRetrievalSize - entry.Length % MinRetrievalSize)
                         }
                      );
                      entry.Offset -= entry.Retrieval.Offset;
-                     this.RestoreIndex.UpdateEntry(entry);
+                     this.restoreIndex.UpdateEntry(entry);
+                  }
+                  if (newRetrieval.Offset + newRetrieval.Length > blob.Length)
+                  {
+                     newRetrieval.Length = blob.Length - newRetrieval.Offset;
+                     this.restoreIndex.UpdateRetrieval(newRetrieval);
                   }
                }
-               if (!this.restoreIndex.ListRetrievalEntries(oldRetrieval).Any())
-                  orphanRetrievals.Add(oldRetrieval);
             }
-            foreach (Restore.Retrieval orphan in orphanRetrievals)
-               this.RestoreIndex.DeleteRetrieval(orphan);
-            foreach (Restore.Retrieval retrieval in this.RestoreIndex.ListRetrievals(session))
-            {
-               Backup.Blob blob = this.BackupIndex.FetchBlob(retrieval.BlobID);
-               if (retrieval.Offset + retrieval.Length > blob.Length)
-               {
-                  retrieval.Length = blob.Length - retrieval.Offset;
-                  this.RestoreIndex.UpdateRetrieval(retrieval);
-               }
-            }
+            foreach (Restore.Retrieval orphan in this.restoreIndex.ListRetrievals(session))
+               if (orphan.Length == 0)
+                  this.restoreIndex.DeleteRetrieval(orphan);
          }
-         Double maxRetrievalRate =
-            0.05d * this.BackupIndex.ListSessions().Sum(s => s.ActualLength) /
-            TimeSpan.FromDays(1).TotalSeconds;
-         Restore.Entry firstEntry = this.RestoreIndex.LookupNextEntry(session);
-         if (firstEntry != null)
+         this.maxRetrievalRate =
+            0.05d * this.backupIndex.ListSessions().Sum(s => s.ActualLength) /
+            TimeSpan.FromDays(30).TotalSeconds;
+         this.downloader = new GlacierDownloader(this.glacier, this.vault);
+         foreach (Restore.Retrieval retrieval in this.restoreIndex.ListRetrievals(session))
          {
-            this.downloader = new GlacierDownloader(
-               this.glacier,
-               this.vault,
-               maxRetrievalRate,
-               this.RestoreIndex
-                  .ListRetrievals(session)
-                  .SkipWhile(r => r.ID != firstEntry.Retrieval.ID)
-                  .ToList()
-            );
+            try
+            {
+               if (retrieval.Name != null)
+                  this.downloader.QueryJob(retrieval.Name);
+            }
+            catch
+            {
+               retrieval.Name = null;
+               this.restoreIndex.UpdateRetrieval(retrieval);
+            }
          }
       }
       public Stream RestoreEntry (Restore.Entry entry)
       {
-         return this.downloader.Download(
-            entry.Retrieval, 
+         Boolean ready = false;
+         while (!ready)
+         {
+            try
+            {
+               if (entry.Retrieval.Name != null)
+                  ready = this.downloader.QueryJob(entry.Retrieval.Name);
+            }
+            catch
+            {
+               entry.Retrieval.Name = null;
+               this.restoreIndex.UpdateRetrieval(entry.Retrieval);
+            }
+            foreach (Restore.Retrieval retrieval in this.restoreIndex
+               .ListRetrievals(entry.Retrieval.Session)
+               .SkipWhile(r => r.ID != entry.Retrieval.ID)
+            )
+            {
+               Double retrievalRate = 
+                  (Double)entry.Retrieval.Session.Retrieved /
+                  (DateTime.UtcNow - entry.Retrieval.Session.Created).TotalSeconds;
+               if (retrievalRate > this.maxRetrievalRate)
+                  if (retrieval.ID != entry.Retrieval.ID)
+                     break;
+               if (retrieval.Name == null)
+               {
+                  retrieval.Name = this.downloader.StartJob(
+                     retrieval.Blob,
+                     retrieval.Offset,
+                     retrieval.Length
+                  );
+                  this.restoreIndex.UpdateRetrieval(retrieval);
+                  entry.Retrieval.Session.Retrieved += retrieval.Length;
+               }
+            }
+            foreach (Restore.Retrieval retrieval in this.restoreIndex
+               .ListRetrievals(entry.Retrieval.Session)
+               .TakeWhile(r => r.ID != entry.Retrieval.ID)
+               .Where(r => r.Name != null)
+            )
+            {
+               this.downloader.DeleteJob(retrieval.Name);
+               retrieval.Name = null;
+               this.restoreIndex.UpdateRetrieval(retrieval);
+            }
+            if (!ready)
+               System.Threading.Thread.Sleep(
+                  (Int32)TimeSpan.FromMinutes(20).TotalMilliseconds
+               );
+         }
+         return this.downloader.GetJobStream(
+            entry.Retrieval.Name, 
             entry.Offset, 
             entry.Length
          );

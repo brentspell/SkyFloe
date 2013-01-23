@@ -32,7 +32,7 @@ namespace SkyFloe.Test
             ((Double)compressedSize) / 1048576
          );
          */
-         using (Connection connect = new Connection(@"Store=AwsGlacier;AccessKey=1V0BC55SS0SF3V9SRG02;SecretKey=h0QC/K4JGcx6MkJ/I7ZpEDTbMX49Eja0S+HOEpDS;"))
+         using (Connection connect = new Connection(String.Format(@"Store=AwsGlacier;AccessKey={0};SecretKey={1};", args[0], args[1])))
          using (Connection.Archive archive = connect.OpenArchive("Test"))
          {
             Func<Backup.Node, IEnumerable<Backup.Node>> nodeSelector = null;
@@ -40,10 +40,12 @@ namespace SkyFloe.Test
                node => new[] { node }.Concat(archive.GetChildren(node).SelectMany(nodeSelector));
             Engine engine = new Engine() { Connection = connect };
             engine.OpenArchive("Test", "secret");
-            foreach (Restore.Session session in archive.Restores.ToList())
-               engine.DeleteRestore(session);
-            engine.StartRestore(
-               engine.CreateRestore(
+            foreach (Restore.Session existing in archive.Restores.ToList())
+               if (existing.State == Restore.SessionState.Completed)
+                  engine.DeleteRestore(existing);
+            Restore.Session session = archive.Restores.FirstOrDefault();
+            if (session == null)
+               session = engine.CreateRestore(
                   new RestoreRequest()
                   {
                      SkipExisting = false,
@@ -66,12 +68,12 @@ namespace SkyFloe.Test
                         { @"l:\", @"c:\temp\Liono" }
                      }
                   }
-               )
-            );
+               );
+            engine.StartRestore(session);
          }
 
          /*
-         using (Connection connect = new Connection("Store=AwsGlacier;AccessKey=1V0BC55SS0SF3V9SRG02;SecretKey=h0QC/K4JGcx6MkJ/I7ZpEDTbMX49Eja0S+HOEpDS;"))
+         using (Connection connect = new Connection(String.Format(@"Store=AwsGlacier;AccessKey={0};SecretKey={1};", args[0], args[1])))
          using (Connection.Archive archive = connect.OpenArchive("Liono"))
          {
             Func<Model.Node, IEnumerable<Model.Node>> nodeSelector = null;
@@ -87,7 +89,7 @@ namespace SkyFloe.Test
          */
 
          /*
-         using (Connection connect = new Connection("Store=AwsGlacier;AccessKey=1V0BC55SS0SF3V9SRG02;SecretKey=h0QC/K4JGcx6MkJ/I7ZpEDTbMX49Eja0S+HOEpDS;"))
+         using (Connection connect = new Connection(String.Format(@"Store=AwsGlacier;AccessKey={0};SecretKey={1};", args[0], args[1])))
          using (Connection.Archive archive = connect.OpenArchive("Liono"))
             Console.WriteLine(
                "{0:0.00}MB",
@@ -95,7 +97,7 @@ namespace SkyFloe.Test
             );
          */
          /*
-         using (Connection connect = new Connection("Store=AwsGlacier;AccessKey=1V0BC55SS0SF3V9SRG02;SecretKey=h0QC/K4JGcx6MkJ/I7ZpEDTbMX49Eja0S+HOEpDS;"))
+         using (Connection connect = new Connection(String.Format(@"Store=AwsGlacier;AccessKey={0};SecretKey={1};", args[0], args[1])))
          using (Connection.Archive archive = connect.OpenArchive("Test"))
             foreach (Backup.Blob blob in archive.Blobs)
                Console.WriteLine("{0} bytes, {1}", blob.Length, blob.Name);

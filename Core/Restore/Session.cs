@@ -25,6 +25,7 @@ namespace SkyFloe.Restore
       public String Archive { get; set; }
       public SessionState State { get; set; }
       public SessionFlags Flags { get; set; }
+      public Int64 Retrieved { get; set; }
       public DateTime Created { get; set; }
 
       public Boolean SkipExisting

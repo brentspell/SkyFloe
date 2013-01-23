@@ -9,7 +9,7 @@ namespace SkyFloe.Restore
    {
       public Int32 ID { get; set; }
       public Session Session { get; set; }
-      public Int32 BlobID { get; set; }
+      public String Blob { get; set; }
       public String Name { get; set; }
       public Int64 Offset { get; set; }
       public Int64 Length { get; set; }

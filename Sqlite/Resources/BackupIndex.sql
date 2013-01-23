@@ -7,7 +7,7 @@
 );
 CREATE TABLE Blob (
    ID Integer PRIMARY KEY NOT NULL,
-   Name VarChar(256) NOT NULL,
+   Name VarChar(512) NOT NULL,
    Length BigInt NOT NULL,
    Created DateTime DEFAULT CURRENT_TIMESTAMP NOT NULL,
    Updated DateTime DEFAULT CURRENT_TIMESTAMP NOT NULL

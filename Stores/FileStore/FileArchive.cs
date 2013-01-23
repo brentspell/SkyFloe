@@ -31,6 +31,16 @@ namespace SkyFloe
          this.restoreIndex = null;
          this.blobFile = null;
          this.tempBackupIndexPath = null;
+         String restoreIndexPath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SkyFloe",
+            "FileStore",
+            "restore.db"
+         );
+         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(restoreIndexPath));
+         this.restoreIndex = (File.Exists(restoreIndexPath)) ?
+            Sqlite.RestoreIndex.Open(restoreIndexPath) :
+            Sqlite.RestoreIndex.Create(restoreIndexPath, new Restore.Header());
       }
 
       public String Path
@@ -93,23 +103,7 @@ namespace SkyFloe
       }
       public Store.IRestoreIndex RestoreIndex
       {
-         get
-         {
-            if (this.restoreIndex == null)
-            {
-               String path = System.IO.Path.Combine(
-                  Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                  "SkyFloe",
-                  "FileStore",
-                  "restore.db"
-               );
-               Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
-               this.restoreIndex = (File.Exists(path)) ?
-                  Sqlite.RestoreIndex.Open(path) :
-                  Sqlite.RestoreIndex.Create(path, new Restore.Header());
-            }
-            return this.restoreIndex;
-         }
+         get { return this.restoreIndex; }
       }
       public void PrepareBackup ()
       {

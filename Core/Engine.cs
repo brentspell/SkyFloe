@@ -368,14 +368,13 @@ namespace SkyFloe
                Backup.Entry backupEntry = this.archive.BackupIndex.FetchEntry(backupEntryID);
                Restore.Retrieval retrieval =
                   this.archive.RestoreIndex
-                     .ListBlobRetrievals(session, backupEntry.Blob.ID)
+                     .ListBlobRetrievals(session, backupEntry.Blob.Name)
                      .FirstOrDefault() ??
                   this.archive.RestoreIndex.InsertRetrieval(
                      new Restore.Retrieval()
                      {
                         Session = session,
-                        BlobID = backupEntry.Blob.ID,
-                        Name = backupEntry.Blob.Name,
+                        Blob = backupEntry.Blob.Name,
                         Offset = 0,
                         Length = backupEntry.Blob.Length
                      }
@@ -456,9 +455,25 @@ namespace SkyFloe
                   throw;
                }
             }
-            restoreEntry.State = Restore.EntryState.Completed;
-            this.archive.RestoreIndex.UpdateEntry(restoreEntry);
+            using (TransactionScope txn = new TransactionScope())
+            {
+               restoreEntry.State = Restore.EntryState.Completed;
+               this.archive.RestoreIndex.UpdateEntry(restoreEntry);
+               this.archive.RestoreIndex.UpdateSession(session);
+            }
          }
+         // TODO: remove
+         foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex.ListRetrievals(session))
+         {
+            foreach (Restore.Entry entry in this.archive.RestoreIndex.ListRetrievalEntries(retrieval))
+            {
+               entry.State = Restore.EntryState.Pending;
+               this.archive.RestoreIndex.UpdateEntry(entry);
+            }
+         }
+         // TODO: update session state
+         // session.State = Restore.SessionState.Completed;
+         // this.archive.RestoreIndex.UpdateSession(session);
       }
 
       public DiffResult Difference (DiffRequest request)

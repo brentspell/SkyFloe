@@ -27,7 +27,7 @@ namespace SkyFloe.Store
       void DeletePathMap (PathMap PathMap);
       // retrieval operations
       IEnumerable<Retrieval> ListRetrievals (Session session);
-      IEnumerable<Retrieval> ListBlobRetrievals (Session session, Int32 blobID);
+      IEnumerable<Retrieval> ListBlobRetrievals (Session session, String blob);
       Retrieval FetchRetrieval (Int32 id);
       Retrieval InsertRetrieval (Retrieval retrieval);
       Retrieval UpdateRetrieval (Retrieval retrieval);
