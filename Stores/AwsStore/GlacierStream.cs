@@ -77,7 +77,7 @@ namespace SkyFloe.Aws
       }
       public override Int64 Position
       {
-         get { return Seek(0, SeekOrigin.Current); }
+         get { return this.offset; }
          set { Seek(value, SeekOrigin.Begin); }
       }
 
@@ -113,7 +113,7 @@ namespace SkyFloe.Aws
                   Int32 read = this.stream.Read(
                      this.seekBuffer,
                      0,
-                     Math.Min((Int32)(newOffset - offset), this.seekBuffer.Length)
+                     Math.Min((Int32)(newOffset - this.offset), this.seekBuffer.Length)
                   );
                   if (read == 0)
                      break;

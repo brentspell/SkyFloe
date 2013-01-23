@@ -16,7 +16,8 @@ namespace SkyFloe.Restore
    {
       SkipExisting = 1,
       SkipReadOnly = 2,
-      VerifyResults = 4
+      VerifyResults = 4,
+      EnableDeletes = 8
    }
 
    public class Session
@@ -39,6 +40,10 @@ namespace SkyFloe.Restore
       public Boolean VerifyResults
       {
          get { return this.Flags.HasFlag(SessionFlags.VerifyResults); }
+      }
+      public Boolean EnableDeletes
+      {
+         get { return this.Flags.HasFlag(SessionFlags.EnableDeletes); }
       }
    }
 }

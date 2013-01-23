@@ -357,7 +357,7 @@ namespace SkyFloe.Sqlite
       public Entry UpdateEntry (Entry entry)
       {
          Execute(
-            "UPDATE Entry SET BackupEntryID = @p1, RetrievalID = @p2, State = @p3, Offset = @p4, Length = @p4 WHERE ID = @p0;",
+            "UPDATE Entry SET BackupEntryID = @p1, RetrievalID = @p2, State = @p3, Offset = @p4, Length = @p5 WHERE ID = @p0;",
             entry.ID,
             entry.BackupEntryID,
             entry.Retrieval.ID,

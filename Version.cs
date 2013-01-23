@@ -23,3 +23,11 @@ using System.Reflection;
 // Project References
 [assembly:AssemblyVersion("1.0.1.0")]
 [assembly:AssemblyFileVersion("1.0.1.0")]
+[assembly:AssemblyCompany("SkyFloe")]
+[assembly:AssemblyProduct("SkyFloe")]
+[assembly:AssemblyCopyright("Copyright © 2013 Brent M. Spell. All Rights Reserved.")]
+#if DEBUG
+[assembly:AssemblyConfiguration("Debug")]
+#else
+[assembly:AssemblyConfiguration("Release")]
+#endif

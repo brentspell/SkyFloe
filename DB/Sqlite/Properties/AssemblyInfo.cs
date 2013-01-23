@@ -28,13 +28,5 @@ using System.Runtime.InteropServices;
 [assembly:Guid("DE3AB975-4449-441B-A763-64C356BE2B70")]
 [assembly:AssemblyTitle("SkyFloe.Sqlite")]
 [assembly:AssemblyDescription("SkyFloe Cloud Backup Sqlite Library")]
-[assembly:AssemblyCompany("Brent M. Spell")]
-[assembly:AssemblyProduct("SkyFloe")]
-[assembly:AssemblyCopyright("Copyright © 2013 Brent M. Spell. All Rights Reserved.")]
 [assembly:CLSCompliant(true)]
 [assembly:ComVisible(false)]
-#if DEBUG
-[assembly:AssemblyConfiguration("Debug")]
-#else
-[assembly:AssemblyConfiguration("Release")]
-#endif

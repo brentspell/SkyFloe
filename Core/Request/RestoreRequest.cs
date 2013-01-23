@@ -11,5 +11,6 @@ namespace SkyFloe
       public Boolean SkipExisting { get; set; }
       public Boolean SkipReadOnly { get; set; }
       public Boolean VerifyResults { get; set; }
+      public Boolean EnableDeletes { get; set; }
    }
 }

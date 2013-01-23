@@ -31,42 +31,53 @@ namespace SkyFloe.Backup
       {
          retries = 0;
          failures = 0;
-         Console.Write("   Connecting to archive {0}...", archiveName);
-         Engine engine = new Engine()
+         try
          {
-            Connection = new Connection(connectionString)
-         };
-         engine.OnProgress += ReportProgress;
-         engine.OnError += HandleError;
-         if (deleteArchive)
-            engine.DeleteArchive(archiveName);
-         if (engine.Connection.ListArchives().Contains(archiveName, StringComparer.OrdinalIgnoreCase))
-            engine.OpenArchive(archiveName, password);
-         else
-            engine.CreateArchive(archiveName, password);
-         Console.WriteLine("done.");
-         Backup.Session session = null;
-         using (Connection.Archive archive = engine.Connection.OpenArchive(archiveName))
-            session = archive.Backups.FirstOrDefault(s => s.State != SessionState.Completed);
-         if (session != null)
+            Console.Write("   Connecting to archive {0}...", archiveName);
+            Engine engine = new Engine()
+            {
+               Connection = new Connection(connectionString)
+            };
+            engine.OnProgress += ReportProgress;
+            engine.OnError += HandleError;
+            if (deleteArchive)
+               engine.DeleteArchive(archiveName);
+            if (engine.Connection.ListArchives().Contains(archiveName, StringComparer.OrdinalIgnoreCase))
+               engine.OpenArchive(archiveName, password);
+            else
+               engine.CreateArchive(archiveName, password);
+            Console.WriteLine("done.");
+            Backup.Session session = null;
+            using (Connection.Archive archive = engine.Connection.OpenArchive(archiveName))
+               session = archive.Backups.FirstOrDefault(s => s.State != SessionState.Completed);
+            if (session != null)
+               Console.WriteLine(
+                  "   Resuming backup session started {0:MMM d, yyyy h:m tt}.",
+                  session.Created
+               );
+            else
+            {
+               Console.WriteLine("   Creating a new backup session.");
+               session = engine.CreateBackup(
+                  new BackupRequest()
+                  {
+                     DiffMethod = diffMethod,
+                     Sources = sourcePaths
+                  }
+               );
+            }
+            engine.StartBackup(session);
+            Console.WriteLine();
+            Console.WriteLine("   Backup complete.");
+         }
+         catch (Exception e)
+         {
+            Console.WriteLine();
             Console.WriteLine(
-               "   Resuming backup session started {0:MMM d, yyyy h:m tt}.",
-               session.Created
-            );
-         else
-         {
-            Console.WriteLine("   Creating a new backup session.");
-            session = engine.CreateBackup(
-               new BackupRequest()
-               {
-                  DiffMethod = diffMethod,
-                  Sources = sourcePaths
-               }
+               "   Backup failed: {0}", 
+               e.ToString().Replace("\n", "\n      ")
             );
          }
-         engine.StartBackup(session);
-         Console.WriteLine();
-         Console.WriteLine("Backup complete.");
       }
 
       static Boolean ParseArguments (String[] args)

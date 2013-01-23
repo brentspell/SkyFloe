@@ -25,8 +25,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 // Project References
 
-[assembly:Guid("5934F389-F519-4B17-AC51-8575A202D165")]
-[assembly:AssemblyTitle("SkyFloe.AwsStore")]
-[assembly:AssemblyDescription("SkyFloe Cloud Backup AWS Storage Library")]
-[assembly:CLSCompliant(true)]
-[assembly:ComVisible(false)]
+[assembly:Guid("6CF7ABC9-36E8-48E2-966F-028EC7EE6915")]
+[assembly:AssemblyTitle("SkyFloe")]
+[assembly:AssemblyDescription("SkyFloe Cloud Backup/Restore Application")]

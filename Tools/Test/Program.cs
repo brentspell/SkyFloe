@@ -48,7 +48,7 @@ namespace SkyFloe.Test
                session = engine.CreateRestore(
                   new RestoreRequest()
                   {
-                     SkipExisting = false,
+                     SkipExisting = true,
                      SkipReadOnly = false,
                      VerifyResults = true,
                      Entries = archive.Roots

@@ -279,11 +279,7 @@ namespace SkyFloe.Aws
                .TakeWhile(r => r.ID != entry.Retrieval.ID)
                .Where(r => r.Name != null)
             )
-            {
                this.downloader.DeleteJob(retrieval.Name);
-               retrieval.Name = null;
-               this.restoreIndex.UpdateRetrieval(retrieval);
-            }
             if (!ready)
                System.Threading.Thread.Sleep(
                   (Int32)TimeSpan.FromMinutes(20).TotalMilliseconds

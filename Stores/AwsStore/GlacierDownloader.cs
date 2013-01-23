@@ -9,7 +9,7 @@ namespace SkyFloe.Aws
    {
       private Amazon.Glacier.AmazonGlacierClient glacier;
       private String vault;
-      private Dictionary<String, GlacierStream> jobStreams;
+      private Dictionary<String, Stream> jobStreams;
       
       public GlacierDownloader (
          Amazon.Glacier.AmazonGlacierClient glacier,
@@ -17,7 +17,7 @@ namespace SkyFloe.Aws
       {
          this.glacier = glacier;
          this.vault = vault;
-         this.jobStreams = new Dictionary<String, GlacierStream>();
+         this.jobStreams = new Dictionary<String, Stream>();
       }
 
       public String StartJob (String archiveID, Int64 offset, Int64 length)
@@ -68,7 +68,7 @@ namespace SkyFloe.Aws
 
       public void DeleteJob (String jobID)
       {
-         GlacierStream jobStream = null;
+         Stream jobStream = null;
          if (this.jobStreams.TryGetValue(jobID, out jobStream))
          {
             this.jobStreams.Remove(jobID);
@@ -78,7 +78,7 @@ namespace SkyFloe.Aws
 
       public Stream GetJobStream (String jobID, Int64 offset, Int64 length)
       {
-         GlacierStream stream = null;
+         Stream stream = null;
          if (!this.jobStreams.TryGetValue(jobID, out stream))
             throw new InvalidOperationException("TODO: stream not found");
          try

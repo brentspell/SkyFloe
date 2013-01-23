@@ -28,13 +28,5 @@ using System.Runtime.InteropServices;
 [assembly:Guid("B0E755F5-BE17-4756-8B14-43EEA8698C5D")]
 [assembly:AssemblyTitle("SkyFloe.Core")]
 [assembly:AssemblyDescription("SkyFloe Cloud Backup Core Library")]
-[assembly:AssemblyCompany("Brent M. Spell")]
-[assembly:AssemblyProduct("SkyFloe")]
-[assembly:AssemblyCopyright("Copyright © 2013 Brent M. Spell. All Rights Reserved.")]
 [assembly:CLSCompliant(true)]
 [assembly:ComVisible(false)]
-#if DEBUG
-[assembly:AssemblyConfiguration("Debug")]
-#else
-[assembly:AssemblyConfiguration("Release")]
-#endif

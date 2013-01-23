@@ -342,7 +342,8 @@ namespace SkyFloe
                Flags = 
                   ((request.SkipExisting) ? Restore.SessionFlags.SkipExisting : 0) | 
                   ((request.SkipReadOnly) ? Restore.SessionFlags.SkipReadOnly : 0) | 
-                  ((request.VerifyResults) ? Restore.SessionFlags.VerifyResults : 0)
+                  ((request.VerifyResults) ? Restore.SessionFlags.VerifyResults : 0) | 
+                  ((request.EnableDeletes) ? Restore.SessionFlags.EnableDeletes : 0)
             }
          );
          using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
@@ -366,29 +367,37 @@ namespace SkyFloe
             foreach (Int32 backupEntryID in request.Entries)
             {
                Backup.Entry backupEntry = this.archive.BackupIndex.FetchEntry(backupEntryID);
-               Restore.Retrieval retrieval =
-                  this.archive.RestoreIndex
-                     .ListBlobRetrievals(session, backupEntry.Blob.Name)
-                     .FirstOrDefault() ??
-                  this.archive.RestoreIndex.InsertRetrieval(
-                     new Restore.Retrieval()
-                     {
-                        Session = session,
-                        Blob = backupEntry.Blob.Name,
-                        Offset = 0,
-                        Length = backupEntry.Blob.Length
-                     }
-                  );
-               this.archive.RestoreIndex.InsertEntry(
-                  new Restore.Entry()
-                  {
-                     BackupEntryID = backupEntry.ID,
-                     Retrieval = retrieval,
-                     State = Restore.EntryState.Pending,
-                     Offset = backupEntry.Offset,
-                     Length = backupEntry.Length
-                  }
-               );
+               switch (backupEntry.State)
+               {
+                  case Backup.EntryState.Completed:
+                     Restore.Retrieval retrieval =
+                        this.archive.RestoreIndex
+                           .ListBlobRetrievals(session, backupEntry.Blob.Name)
+                           .FirstOrDefault() ??
+                        this.archive.RestoreIndex.InsertRetrieval(
+                           new Restore.Retrieval()
+                           {
+                              Session = session,
+                              Blob = backupEntry.Blob.Name,
+                              Offset = 0,
+                              Length = backupEntry.Blob.Length
+                           }
+                        );
+                     this.archive.RestoreIndex.InsertEntry(
+                        new Restore.Entry()
+                        {
+                           BackupEntryID = backupEntry.ID,
+                           Retrieval = retrieval,
+                           State = Restore.EntryState.Pending,
+                           Offset = backupEntry.Offset,
+                           Length = backupEntry.Length
+                        }
+                     );
+                     break;
+                  case Backup.EntryState.Deleted:
+                     // TODO: implement
+                     break;
+               }
             }
             txn.Complete();
             return session;
@@ -412,7 +421,20 @@ namespace SkyFloe
             }
             txn.Complete();
          }
-         for ( ; ; )
+         // TODO: remove
+         using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
+         {
+            foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex.ListRetrievals(session))
+            {
+               foreach (Restore.Entry entry in this.archive.RestoreIndex.ListRetrievalEntries(retrieval))
+               {
+                  entry.State = Restore.EntryState.Pending;
+                  this.archive.RestoreIndex.UpdateEntry(entry);
+               }
+            }
+            txn.Complete();
+         }
+         for (; ; )
          {
             Restore.Entry restoreEntry = this.archive.RestoreIndex.LookupNextEntry(session);
             if (restoreEntry == null)
@@ -460,15 +482,7 @@ namespace SkyFloe
                restoreEntry.State = Restore.EntryState.Completed;
                this.archive.RestoreIndex.UpdateEntry(restoreEntry);
                this.archive.RestoreIndex.UpdateSession(session);
-            }
-         }
-         // TODO: remove
-         foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex.ListRetrievals(session))
-         {
-            foreach (Restore.Entry entry in this.archive.RestoreIndex.ListRetrievalEntries(retrieval))
-            {
-               entry.State = Restore.EntryState.Pending;
-               this.archive.RestoreIndex.UpdateEntry(entry);
+               txn.Complete();
             }
          }
          // TODO: update session state
