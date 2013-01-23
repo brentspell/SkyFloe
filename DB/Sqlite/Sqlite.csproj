@@ -11,7 +11,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
   </PropertyGroup>
   <PropertyGroup>
-    <OutputPath>..\Bin\</OutputPath>
+    <OutputPath>..\..\Bin\</OutputPath>
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DefineConstants>TRACE</DefineConstants>
@@ -36,7 +36,7 @@
     <Reference Include="System.Transactions" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Version.cs">
+    <Compile Include="..\..\Version.cs">
       <Link>Properties\Version.cs</Link>
     </Compile>
     <Compile Include="BackupIndex.cs" />
@@ -55,7 +55,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Core\Core.csproj">
+    <ProjectReference Include="..\..\Core\Core.csproj">
       <Project>{b0e755f5-be17-4756-8b14-43eea8698c5d}</Project>
       <Name>Core</Name>
     </ProjectReference>

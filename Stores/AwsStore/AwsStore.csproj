@@ -50,7 +50,7 @@
       <Project>{b0e755f5-be17-4756-8b14-43eea8698c5d}</Project>
       <Name>Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Sqlite\Sqlite.csproj">
+    <ProjectReference Include="..\..\DB\Sqlite\Sqlite.csproj">
       <Project>{de3ab975-4449-441b-a763-64c356be2b70}</Project>
       <Name>Sqlite</Name>
     </ProjectReference>
