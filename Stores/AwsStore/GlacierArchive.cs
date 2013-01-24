@@ -20,7 +20,8 @@ namespace SkyFloe.Aws
       private String vault;
       private String bucket;
       private String name;
-      private String backupIndexPath;
+      private FileInfo backupIndexFile;
+      private FileInfo checkpointIndexFile;
       private Sqlite.BackupIndex backupIndex;
       private Sqlite.RestoreIndex restoreIndex;
       private GlacierUploader uploader;
@@ -44,7 +45,10 @@ namespace SkyFloe.Aws
          this.vault = vault;
          this.bucket = bucket;
          this.name = name;
-         this.backupIndexPath = Path.GetTempFileName();
+         this.backupIndexFile = new FileInfo(Path.GetTempFileName());
+         this.backupIndexFile.Attributes |= FileAttributes.Temporary;
+         this.checkpointIndexFile = new FileInfo(Path.GetTempFileName());
+         this.checkpointIndexFile.Attributes |= FileAttributes.Temporary;
          String restoreIndexPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SkyFloe",
@@ -59,15 +63,24 @@ namespace SkyFloe.Aws
 
       public void Dispose ()
       {
+         if (this.uploader != null)
+            this.uploader.Dispose();
+         if (this.downloader != null)
+            this.downloader.Dispose();
          if (this.backupIndex != null)
             this.backupIndex.Dispose();
          if (this.restoreIndex != null)
             this.restoreIndex.Dispose();
-         if (this.backupIndexPath != null)
-            Sqlite.BackupIndex.Delete(this.backupIndexPath);
+         if (this.backupIndexFile != null)
+            this.backupIndexFile.Delete();
+         if (this.checkpointIndexFile != null)
+            this.checkpointIndexFile.Delete();
+         this.backupIndexFile = null;
+         this.checkpointIndexFile = null;
          this.backupIndex = null;
          this.restoreIndex = null;
-         this.backupIndexPath = null;
+         this.uploader = null;
+         this.downloader = null;
       }
 
       public void Create (Backup.Header header)
@@ -88,11 +101,18 @@ namespace SkyFloe.Aws
                BucketName = this.bucket
             }
          );
-         this.backupIndex = Sqlite.BackupIndex.Create(this.backupIndexPath, header);
+         this.backupIndex = Sqlite.BackupIndex.Create(this.backupIndexFile.FullName, header);
       }
       public void Open ()
       {
-         using (FileStream indexStream = new FileStream(this.backupIndexPath, FileMode.Open, FileAccess.Write, FileShare.None))
+         using (FileStream indexStream = 
+            new FileStream(
+               this.backupIndexFile.FullName, 
+               FileMode.Open, 
+               FileAccess.Write, 
+               FileShare.None
+            )
+         )
          using (Stream s3Stream = 
                this.s3.GetObject(
                   new Amazon.S3.Model.GetObjectRequest()
@@ -104,7 +124,7 @@ namespace SkyFloe.Aws
             )
          using (GZipStream gzip = new GZipStream(s3Stream, CompressionMode.Decompress))
             gzip.CopyTo(indexStream);
-         this.backupIndex = Sqlite.BackupIndex.Open(this.backupIndexPath);
+         this.backupIndex = Sqlite.BackupIndex.Open(this.backupIndexFile.FullName);
       }
 
       #region IArchive Implementation
@@ -160,18 +180,26 @@ namespace SkyFloe.Aws
             this.backupIndex.UpdateBlob(blob);
             this.uploader = null;
          }
-         using (FileStream s3File = new FileStream(Path.GetTempFileName(), FileMode.Open, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.DeleteOnClose))
+         using (FileStream checkpointStream = 
+            new FileStream(
+               this.checkpointIndexFile.FullName, 
+               FileMode.Open, 
+               FileAccess.ReadWrite, 
+               FileShare.None
+            )
+         )
          {
-            using (GZipStream gzip = new GZipStream(s3File, CompressionMode.Compress, true))
-            using (Stream idx = this.backupIndex.Serialize())
-               idx.CopyTo(gzip);
-            s3File.Position = 0;
+            checkpointStream.SetLength(0);
+            using (GZipStream gzipStream = new GZipStream(checkpointStream, CompressionMode.Compress, true))
+            using (Stream indexStream = this.backupIndex.Serialize())
+               indexStream.CopyTo(gzipStream);
+            checkpointStream.Position = 0;
             this.s3.PutObject(
                new Amazon.S3.Model.PutObjectRequest()
                {
                   BucketName = this.bucket,
                   Key = this.IndexS3Key,
-                  InputStream = s3File
+                  InputStream = checkpointStream
                }
             );
          }

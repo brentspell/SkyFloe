@@ -10,11 +10,12 @@ namespace SkyFloe
       private Sqlite.BackupIndex backupIndex;
       private Sqlite.RestoreIndex restoreIndex;
       private Stream blobFile;
-      private String tempBackupIndexPath;
+      private FileInfo tempBackupIndexFile;
 
       public FileArchive ()
       {
-         this.tempBackupIndexPath = System.IO.Path.GetTempFileName();
+         this.tempBackupIndexFile = new FileInfo(System.IO.Path.GetTempFileName());
+         this.tempBackupIndexFile.Attributes |= FileAttributes.Temporary;
       }
 
       public void Dispose ()
@@ -25,12 +26,12 @@ namespace SkyFloe
             this.restoreIndex.Dispose();
          if (this.blobFile != null)
             this.blobFile.Dispose();
-         if (this.tempBackupIndexPath != null)
-            Sqlite.BackupIndex.Delete(this.tempBackupIndexPath);
+         if (this.tempBackupIndexFile != null)
+            Sqlite.BackupIndex.Delete(this.tempBackupIndexFile.FullName);
          this.backupIndex = null;
          this.restoreIndex = null;
          this.blobFile = null;
-         this.tempBackupIndexPath = null;
+         this.tempBackupIndexFile = null;
          String restoreIndexPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SkyFloe",
@@ -62,7 +63,7 @@ namespace SkyFloe
          try
          {
             Directory.CreateDirectory(this.Path);
-            this.backupIndex = Sqlite.BackupIndex.Create(this.tempBackupIndexPath, header);
+            this.backupIndex = Sqlite.BackupIndex.Create(this.tempBackupIndexFile.FullName, header);
             this.backupIndex.InsertBlob(
                new Backup.Blob()
                {
@@ -81,8 +82,8 @@ namespace SkyFloe
       {
          try
          {
-            File.Copy(this.BackupIndexPath, this.tempBackupIndexPath, true);
-            this.backupIndex = Sqlite.BackupIndex.Open(this.tempBackupIndexPath);
+            File.Copy(this.BackupIndexPath, this.tempBackupIndexFile.FullName, true);
+            this.backupIndex = Sqlite.BackupIndex.Open(this.tempBackupIndexFile.FullName);
          }
          catch
          {

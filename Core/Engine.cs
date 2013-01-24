@@ -326,6 +326,7 @@ namespace SkyFloe
          }
          session.State = Backup.SessionState.Completed;
          this.archive.BackupIndex.UpdateSession(session);
+         // TODO: retry on final checkpoint failure
          this.archive.Checkpoint();
       }
 

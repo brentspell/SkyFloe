@@ -7,33 +7,43 @@ using Amazon.Glacier.Model;
 
 namespace SkyFloe.Aws
 {
-   public class GlacierUploader
+   public class GlacierUploader : IDisposable
    {
-      static Int32 toggle = 0;
       private AmazonGlacierClient glacier;
       private String vault;
       private Int32 partSize;
-      private Byte[] partBuffer;
-      private Int32 partLength;
+      private Int32 partOffset;
       private Stream partStream;
+      private Byte[] readBuffer;
       private List<String> partChecksums;
       private String uploadID;
       private Int64 archiveOffset;
 
       public String UploadID { get { return this.uploadID; } }
-      public Int64 Length { get { return this.archiveOffset + this.partLength; } }
+      public Int64 Length { get { return this.archiveOffset + this.partOffset; } }
       
       public GlacierUploader (
          AmazonGlacierClient glacier,
          String vault,
          Int32 partSize)
       {
+         FileInfo partFile = new FileInfo(Path.GetTempFileName());
+         partFile.Attributes |= FileAttributes.Temporary;
          this.glacier = glacier;
          this.vault = vault;
          this.partSize = partSize;
-         this.partBuffer = new Byte[this.partSize];
-         this.partStream = new MemoryStream(this.partBuffer);
-         this.partLength = 0;
+         this.partOffset = 0;
+         this.partStream = new FileStream(
+            partFile.FullName,
+            FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.None,
+            65536,
+            FileOptions.DeleteOnClose
+         );
+         this.partStream.Position = 0;
+         this.partStream.SetLength(this.partSize);
+         this.readBuffer = new Byte[65536];
          this.partChecksums = new List<String>();
          this.uploadID = this.glacier.InitiateMultipartUpload(
             new InitiateMultipartUploadRequest()
@@ -45,20 +55,32 @@ namespace SkyFloe.Aws
          this.archiveOffset = 0;
       }
 
+      public void Dispose ()
+      {
+         if (this.partStream != null)
+            this.partStream.Dispose();
+         this.partStream = null;
+      }
+
       public Int64 Upload (Stream stream)
       {
          Int64 streamLength = 0;
          for (; ; )
          {
-            if (this.partLength == this.partSize)
+            if (this.partOffset == this.partSize)
                Flush();
             Int32 read = stream.Read(
-               this.partBuffer,
-               this.partLength,
-               this.partSize - this.partLength);
+               this.readBuffer,
+               0,
+               Math.Min(
+                  this.readBuffer.Length, 
+                  this.partSize - this.partOffset
+               )
+            );
             if (read == 0)
                break;
-            this.partLength += read;
+            this.partStream.Write(this.readBuffer, 0, read);
+            this.partOffset += read;
             streamLength += read;
          }
          return streamLength;
@@ -66,12 +88,13 @@ namespace SkyFloe.Aws
 
       public void Flush ()
       {
-         if (this.partLength > 0)
+         Int32 partLength = this.partOffset;
+         if (partLength > 0)
          {
-            this.partStream.SetLength(this.partLength);
-            this.partStream.Seek(0, SeekOrigin.Begin);
+            this.partStream.SetLength(partLength);
+            this.partStream.Position = this.partOffset = 0;
             String checksum = TreeHashGenerator.CalculateTreeHash(this.partStream);
-            this.partStream.Seek(0, SeekOrigin.Begin);
+            this.partStream.Position = this.partOffset = 0;
             this.glacier.UploadMultipartPart(
                new UploadMultipartPartRequest()
                {
@@ -81,14 +104,14 @@ namespace SkyFloe.Aws
                   Range = String.Format(
                      "bytes {0}-{1}/*",
                      this.archiveOffset,
-                     this.archiveOffset + this.partLength - 1
+                     this.archiveOffset + partLength - 1
                   ),
                   Checksum = checksum
                }
             );
             this.partChecksums.Add(checksum);
-            this.archiveOffset += this.partLength;
-            this.partLength = 0;
+            this.archiveOffset += partLength;
+            this.partStream.Position = this.partOffset = 0;
          }
       }
 
@@ -103,13 +126,13 @@ namespace SkyFloe.Aws
             // if we haven't committed any parts since the failure,
             // simply reset the current part length and continue
             if (commitPartOffset == this.archiveOffset)
-               this.partLength = commitPartLength;
+               this.partStream.Position = this.partOffset = commitPartLength;
             else
             {
                // otherwise, resync the archive offset with the 
                // known commit length and align on the next part 
                // boundary, if there were commits already uploaded
-               this.partLength = 0;
+               this.partStream.Position = this.partOffset = 0;
                this.archiveOffset = commitPartOffset;
                if (commitPartLength > 0)
                   this.archiveOffset += this.partSize;
@@ -125,7 +148,7 @@ namespace SkyFloe.Aws
 
       public String Complete ()
       {
-         if (this.partLength > 0)
+         if (this.partOffset > 0)
             Flush();
          String archiveID = this.glacier.CompleteMultipartUpload(
             new CompleteMultipartUploadRequest()
@@ -138,9 +161,8 @@ namespace SkyFloe.Aws
          ).CompleteMultipartUploadResult.ArchiveId;
          this.glacier = null;
          this.vault = null;
-         this.partBuffer = null;
-         this.partLength = 0;
          this.partStream = null;
+         this.readBuffer = null;
          this.partChecksums = null;
          this.uploadID = null;
          this.archiveOffset = 0;

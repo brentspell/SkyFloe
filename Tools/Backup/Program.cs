@@ -57,7 +57,7 @@ namespace SkyFloe.Backup
                );
             else
             {
-               Console.WriteLine("   Creating a new backup session.");
+               Console.Write("   Creating a new backup session...");
                session = engine.CreateBackup(
                   new BackupRequest()
                   {
@@ -65,6 +65,7 @@ namespace SkyFloe.Backup
                      Sources = sourcePaths
                   }
                );
+               Console.WriteLine("done.");
             }
             engine.StartBackup(session);
             Console.WriteLine();

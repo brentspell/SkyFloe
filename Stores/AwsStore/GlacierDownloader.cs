@@ -2,17 +2,19 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Amazon.Glacier;
+using Amazon.Glacier.Model;
 
 namespace SkyFloe.Aws
 {
-   public class GlacierDownloader
+   public class GlacierDownloader : IDisposable
    {
-      private Amazon.Glacier.AmazonGlacierClient glacier;
+      private AmazonGlacierClient glacier;
       private String vault;
       private Dictionary<String, Stream> jobStreams;
       
       public GlacierDownloader (
-         Amazon.Glacier.AmazonGlacierClient glacier,
+         AmazonGlacierClient glacier,
          String vault)
       {
          this.glacier = glacier;
@@ -20,13 +22,17 @@ namespace SkyFloe.Aws
          this.jobStreams = new Dictionary<String, Stream>();
       }
 
+      public void Dispose ()
+      {
+      }
+
       public String StartJob (String archiveID, Int64 offset, Int64 length)
       {
          return this.glacier.InitiateJob(
-            new Amazon.Glacier.Model.InitiateJobRequest()
+            new InitiateJobRequest()
             {
                VaultName = this.vault,
-               JobParameters = new Amazon.Glacier.Model.JobParameters()
+               JobParameters = new JobParameters()
                {
                   Type = "archive-retrieval",
                   ArchiveId = archiveID,
@@ -44,8 +50,8 @@ namespace SkyFloe.Aws
       {
          if (this.jobStreams.ContainsKey(jobID))
             return true;
-         Amazon.Glacier.Model.DescribeJobResult jobInfo = this.glacier.DescribeJob(
-            new Amazon.Glacier.Model.DescribeJobRequest()
+         DescribeJobResult jobInfo = this.glacier.DescribeJob(
+            new DescribeJobRequest()
             {
                VaultName = this.vault,
                JobId = jobID
