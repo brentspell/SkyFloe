@@ -141,8 +141,8 @@ namespace SkyFloe.Aws
          }
          Backup.Blob blob = this.backupIndex.LookupBlob(this.uploader.UploadID);
          if (blob.Length != this.uploader.Length)
-            this.uploader.Resync(blob.Length);
-         Int64 offset = blob.Length = this.uploader.Length;
+            blob.Length = this.uploader.Resync(blob.Length);
+         Int64 offset = this.uploader.Length;
          Int64 length = this.uploader.Upload(stream);
          entry.Blob = blob;
          entry.Offset = offset;

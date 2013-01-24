@@ -22,6 +22,8 @@ namespace SkyFloe.Test
 
       static void Main (String[] args)
       {
+         //new FileStream(@"C:\Temp\Source\testa16.dat", FileMode.Open, FileAccess.Write, FileShare.Read).SetLength(16 * 1024 * 1024 - 16);
+         //new FileStream(@"C:\Temp\Source\testb32.dat", FileMode.Open, FileAccess.Write, FileShare.Read).SetLength(32 * 1024 * 1024 - 16);
          DateTime started = DateTime.UtcNow;
          /*
          foreach (String child in Directory.GetFileSystemEntries(@"l:\"))

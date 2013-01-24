@@ -2,12 +2,15 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Amazon.Glacier;
+using Amazon.Glacier.Model;
 
 namespace SkyFloe.Aws
 {
    public class GlacierUploader
    {
-      private Amazon.Glacier.AmazonGlacierClient glacier;
+      static Int32 toggle = 0;
+      private AmazonGlacierClient glacier;
       private String vault;
       private Int32 partSize;
       private Byte[] partBuffer;
@@ -21,7 +24,7 @@ namespace SkyFloe.Aws
       public Int64 Length { get { return this.archiveOffset + this.partLength; } }
       
       public GlacierUploader (
-         Amazon.Glacier.AmazonGlacierClient glacier,
+         AmazonGlacierClient glacier,
          String vault,
          Int32 partSize)
       {
@@ -33,7 +36,7 @@ namespace SkyFloe.Aws
          this.partLength = 0;
          this.partChecksums = new List<String>();
          this.uploadID = this.glacier.InitiateMultipartUpload(
-            new Amazon.Glacier.Model.InitiateMultipartUploadRequest()
+            new InitiateMultipartUploadRequest()
             {
                VaultName = this.vault,
                PartSize = this.partSize
@@ -67,12 +70,10 @@ namespace SkyFloe.Aws
          {
             this.partStream.SetLength(this.partLength);
             this.partStream.Seek(0, SeekOrigin.Begin);
-            String checksum = Amazon.Glacier.TreeHashGenerator.CalculateTreeHash(
-               this.partStream
-            );
+            String checksum = TreeHashGenerator.CalculateTreeHash(this.partStream);
             this.partStream.Seek(0, SeekOrigin.Begin);
             this.glacier.UploadMultipartPart(
-               new Amazon.Glacier.Model.UploadMultipartPartRequest()
+               new UploadMultipartPartRequest()
                {
                   VaultName = this.vault,
                   UploadId = this.uploadID,
@@ -85,53 +86,54 @@ namespace SkyFloe.Aws
                   Checksum = checksum
                }
             );
-            Int32 partIdx = (Int32)(this.archiveOffset / this.partSize);
-            while (partIdx >= this.partChecksums.Count)
-               this.partChecksums.Add(null);
-            this.partChecksums[partIdx] = checksum;
+            this.partChecksums.Add(checksum);
             this.archiveOffset += this.partLength;
             this.partLength = 0;
          }
       }
 
-      public void Resync (Int64 commitLength)
+      public Int64 Resync (Int64 commitLength)
       {
          if (commitLength > this.Length)
             throw new ArgumentException("commitLength");
          if (commitLength < this.Length)
          {
-            // if there are outstanding buffered changes
-            // for other archive entries, flush them to Glacier
-            if (this.partLength > 0)
+            Int32 commitPartLength = (Int32)(commitLength % this.partSize);
+            Int64 commitPartOffset = commitLength - commitPartLength;
+            // if we haven't committed any parts since the failure,
+            // simply reset the current part length and continue
+            if (commitPartOffset == this.archiveOffset)
+               this.partLength = commitPartLength;
+            else
             {
-               this.partLength = this.partSize;
-               Flush();
+               // otherwise, resync the archive offset with the 
+               // known commit length and align on the next part 
+               // boundary, if there were commits already uploaded
+               this.partLength = 0;
+               this.archiveOffset = commitPartOffset;
+               if (commitPartLength > 0)
+                  this.archiveOffset += this.partSize;
+               // remove any checksums already calculated for 
+               // uncommitted parts
+               Int32 partIdx = (Int32)(this.archiveOffset / this.partSize);
+               if (partIdx < this.partChecksums.Count)
+                  this.partChecksums.RemoveRange(partIdx, this.partChecksums.Count - partIdx);
             }
-            // resync the archive offset with the known commit
-            // length, and align on the next part boundary,
-            // to avoid wasting archive parts for large files
-            Int64 commitOffset = commitLength % this.partSize;
-            if (commitOffset > 0)
-               this.archiveOffset = commitLength + this.partSize - commitOffset;
          }
+         return this.Length;
       }
 
       public String Complete ()
       {
          if (this.partLength > 0)
             Flush();
-         Int32 partCount = (Int32)(this.Length / this.partSize);
-         if (this.Length % this.partSize > 0)
-            partCount++;
          String archiveID = this.glacier.CompleteMultipartUpload(
-            new Amazon.Glacier.Model.CompleteMultipartUploadRequest()
+            new CompleteMultipartUploadRequest()
             {
                VaultName = this.vault,
                UploadId = this.uploadID,
                ArchiveSize = this.Length.ToString(),
-               Checksum = Amazon.Glacier.TreeHashGenerator.CalculateTreeHash(
-                  this.partChecksums.Take(partCount)
-               )
+               Checksum = TreeHashGenerator.CalculateTreeHash(this.partChecksums)
             }
          ).CompleteMultipartUploadResult.ArchiveId;
          this.glacier = null;
