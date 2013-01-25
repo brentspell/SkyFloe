@@ -92,9 +92,9 @@ namespace SkyFloe.Aws
          if (partLength > 0)
          {
             this.partStream.SetLength(partLength);
-            this.partStream.Position = this.partOffset = 0;
+            this.partStream.Position = 0;
             String checksum = TreeHashGenerator.CalculateTreeHash(this.partStream);
-            this.partStream.Position = this.partOffset = 0;
+            this.partStream.Position = 0;
             this.glacier.UploadMultipartPart(
                new UploadMultipartPartRequest()
                {
@@ -119,6 +119,7 @@ namespace SkyFloe.Aws
       {
          if (commitLength > this.Length)
             throw new ArgumentException("commitLength");
+         this.partStream.Position = this.partOffset;
          if (commitLength < this.Length)
          {
             Int32 commitPartLength = (Int32)(commitLength % this.partSize);
