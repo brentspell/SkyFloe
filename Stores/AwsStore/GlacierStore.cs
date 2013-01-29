@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,9 +15,20 @@ namespace SkyFloe.Aws
       private Amazon.S3.AmazonS3 s3;
       private Amazon.Glacier.AmazonGlacierClient glacier;
 
+      public GlacierStore ()
+      {
+         this.Bucket = "SkyFloe";
+      }
+
       #region Connection Properties
+      [Required]
+      [RegularExpression(@"^[0-9A-Za-z]{20}$")]
       public String AccessKey { get; set; }
+      [Required]
+      [RegularExpression(@"^[0-9A-Za-z/+]{40}$")]
       public String SecretKey { get; set; }
+      [Required]
+      [RegularExpression(@"^[0-9A-Za-z_\-.]{1,255}$")]
       public String Bucket { get; set; }
       #endregion
 
@@ -42,8 +55,6 @@ namespace SkyFloe.Aws
                this.AccessKey,
                this.SecretKey
             );
-         if (this.Bucket == null)
-            this.Bucket = "SkyFloe";
          this.s3 = Amazon.AWSClientFactory.CreateAmazonS3Client(credentials);
          this.glacier = new Amazon.Glacier.AmazonGlacierClient(credentials);
          this.s3.PutBucket(

@@ -5,14 +5,14 @@ using System.Linq;
 
 namespace SkyFloe
 {
-   internal class FileArchive : Store.IArchive
+   internal class FileSystemArchive : Store.IArchive
    {
       private Sqlite.BackupIndex backupIndex;
       private Sqlite.RestoreIndex restoreIndex;
       private Stream blobFile;
       private FileInfo tempBackupIndexFile;
 
-      public FileArchive ()
+      public FileSystemArchive ()
       {
          this.tempBackupIndexFile = new FileInfo(System.IO.Path.GetTempFileName());
          this.tempBackupIndexFile.Attributes |= FileAttributes.Temporary;

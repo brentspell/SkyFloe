@@ -58,5 +58,28 @@ namespace SkyFloe.App.Properties {
                 this["WindowSize"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        public global::SkyFloe.App.Data.ConnectionStringList ConnectionStrings {
+            get {
+                return ((global::SkyFloe.App.Data.ConnectionStringList)(this["ConnectionStrings"]));
+            }
+            set {
+                this["ConnectionStrings"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("320")]
+        public int MainSplitterDistance {
+            get {
+                return ((int)(this["MainSplitterDistance"]));
+            }
+            set {
+                this["MainSplitterDistance"] = value;
+            }
+        }
     }
 }

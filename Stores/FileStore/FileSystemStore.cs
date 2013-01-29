@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 
 namespace SkyFloe
 {
-   public class FileStore : Store.IStore
+   public class FileSystemStore : Store.IStore
    {
       #region Connection Properties
+      [Required]
       public String Path { get; set; }
       #endregion
 
@@ -25,7 +28,7 @@ namespace SkyFloe
       }
       public Store.IArchive CreateArchive (String name, Backup.Header header)
       {
-         FileArchive archive = new FileArchive()
+         FileSystemArchive archive = new FileSystemArchive()
          {
             Path = System.IO.Path.Combine(this.Path, name)
          };
@@ -34,7 +37,7 @@ namespace SkyFloe
       }
       public Store.IArchive OpenArchive (String name)
       {
-         FileArchive archive = new FileArchive()
+         FileSystemArchive archive = new FileSystemArchive()
          {
             Path = System.IO.Path.Combine(this.Path, name)
          };

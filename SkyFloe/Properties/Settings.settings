@@ -11,5 +11,11 @@
     <Setting Name="WindowSize" Type="System.Drawing.Size" Scope="User">
       <Value Profile="(Default)">800, 600</Value>
     </Setting>
+    <Setting Name="ConnectionStrings" Type="SkyFloe.App.Data.ConnectionStringList" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="MainSplitterDistance" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">320</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

@@ -178,6 +178,7 @@ namespace SkyFloe.Aws
             String archiveID = this.uploader.Complete();
             blob.Name = archiveID;
             this.backupIndex.UpdateBlob(blob);
+            this.uploader.Dispose();
             this.uploader = null;
          }
          using (FileStream checkpointStream = 

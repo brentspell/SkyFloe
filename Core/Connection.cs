@@ -12,7 +12,7 @@ namespace SkyFloe
       private static Dictionary<String, String> knownStores =
          new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase)
          {
-            { "File", "SkyFloe.FileStore,SkyFloe.FileStore" },
+            { "FileSystem", "SkyFloe.FileSystemStore,SkyFloe.FileStore" },
             { "AwsGlacier", "SkyFloe.Aws.GlacierStore,SkyFloe.AwsStore" }
          };
 
@@ -26,6 +26,71 @@ namespace SkyFloe
       public void Dispose ()
       {
          Close();
+      }
+
+      public static Dictionary<String, String> Parse (String connect)
+      {
+         Dictionary<String, String> paramMap =
+            new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase);
+         foreach (String param in connect.Split(';'))
+         {
+            Int32 sepIdx = param.IndexOf('=');
+            if (sepIdx != -1)
+               paramMap[param.Substring(0, sepIdx).Trim()] =
+                  param.Substring(sepIdx + 1).Trim();
+         }
+         return paramMap;
+      }
+
+      public static void Bind (Dictionary<String, String> paramMap, Object props)
+      {
+         foreach (KeyValuePair<String, String> param in paramMap
+            .Where(p => String.Compare(p.Key, "Store", true) != 0)
+         )
+         {
+            PropertyDescriptor prop = TypeDescriptor.GetProperties(props)
+               .Cast<PropertyDescriptor>()
+               .FirstOrDefault(p => String.Compare(p.Name, param.Key, true) == 0);
+            if (prop == null)
+               throw new InvalidOperationException("TODO: connection string param not found");
+            try
+            {
+               prop.SetValue(props, prop.Converter.ConvertFrom(param.Value));
+            }
+            catch (Exception e)
+            {
+               throw new InvalidOperationException("TODO: failed to bind connection string param", e);
+            }
+         }
+      }
+
+      public static Object GetStoreProperties (String store)
+      {
+         // TODO: refactor
+         String knownStore = null;
+         if (knownStores.TryGetValue(store, out knownStore))
+            store = knownStore;
+         // load and create the store type
+         return Activator.CreateInstance(Type.GetType(store, true));
+      }
+
+      public static String GetConnectionString (String store, Object props)
+      {
+         return String.Join(
+            ";",
+            new[] { String.Format("Store={0}", store) }
+            .Concat(
+               TypeDescriptor.GetProperties(props)
+               .Cast<PropertyDescriptor>()
+               .Select(
+                  p => String.Format(
+                     "{0}={1}", 
+                     p.Name, 
+                     p.Converter.ConvertTo(p.GetValue(props), typeof(String))
+                  )
+               )
+            )
+         );
       }
 
       public String ConnectionString
@@ -42,43 +107,20 @@ namespace SkyFloe
          if (this.store != null)
             throw new InvalidOperationException("TODO: already connected");
          // parse connection string parameters
-         Dictionary<String, String> paramMap = 
-            new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase);
-         foreach (String param in connect.Split(';'))
-         {
-            Int32 sepIdx = param.IndexOf('=');
-            if (sepIdx != -1)
-               paramMap[param.Substring(0, sepIdx).Trim()] =
-                  param.Substring(sepIdx + 1).Trim();
-         }
+         Dictionary<String, String> paramMap = Parse(connect);
          // determine the store name
          String storeName = null;
          if (!paramMap.TryGetValue("Store", out storeName))
             throw new InvalidOperationException("TODO: store not found");
          paramMap.Remove("Store");
-         String knownStore = "";
+         String knownStore = null;
          if (knownStores.TryGetValue(storeName, out knownStore))
             storeName = knownStore;
          // attempt to load the store type
          Type storeType = Type.GetType(storeName, true);
          Store.IStore store = (Store.IStore)Activator.CreateInstance(storeType);
-         // bind the store properties
-         foreach (KeyValuePair<String, String> param in paramMap)
-         {
-            PropertyDescriptor prop = TypeDescriptor.GetProperties(storeType)
-               .Cast<PropertyDescriptor>()
-               .FirstOrDefault(p => String.Compare(p.Name, param.Key, true) == 0);
-            if (prop == null)
-               throw new InvalidOperationException("TODO: connection string param not found");
-            try
-            {
-               prop.SetValue(store, prop.Converter.ConvertFrom(param.Value));
-            }
-            catch (Exception e)
-            {
-               throw new InvalidOperationException("TODO: failed to bind connection string param", e);
-            }
-         }
+         // bind the store properties and connect
+         Bind(paramMap, store);
          store.Open();
          this.connectionString = connect;
          this.store = store;
