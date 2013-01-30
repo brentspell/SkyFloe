@@ -54,6 +54,12 @@
     <Compile Include="Forms\ConnectionForm.Designer.cs">
       <DependentUpon>ConnectionForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\ErrorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ErrorForm.Designer.cs">
+      <DependentUpon>ErrorForm.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -89,6 +95,9 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Forms\ConnectionForm.resx">
       <DependentUpon>ConnectionForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\ErrorForm.resx">
+      <DependentUpon>ErrorForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\MainForm.resx">
       <DependentUpon>MainForm.cs</DependentUpon>
@@ -142,6 +151,7 @@
     <Content Include="Resources\archive.png" />
     <Content Include="Resources\connect.png" />
     <Content Include="Resources\directory.png" />
+    <None Include="Resources\error.png" />
     <Content Include="Resources\file.png" />
     <Content Include="Resources\refresh.png" />
     <Content Include="Resources\root.png" />

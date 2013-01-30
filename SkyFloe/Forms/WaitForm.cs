@@ -59,6 +59,8 @@ namespace SkyFloe.App.Forms
                   {
                      this.completed = true;
                      this.Close();
+                     if (t.Exception != null)
+                        throw t.Exception;
                   },
                   null
                )

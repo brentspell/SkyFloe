@@ -118,7 +118,7 @@ namespace SkyFloe.App.Forms
                }
                catch (Exception e)
                {
-                  MessageBox.Show(e.ToString(), "Connect failed");
+                  new ErrorForm(e).ShowDialog(this);
                }
             }
          }
