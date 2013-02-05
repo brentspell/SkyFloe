@@ -65,7 +65,10 @@ namespace SkyFloe.Aws
             Int64 length = Convert.ToInt64(stop) - Convert.ToInt64(start) + 1;
             this.jobStreams.Add(
                jobID, 
-               new GlacierStream(this.glacier, this.vault, jobID, length)
+               new BufferedStream(
+                  new GlacierStream(this.glacier, this.vault, jobID, length),
+                  65536
+               )
             );
             return true;
          }

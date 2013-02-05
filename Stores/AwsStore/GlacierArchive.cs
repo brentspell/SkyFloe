@@ -212,10 +212,10 @@ namespace SkyFloe.Aws
             foreach (Restore.Retrieval oldRetrieval in this.restoreIndex.ListRetrievals(session))
             {
                Backup.Blob blob = this.backupIndex.LookupBlob(oldRetrieval.Blob);
-               oldRetrieval.Length = 0;
-               this.restoreIndex.UpdateRetrieval(oldRetrieval);
-               Restore.Retrieval newRetrieval = oldRetrieval;
-               foreach (Restore.Entry entry in this.restoreIndex.ListRetrievalEntries(newRetrieval))
+               Restore.Retrieval newRetrieval = this.restoreIndex.FetchRetrieval(oldRetrieval.ID);
+               newRetrieval.Length = 0;
+               this.restoreIndex.UpdateRetrieval(newRetrieval);
+               foreach (Restore.Entry entry in this.restoreIndex.ListRetrievalEntries(oldRetrieval))
                {
                   if (entry.Offset < newRetrieval.Offset + newRetrieval.Length + MinRetrievalSize)
                   {
@@ -225,7 +225,7 @@ namespace SkyFloe.Aws
                   }
                   else
                   {
-                     entry.Retrieval = newRetrieval = this.restoreIndex.InsertRetrieval(
+                     newRetrieval = this.restoreIndex.InsertRetrieval(
                         new Restore.Retrieval()
                         {
                            Session = session,
@@ -234,9 +234,10 @@ namespace SkyFloe.Aws
                            Length = entry.Length + (MinRetrievalSize - entry.Length % MinRetrievalSize)
                         }
                      );
-                     entry.Offset -= entry.Retrieval.Offset;
-                     this.restoreIndex.UpdateEntry(entry);
                   }
+                  entry.Retrieval = newRetrieval;
+                  entry.Offset -= entry.Retrieval.Offset;
+                  this.restoreIndex.UpdateEntry(entry);
                   if (newRetrieval.Offset + newRetrieval.Length > blob.Length)
                   {
                      newRetrieval.Length = blob.Length - newRetrieval.Offset;
@@ -244,13 +245,13 @@ namespace SkyFloe.Aws
                   }
                }
             }
-            foreach (Restore.Retrieval orphan in this.restoreIndex.ListRetrievals(session))
-               if (orphan.Length == 0)
-                  this.restoreIndex.DeleteRetrieval(orphan);
          }
+         /* TODO
          this.maxRetrievalRate =
             0.05d * this.backupIndex.ListSessions().Sum(s => s.ActualLength) /
             TimeSpan.FromDays(30).TotalSeconds;
+         */
+         this.maxRetrievalRate = 1024 * 1024 * 1024 / TimeSpan.FromHours(1).TotalSeconds;
          this.downloader = new GlacierDownloader(this.glacier, this.vault);
          foreach (Restore.Retrieval retrieval in this.restoreIndex.ListRetrievals(session))
          {
@@ -294,13 +295,23 @@ namespace SkyFloe.Aws
                      break;
                if (retrieval.Name == null)
                {
+                  // TODO: remove
+                  Console.WriteLine(
+                     "{0:MMM dd, hh:mm}: Retrieving blob {1}..., offset = {2}, length = {3}",
+                     DateTime.Now,
+                     retrieval.Blob.Substring(0, 20),
+                     retrieval.Offset,
+                     retrieval.Length
+                  );
                   retrieval.Name = this.downloader.StartJob(
                      retrieval.Blob,
                      retrieval.Offset,
                      retrieval.Length
                   );
                   this.restoreIndex.UpdateRetrieval(retrieval);
+                  // TODO: consider refactoring
                   entry.Retrieval.Session.Retrieved += retrieval.Length;
+                  this.restoreIndex.UpdateSession(entry.Retrieval.Session);
                }
             }
             foreach (Restore.Retrieval retrieval in this.restoreIndex

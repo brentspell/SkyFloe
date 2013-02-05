@@ -45,8 +45,12 @@ namespace SkyFloe.IO
       }
       public override Int64 Position
       {
+         get { return Seek(0, SeekOrigin.Current); }
+         set { Seek(value, SeekOrigin.Begin); }
+      }
+      public override Int64 Length
+      {
          get { throw new NotSupportedException(); }
-         set { throw new NotSupportedException(); }
       }
       public override Int64 Seek (Int64 offset, SeekOrigin origin)
       {

@@ -415,23 +415,10 @@ namespace SkyFloe
          using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
          {
             this.archive.PrepareRestore(session);
-            if (session.State == Restore.SessionState.InProgress)
+            if (session.State == Restore.SessionState.Pending)
             {
                session.State = Restore.SessionState.InProgress;
                this.archive.RestoreIndex.UpdateSession(session);
-            }
-            txn.Complete();
-         }
-         // TODO: remove
-         using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
-         {
-            foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex.ListRetrievals(session))
-            {
-               foreach (Restore.Entry entry in this.archive.RestoreIndex.ListRetrievalEntries(retrieval))
-               {
-                  entry.State = Restore.EntryState.Pending;
-                  this.archive.RestoreIndex.UpdateEntry(entry);
-               }
             }
             txn.Complete();
          }
@@ -464,18 +451,43 @@ namespace SkyFloe
                {
                   // TODO: fault tolerance
                   using (FileStream fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
+                  using (IO.Crc32Stream crcStream = new IO.Crc32Stream(fileStream, IO.StreamMode.Write))
                   using (Stream archiveStream = this.archive.RestoreEntry(restoreEntry))
                   using (CryptoStream cryptoStream = new CryptoStream(archiveStream, this.aes.CreateDecryptor(), CryptoStreamMode.Read))
-                     cryptoStream.CopyTo(fileStream);
-                  if (session.VerifyResults)
-                     if (IO.Crc32Stream.Calculate(fileInfo) != backupEntry.Crc32)
+                  {
+                     cryptoStream.CopyTo(crcStream);
+                     if (session.VerifyResults && crcStream.Value != backupEntry.Crc32)
                         throw new InvalidOperationException("TODO: CRC does not match");
+                  }
                }
-               catch
+               catch (Exception e)
                {
                   try { File.Delete(path); }
                   catch { }
-                  throw;
+                  ErrorEvent error = new ErrorEvent()
+                  {
+                     Entry = backupEntry,
+                     Exception = e,
+                     Result = ErrorResult.Abort
+                  };
+                  try
+                  {
+                     if (this.OnError != null)
+                        this.OnError(error);
+                  }
+                  catch { }
+                  switch (error.Result)
+                  {
+                     case ErrorResult.Abort:
+                        throw;
+                     case ErrorResult.Retry:
+                        continue;
+                     case ErrorResult.Fail:
+                        restoreEntry = this.archive.RestoreIndex.FetchEntry(restoreEntry.ID);
+                        restoreEntry.State = Restore.EntryState.Failed;
+                        this.archive.RestoreIndex.UpdateEntry(restoreEntry);
+                        continue;
+                  }
                }
             }
             using (TransactionScope txn = new TransactionScope())
@@ -484,6 +496,16 @@ namespace SkyFloe
                this.archive.RestoreIndex.UpdateEntry(restoreEntry);
                this.archive.RestoreIndex.UpdateSession(session);
                txn.Complete();
+            }
+            if (this.OnProgress != null)
+            {
+               ProgressEvent progress = new ProgressEvent()
+               {
+                  Entry = backupEntry
+               };
+               this.OnProgress(progress);
+               if (progress.Cancel)
+                  break;
             }
          }
          // TODO: update session state

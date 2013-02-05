@@ -295,12 +295,11 @@ namespace SkyFloe.Sqlite
       {
          using (IDataReader reader =
                ExecuteReader(
-                  "SELECT Entry.ID, Entry.BackupEntryID, Entry.RetrievalID, Entry.State, Entry.Offset, Entry.Length " + 
-                  "FROM Entry, Retrieval " + 
-                  "WHERE Entry.RetrievalID = Retrieval.ID AND " + 
-                  "      Retrieval.SessionID = @p0 AND " + 
-                  "      Entry.State = @p1 " + 
-                  "ORDER BY Entry.RetrievalID, Entry.Offset " + 
+                  "SELECT ID, BackupEntryID, RetrievalID, State, Offset, Length " + 
+                  "FROM Entry " + 
+                  "WHERE SessionID = @p0 AND " + 
+                  "      State = @p1 " + 
+                  "ORDER BY RetrievalID, Offset " + 
                   "LIMIT 1;",
                   session.ID,
                   EntryState.Pending
@@ -345,8 +344,9 @@ namespace SkyFloe.Sqlite
       public Entry InsertEntry (Entry entry)
       {
          Execute(
-            "INSERT INTO Entry (BackupEntryID, RetrievalID, State, Offset, Length) VALUES (@p0, @p1, @p2, @p3, @p4);",
+            "INSERT INTO Entry (BackupEntryID, SessionID, RetrievalID, State, Offset, Length) VALUES (@p0, @p1, @p2, @p3, @p4, @p5);",
             entry.BackupEntryID,
+            entry.Retrieval.Session.ID,
             entry.Retrieval.ID,
             Convert.ToInt32(entry.State),
             entry.Offset,
@@ -357,9 +357,10 @@ namespace SkyFloe.Sqlite
       public Entry UpdateEntry (Entry entry)
       {
          Execute(
-            "UPDATE Entry SET BackupEntryID = @p1, RetrievalID = @p2, State = @p3, Offset = @p4, Length = @p5 WHERE ID = @p0;",
+            "UPDATE Entry SET BackupEntryID = @p1, SessionID = @p2, RetrievalID = @p3, State = @p4, Offset = @p5, Length = @p6 WHERE ID = @p0;",
             entry.ID,
             entry.BackupEntryID,
+            entry.Retrieval.Session.ID,
             entry.Retrieval.ID,
             Convert.ToInt32(entry.State),
             entry.Offset,

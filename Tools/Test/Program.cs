@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -22,26 +23,51 @@ namespace SkyFloe.Test
 
       static void Main (String[] args)
       {
-         //new FileStream(@"C:\Temp\Source\testa16.dat", FileMode.Open, FileAccess.Write, FileShare.Read).SetLength(16 * 1024 * 1024 - 16);
-         //new FileStream(@"C:\Temp\Source\testb32.dat", FileMode.Open, FileAccess.Write, FileShare.Read).SetLength(32 * 1024 * 1024 - 16);
          DateTime started = DateTime.UtcNow;
-         /*
-         foreach (String child in Directory.GetFileSystemEntries(@"l:\"))
-            CompressPath(child);
-         Console.WriteLine(
-            "Compressed {0:0}MB to {1:0}MB.",
-            ((Double)uncompressedSize) / 1048576,
-            ((Double)compressedSize) / 1048576
-         );
-         */
+
+#if false
+         using (var idx = Sqlite.RestoreIndex.Open(@"c:\restore.db"))
+         {
+            Restore.Session session = idx.ListSessions().Single();
+            for (Int32 i = 0; i < 100; i++)
+               idx.LookupNextEntry(session);
+            for (; ; )
+            {
+               Restore.Entry entry = idx.LookupNextEntry(session);
+               if (entry == null)
+                  break;
+               entry.State = Restore.EntryState.Completed;
+               idx.UpdateEntry(entry);
+            }
+         }
+#endif
+
          using (Connection connect = new Connection(String.Format(@"Store=AwsGlacier;AccessKey={0};SecretKey={1};", args[0], args[1])))
-         using (Connection.Archive archive = connect.OpenArchive("Test"))
+         using (Connection.Archive archive = connect.OpenArchive("Liono"))
          {
             Func<Backup.Node, IEnumerable<Backup.Node>> nodeSelector = null;
             nodeSelector =
                node => new[] { node }.Concat(archive.GetChildren(node).SelectMany(nodeSelector));
             Engine engine = new Engine() { Connection = connect };
-            engine.OpenArchive("Test", "secret");
+            Int32 retries = 0;
+            engine.OnError += e =>
+            {
+               if (retries++ > 30)
+                  e.Result = Engine.ErrorResult.Abort;
+               else
+               {
+                  Console.WriteLine("   Retrying...");
+                  System.Threading.Thread.Sleep(retries * 1000);
+                  e.Result = Engine.ErrorResult.Retry;
+               }
+            };
+            engine.OnProgress += e =>
+            {
+               retries = 0;
+               if (e.Entry != null)
+                  Console.WriteLine("   Restored {0}", e.Entry.Node.GetRelativePath());
+            };
+            engine.OpenArchive("Liono", "y7df3bn#");
             foreach (Restore.Session existing in archive.Restores.ToList())
                if (existing.State == Restore.SessionState.Completed)
                   engine.DeleteRestore(existing);
@@ -67,7 +93,7 @@ namespace SkyFloe.Test
                      RootPathMap = new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase)
                      {
                         { @"c:\temp\source", @"c:\temp\Result" },
-                        { @"l:\", @"c:\temp\Liono" }
+                        { @"l:\", @"e:\" }
                      }
                   }
                );
@@ -108,59 +134,6 @@ namespace SkyFloe.Test
          Console.WriteLine("Duration: {0}", DateTime.UtcNow - started);
          Console.Write("Press enter to exit.");
          Console.ReadLine();
-      }
-      static void DumpArchive (Connection.Archive arch)
-      {
-         XDocument doc = new XDocument();
-         Func<Backup.Node, XElement> nodeSelector = null;
-         nodeSelector = n => new XElement(
-            "Node",
-            new XAttribute("Name", n.Name),
-            arch.GetEntries(n).Select(
-               e => new XElement(
-                  "Entry",
-                  new XAttribute("Created", e.Session.Created),
-                  (e.Blob != null) ? new XAttribute("BlobID", e.Blob.ID) : null,
-                  new XAttribute("State", e.State),
-                  new XAttribute("Offset", e.Offset),
-                  new XAttribute("Length", e.Length),
-                  new XAttribute("Crc32", e.Crc32)
-               )
-            ),
-            arch.GetChildren(n).Select(nodeSelector)
-         );
-         doc.Add(
-            new XElement(
-               "Index",
-               new XAttribute("Name", arch.Name),
-               new XElement(
-                  "Sessions",
-                  arch.Backups.Select(
-                     s => new XElement(
-                        "Session",
-                        new XAttribute("Created", s.Created),
-                        new XAttribute("State", s.State)
-                     )
-                  ).ToArray()
-               ),
-               new XElement(
-                  "Blobs",
-                  arch.Blobs.Select(
-                     b => new XElement(
-                        "Blob",
-                        new XAttribute("ID", b.ID),
-                        new XAttribute("Name", b.Name),
-                        new XAttribute("Length", b.Length)
-                     )
-                  ).ToArray()
-               ),
-               new XElement(
-                  "Nodes",
-                  arch.Roots.Select(nodeSelector).ToArray()
-               )
-            )
-         );
-         doc.Save(@"c:\temp\test.xml");
       }
    }
 }

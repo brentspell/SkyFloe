@@ -97,7 +97,9 @@ namespace SkyFloe.Aws
                break;
          }
          newOffset = Math.Min(Math.Max(newOffset, 0), this.length);
-         if (newOffset < this.offset)
+         // if we are seeking upstream or more than 1MB downstream, 
+         // reopen the job
+         if (newOffset < this.offset || newOffset - this.offset > 1048576)
             CloseJob();
          if (this.stream == null)
          {
