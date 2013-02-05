@@ -309,6 +309,8 @@ namespace SkyFloe.Aws
                      retrieval.Length
                   );
                   this.restoreIndex.UpdateRetrieval(retrieval);
+                  if (retrieval.ID == entry.Retrieval.ID)
+                     entry.Retrieval = retrieval;
                   // TODO: consider refactoring
                   entry.Retrieval.Session.Retrieved += retrieval.Length;
                   this.restoreIndex.UpdateSession(entry.Retrieval.Session);
