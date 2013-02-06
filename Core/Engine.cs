@@ -437,7 +437,7 @@ namespace SkyFloe
             Boolean restoreFile = true;
             if (fileInfo.Exists)
             {
-               if (session.SkipExisting)
+               if (session.SkipExisting && fileInfo.Length > 0)
                   restoreFile = false;
                else if (fileInfo.Attributes.HasFlag(FileAttributes.ReadOnly))
                   if (session.SkipReadOnly)

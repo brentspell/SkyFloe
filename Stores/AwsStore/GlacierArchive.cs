@@ -26,6 +26,8 @@ namespace SkyFloe.Aws
       private Sqlite.RestoreIndex restoreIndex;
       private GlacierUploader uploader;
       private GlacierDownloader downloader;
+      private DateTime restoreStarted;
+      private Int64 restoreRetrieving;
       private Double maxRetrievalRate;
 
       private String IndexS3Key
@@ -247,20 +249,30 @@ namespace SkyFloe.Aws
             }
          }
          /* TODO
+          * deprecate session.retrieved
          this.maxRetrievalRate =
             0.05d * this.backupIndex.ListSessions().Sum(s => s.ActualLength) /
             TimeSpan.FromDays(30).TotalSeconds;
          */
          this.maxRetrievalRate = 1024 * 1024 * 1024 / TimeSpan.FromHours(1).TotalSeconds;
+         this.restoreStarted = DateTime.UtcNow;
          this.downloader = new GlacierDownloader(this.glacier, this.vault);
          foreach (Restore.Retrieval retrieval in this.restoreIndex.ListRetrievals(session))
          {
+            Boolean clearRetrieval = false;
             try
             {
                if (retrieval.Name != null)
-                  this.downloader.QueryJob(retrieval.Name);
+                  if (!this.restoreIndex.ListRetrievalEntries(retrieval).Any(e => e.State == Restore.EntryState.Pending))
+                     clearRetrieval = true;
+                  else if (!this.downloader.QueryJob(retrieval.Name))
+                     this.restoreRetrieving += retrieval.Length;
             }
             catch
+            {
+               clearRetrieval = true;
+            }
+            if (clearRetrieval)
             {
                retrieval.Name = null;
                this.restoreIndex.UpdateRetrieval(retrieval);
@@ -279,6 +291,7 @@ namespace SkyFloe.Aws
             }
             catch
             {
+               this.restoreRetrieving -= entry.Retrieval.Length;
                entry.Retrieval.Name = null;
                this.restoreIndex.UpdateRetrieval(entry.Retrieval);
             }
@@ -288,8 +301,8 @@ namespace SkyFloe.Aws
             )
             {
                Double retrievalRate = 
-                  (Double)entry.Retrieval.Session.Retrieved /
-                  (DateTime.UtcNow - entry.Retrieval.Session.Created).TotalSeconds;
+                  (Double)this.restoreRetrieving /
+                  (DateTime.UtcNow - this.restoreStarted).TotalSeconds;
                if (retrievalRate > this.maxRetrievalRate)
                   if (retrieval.ID != entry.Retrieval.ID)
                      break;
@@ -311,9 +324,7 @@ namespace SkyFloe.Aws
                   this.restoreIndex.UpdateRetrieval(retrieval);
                   if (retrieval.ID == entry.Retrieval.ID)
                      entry.Retrieval = retrieval;
-                  // TODO: consider refactoring
-                  entry.Retrieval.Session.Retrieved += retrieval.Length;
-                  this.restoreIndex.UpdateSession(entry.Retrieval.Session);
+                  this.restoreRetrieving += retrieval.Length;
                }
             }
             foreach (Restore.Retrieval retrieval in this.restoreIndex

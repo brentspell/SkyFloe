@@ -26,6 +26,32 @@ namespace SkyFloe.Test
          DateTime started = DateTime.UtcNow;
 
 #if false
+         using (var idx = Sqlite.BackupIndex.Open(@"c:\liono.db"))
+         {
+            var node = 
+               idx.ListNodes(
+               idx.ListNodes(
+               idx.ListNodes(
+               idx.ListNodes(
+               idx.ListNodes(
+               idx.ListNodes(
+               idx.ListNodes(
+               idx.ListNodes(
+               idx.ListNodes(null)
+               .Single(n => n.Name == "l:\\"))
+               .Single(n => n.Name == "Kelly"))
+               .Single(n => n.Name == "Pictures"))
+               .Single(n => n.Name == "2008"))
+               .Single(n => n.Name == "Chelsea's Wedding Celebration 2008"))
+               .Single(n => n.Name == "Kate's pics"))
+               .Single(n => n.Name == "Fourth of July 7.4.08"))
+               .Single(n => n.Name == "Originals"))
+               .Single(n => n.Name == "IMG_2701.jpg");
+            var entry = idx.ListNodeEntries(node).Single();
+         }
+#endif
+
+#if false
          using (var idx = Sqlite.RestoreIndex.Open(@"c:\restore.db"))
          {
             Restore.Session session = idx.ListSessions().Single();
