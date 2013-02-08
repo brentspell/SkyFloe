@@ -62,36 +62,33 @@ namespace SkyFloe.Sqlite
       #region Session Operations
       public IEnumerable<Session> ListSessions ()
       {
-         using (IDataReader reader = ExecuteReader("SELECT ID, Archive, State, Flags, Created FROM Session;"))
+         using (IDataReader reader = ExecuteReader("SELECT ID, State, Flags, Created FROM Session;"))
             while (reader.Read())
                yield return new Session()
                {
                   ID = Convert.ToInt32(reader[0]),
-                  Archive = Convert.ToString(reader[1]),
-                  State = (SessionState)Convert.ToInt32(reader[2]),
-                  Flags = (SessionFlags)Convert.ToInt32(reader[3]),
-                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[4]), DateTimeKind.Utc)
+                  State = (SessionState)Convert.ToInt32(reader[1]),
+                  Flags = (SessionFlags)Convert.ToInt32(reader[2]),
+                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[3]), DateTimeKind.Utc)
                };
       }
       public Session FetchSession (Int32 id)
       {
-         using (IDataReader reader = ExecuteReader("SELECT Archive, State, Flags, Created FROM Session WHERE ID = @p0;", id))
+         using (IDataReader reader = ExecuteReader("SELECT State, Flags, Created FROM Session WHERE ID = @p0;", id))
             if (reader.Read())
                return new Session()
                {
                   ID = id,
-                  Archive = Convert.ToString(reader[0]),
-                  State = (SessionState)Convert.ToInt32(reader[1]),
-                  Flags = (SessionFlags)Convert.ToInt32(reader[2]),
-                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[3]), DateTimeKind.Utc)
+                  State = (SessionState)Convert.ToInt32(reader[0]),
+                  Flags = (SessionFlags)Convert.ToInt32(reader[1]),
+                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[2]), DateTimeKind.Utc)
                };
          return null;
       }
       public Session InsertSession (Session session)
       {
          Execute(
-            "INSERT INTO Session (Archive, State, Flags, Created) VALUES (@p0, @p1, @p2, @p3);",
-            session.Archive,
+            "INSERT INTO Session (State, Flags, Created) VALUES (@p0, @p1, @p2);",
             session.State,
             session.Flags,
             session.Created = DateTime.UtcNow
@@ -102,9 +99,8 @@ namespace SkyFloe.Sqlite
       public Session UpdateSession (Session session)
       {
          Execute(
-            "UPDATE Session SET Archive = @p1, State = @p2, Flags = @p3 WHERE ID = @p0;",
+            "UPDATE Session SET State = @p1, Flags = @p2 WHERE ID = @p0;",
             session.ID,
-            session.Archive,
             session.State,
             session.Flags
          );

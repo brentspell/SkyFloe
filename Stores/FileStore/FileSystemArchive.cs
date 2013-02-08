@@ -3,39 +3,24 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
+using SkyFloe.Store;
+
 namespace SkyFloe
 {
-   internal class FileSystemArchive : Store.IArchive
+   internal class FileSystemArchive : IArchive
    {
-      private Sqlite.BackupIndex backupIndex;
-      private Sqlite.RestoreIndex restoreIndex;
-      private Stream blobFile;
-      private FileInfo tempBackupIndexFile;
+      private IBackupIndex backupIndex;
+      private IRestoreIndex restoreIndex;
+      private IO.FileSystem.TempStream tempIndex;
 
-      public FileSystemArchive ()
+      public FileSystemArchive (String path)
       {
-         this.tempBackupIndexFile = new FileInfo(System.IO.Path.GetTempFileName());
-         this.tempBackupIndexFile.Attributes |= FileAttributes.Temporary;
-      }
-
-      public void Dispose ()
-      {
-         if (this.backupIndex != null)
-            this.backupIndex.Dispose();
-         if (this.restoreIndex != null)
-            this.restoreIndex.Dispose();
-         if (this.blobFile != null)
-            this.blobFile.Dispose();
-         if (this.tempBackupIndexFile != null)
-            Sqlite.BackupIndex.Delete(this.tempBackupIndexFile.FullName);
-         this.backupIndex = null;
-         this.restoreIndex = null;
-         this.blobFile = null;
-         this.tempBackupIndexFile = null;
+         this.Path = path;
          String restoreIndexPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SkyFloe",
             "FileStore",
+            this.Name,
             "restore.db"
          );
          Directory.CreateDirectory(System.IO.Path.GetDirectoryName(restoreIndexPath));
@@ -44,11 +29,24 @@ namespace SkyFloe
             Sqlite.RestoreIndex.Create(restoreIndexPath, new Restore.Header());
       }
 
+      public void Dispose ()
+      {
+         if (this.backupIndex != null)
+            this.backupIndex.Dispose();
+         if (this.restoreIndex != null)
+            this.restoreIndex.Dispose();
+         if (this.tempIndex != null)
+            this.tempIndex.Dispose();
+         this.backupIndex = null;
+         this.restoreIndex = null;
+         this.tempIndex = null;
+      }
+
       public String Path
       { 
-         get; set;
+         get; private set;
       }
-      public String BackupIndexPath
+      public String IndexPath
       {
          get { return System.IO.Path.Combine(this.Path, "index.db"); } 
       }
@@ -63,13 +61,19 @@ namespace SkyFloe
          try
          {
             Directory.CreateDirectory(this.Path);
-            this.backupIndex = Sqlite.BackupIndex.Create(this.tempBackupIndexFile.FullName, header);
+            this.tempIndex = IO.FileSystem.Temp();
+            this.backupIndex = Sqlite.BackupIndex.Create(this.tempIndex.Path, header);
             this.backupIndex.InsertBlob(
                new Backup.Blob()
                {
-                  Name = "blob.dat"
+                  Name = System.IO.Path.GetFileName(this.BlobPath)
                }
             );
+            // copy the initial version of the index to the archive path
+            // TODO: refactor duplication between here and the backup object
+            using (Stream indexStream = IO.FileSystem.Truncate(this.IndexPath))
+            using (Stream tempStream = this.backupIndex.Serialize())
+               tempStream.CopyTo(indexStream);
          }
          catch
          {
@@ -82,8 +86,9 @@ namespace SkyFloe
       {
          try
          {
-            File.Copy(this.BackupIndexPath, this.tempBackupIndexFile.FullName, true);
-            this.backupIndex = Sqlite.BackupIndex.Open(this.tempBackupIndexFile.FullName);
+            this.tempIndex = IO.FileSystem.Temp();
+            File.Copy(this.IndexPath, this.tempIndex.Path, true);
+            this.backupIndex = Sqlite.BackupIndex.Open(this.tempIndex.Path);
          }
          catch
          {
@@ -98,52 +103,25 @@ namespace SkyFloe
       {
          get { return System.IO.Path.GetFileName(this.Path); }
       }
-      public Store.IBackupIndex BackupIndex
+      public IBackupIndex BackupIndex
       {
          get { return this.backupIndex; }
       }
-      public Store.IRestoreIndex RestoreIndex
+      public IRestoreIndex RestoreIndex
       {
          get { return this.restoreIndex; }
       }
-      public void PrepareBackup ()
+      public IBackup PrepareBackup (Backup.Session session)
       {
-         this.blobFile = new FileStream(
-            this.BlobPath,
-            FileMode.OpenOrCreate,
-            FileAccess.Write,
-            FileShare.Read
+         return new FileSystemBackup(
+            this.backupIndex,
+            this.IndexPath,
+            this.BlobPath
          );
       }
-      public void BackupEntry (Backup.Entry entry, Stream stream)
+      public IRestore PrepareRestore (Restore.Session session)
       {
-         Backup.Blob blob = this.backupIndex.FetchBlob(1);
-         this.blobFile.Seek(blob.Length, SeekOrigin.Begin);
-         stream.CopyTo(this.blobFile);
-         entry.Blob = blob;
-         entry.Offset = blob.Length;
-         entry.Length = this.blobFile.Position - entry.Offset;
-      }
-      public void Checkpoint ()
-      {
-         if (this.blobFile != null)
-            this.blobFile.Flush();
-         using (FileStream ckptIndex = new FileStream(this.BackupIndexPath, FileMode.Create, FileAccess.Write, FileShare.Read))
-         using (Stream tempIndex = this.backupIndex.Serialize())
-            tempIndex.CopyTo(ckptIndex);
-      }
-      public void PrepareRestore (Restore.Session session)
-      {
-         this.blobFile = new FileStream(
-            this.BlobPath,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read
-         );
-      }
-      public Stream RestoreEntry (Restore.Entry entry)
-      {
-         return new IO.SubStream(this.blobFile, entry.Offset, entry.Length);
+         return new FileSystemRestore(this.BlobPath);
       }
       #endregion
    }

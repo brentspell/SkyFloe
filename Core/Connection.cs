@@ -180,12 +180,7 @@ namespace SkyFloe
          }
          public IEnumerable<Restore.Session> Restores
          {
-            get 
-            {
-               return this.archive.RestoreIndex
-                  .ListSessions()
-                  .Where(s => String.Compare(s.Archive, this.Name, true) == 0);
-            }
+            get { return this.archive.RestoreIndex.ListSessions(); }
          }
          public IEnumerable<Backup.Node> GetChildren (Backup.Node parent)
          {

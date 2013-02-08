@@ -6,7 +6,7 @@ using System.Linq;
 namespace SkyFloe.IO
 {
    [CLSCompliant(false)]
-   public class Crc32Stream : SeqStream
+   public class Crc32Stream : SequentialStream
    {
       public const UInt32 InitialValue = 0xFFFFFFFF;
       private static UInt32[] table = new UInt32[256];
@@ -107,7 +107,7 @@ namespace SkyFloe.IO
          using (FileStream stream = fileInfo.Open(
                FileMode.Open,
                FileAccess.Read,
-               FileShare.Read | FileShare.Write))
+               FileShare.Read))
             return Calculate(stream);
       }
       /// <summary>

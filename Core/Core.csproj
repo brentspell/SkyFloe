@@ -36,11 +36,12 @@
     </Compile>
     <Compile Include="Differencer.cs" />
     <Compile Include="Backup\Header.cs" />
+    <Compile Include="IO\FileSystem.cs" />
     <Compile Include="Request\BackupRequest.cs" />
     <Compile Include="Connection.cs" />
     <Compile Include="Engine.cs" />
     <Compile Include="IO\Crc32Stream.cs" />
-    <Compile Include="IO\SeqStream.cs" />
+    <Compile Include="IO\SequentialStream.cs" />
     <Compile Include="IO\SubStream.cs" />
     <Compile Include="Backup\Blob.cs" />
     <Compile Include="Backup\Entry.cs" />
@@ -56,6 +57,8 @@
     <Compile Include="Restore\PathMap.cs" />
     <Compile Include="Restore\Retrieval.cs" />
     <Compile Include="Restore\Session.cs" />
+    <Compile Include="Store\IBackup.cs" />
+    <Compile Include="Store\IRestore.cs" />
     <Compile Include="Store\IRestoreIndex.cs" />
     <Compile Include="Store\IArchive.cs" />
     <Compile Include="Store\IBackupIndex.cs" />

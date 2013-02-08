@@ -27,21 +27,11 @@ namespace SkyFloe.Aws
          String vault,
          Int32 partSize)
       {
-         FileInfo partFile = new FileInfo(Path.GetTempFileName());
-         partFile.Attributes |= FileAttributes.Temporary;
          this.glacier = glacier;
          this.vault = vault;
          this.partSize = partSize;
          this.partOffset = 0;
-         this.partStream = new FileStream(
-            partFile.FullName,
-            FileMode.Open,
-            FileAccess.ReadWrite,
-            FileShare.None,
-            65536,
-            FileOptions.DeleteOnClose
-         );
-         this.partStream.Position = 0;
+         this.partStream = IO.FileSystem.Temp();
          this.partStream.SetLength(this.partSize);
          this.readBuffer = new Byte[65536];
          this.partChecksums = new List<String>();
@@ -91,6 +81,7 @@ namespace SkyFloe.Aws
          Int32 partLength = this.partOffset;
          if (partLength > 0)
          {
+            // TODO: comment about not setting any state variables before upload is successful, for retry
             this.partStream.SetLength(partLength);
             this.partStream.Position = 0;
             String checksum = TreeHashGenerator.CalculateTreeHash(this.partStream);

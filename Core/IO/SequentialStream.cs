@@ -12,11 +12,11 @@ namespace SkyFloe.IO
       Write = 2
    }
 
-   public abstract class SeqStream : Stream
+   public abstract class SequentialStream : Stream
    {
       private StreamMode mode;
 
-      public SeqStream (StreamMode mode)
+      public SequentialStream (StreamMode mode)
       {
          switch (mode)
          {

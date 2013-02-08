@@ -38,36 +38,39 @@ namespace SkyFloe.Backup
             {
                Connection = new Connection(connectionString)
             };
-            engine.OnProgress += ReportProgress;
-            engine.OnError += HandleError;
-            if (deleteArchive)
-               engine.DeleteArchive(archiveName);
-            if (engine.Connection.ListArchives().Contains(archiveName, StringComparer.OrdinalIgnoreCase))
-               engine.OpenArchive(archiveName, password);
-            else
-               engine.CreateArchive(archiveName, password);
-            Console.WriteLine("done.");
-            Backup.Session session = null;
-            using (Connection.Archive archive = engine.Connection.OpenArchive(archiveName))
-               session = archive.Backups.FirstOrDefault(s => s.State != SessionState.Completed);
-            if (session != null)
-               Console.WriteLine(
-                  "   Resuming backup session started {0:MMM d, yyyy h:m tt}.",
-                  session.Created
-               );
-            else
+            using (engine)
             {
-               Console.Write("   Creating a new backup session...");
-               session = engine.CreateBackup(
-                  new BackupRequest()
-                  {
-                     DiffMethod = diffMethod,
-                     Sources = sourcePaths
-                  }
-               );
+               engine.OnProgress += ReportProgress;
+               engine.OnError += HandleError;
+               if (deleteArchive)
+                  engine.DeleteArchive(archiveName);
+               if (engine.Connection.ListArchives().Contains(archiveName, StringComparer.OrdinalIgnoreCase))
+                  engine.OpenArchive(archiveName, password);
+               else
+                  engine.CreateArchive(archiveName, password);
                Console.WriteLine("done.");
+               Backup.Session session = null;
+               using (Connection.Archive archive = engine.Connection.OpenArchive(archiveName))
+                  session = archive.Backups.FirstOrDefault(s => s.State != SessionState.Completed);
+               if (session != null)
+                  Console.WriteLine(
+                     "   Resuming backup session started {0:MMM d, yyyy h:m tt}.",
+                     session.Created
+                  );
+               else
+               {
+                  Console.Write("   Creating a new backup session...");
+                  session = engine.CreateBackup(
+                     new BackupRequest()
+                     {
+                        DiffMethod = diffMethod,
+                        Sources = sourcePaths
+                     }
+                  );
+                  Console.WriteLine("done.");
+               }
+               engine.StartBackup(session);
             }
-            engine.StartBackup(session);
             Console.WriteLine();
             Console.WriteLine("   Backup complete.");
          }

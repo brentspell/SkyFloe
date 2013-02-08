@@ -28,19 +28,17 @@ namespace SkyFloe
       }
       public Store.IArchive CreateArchive (String name, Backup.Header header)
       {
-         FileSystemArchive archive = new FileSystemArchive()
-         {
-            Path = System.IO.Path.Combine(this.Path, name)
-         };
+         FileSystemArchive archive = new FileSystemArchive(
+            System.IO.Path.Combine(this.Path, name)
+         );
          archive.Create(header);
          return archive;
       }
       public Store.IArchive OpenArchive (String name)
       {
-         FileSystemArchive archive = new FileSystemArchive()
-         {
-            Path = System.IO.Path.Combine(this.Path, name)
-         };
+         FileSystemArchive archive = new FileSystemArchive(
+            System.IO.Path.Combine(this.Path, name)
+         );
          archive.Open();
          return archive;
       }

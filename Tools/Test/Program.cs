@@ -13,17 +13,28 @@ namespace SkyFloe.Test
    {
       static IEnumerable<String> AllFiles (String path)
       {
-         foreach (String entry in Directory.EnumerateFileSystemEntries(path))
-            if (Directory.Exists(entry))
-               foreach (String descendant in AllFiles(entry))
+         foreach (String dir in Directory.EnumerateDirectories(path))
+            if (!File.GetAttributes(dir).HasFlag(FileAttributes.System))
+               foreach (String descendant in AllFiles(dir))
                   yield return descendant;
-            else
-               yield return entry;
+         foreach (String file in Directory.EnumerateFiles(path))
+            if (!File.GetAttributes(file).HasFlag(FileAttributes.System))
+               yield return file;
       }
 
       static void Main (String[] args)
       {
          DateTime started = DateTime.UtcNow;
+
+#if false
+         var dupBytes = 0L;
+         var hashSet = new HashSet<String>();
+         foreach (var file in AllFiles(@"l:\"))
+            using (var stream = File.OpenRead(file))
+               if (!hashSet.Add(Convert.ToBase64String(SHA1.Create().ComputeHash(stream))))
+                  dupBytes += stream.Length;
+         Console.WriteLine("Duplicate MB: {0}", dupBytes / 1048576);
+#endif
 
 #if false
          using (var idx = Sqlite.BackupIndex.Open(@"c:\liono.db"))
@@ -68,6 +79,7 @@ namespace SkyFloe.Test
          }
 #endif
 
+#if true
          using (Connection connect = new Connection(String.Format(@"Store=AwsGlacier;AccessKey={0};SecretKey={1};", args[0], args[1])))
          using (Connection.Archive archive = connect.OpenArchive("Liono"))
          {
@@ -75,55 +87,58 @@ namespace SkyFloe.Test
             nodeSelector =
                node => new[] { node }.Concat(archive.GetChildren(node).SelectMany(nodeSelector));
             Engine engine = new Engine() { Connection = connect };
-            Int32 retries = 0;
-            engine.OnError += e =>
+            using (engine)
             {
-               if (retries++ > 30)
-                  e.Result = Engine.ErrorResult.Abort;
-               else
+               Int32 retries = 0;
+               engine.OnError += e =>
                {
-                  Console.WriteLine("   Retrying...");
-                  System.Threading.Thread.Sleep(retries * 1000);
-                  e.Result = Engine.ErrorResult.Retry;
-               }
-            };
-            engine.OnProgress += e =>
-            {
-               retries = 0;
-               if (e.Entry != null)
-                  Console.WriteLine("   Restored {0}", e.Entry.Node.GetRelativePath());
-            };
-            engine.OpenArchive("Liono", "y7df3bn#");
-            foreach (Restore.Session existing in archive.Restores.ToList())
-               if (existing.State == Restore.SessionState.Completed)
-                  engine.DeleteRestore(existing);
-            Restore.Session session = archive.Restores.FirstOrDefault();
-            if (session == null)
-               session = engine.CreateRestore(
-                  new RestoreRequest()
+                  if (retries++ > 30)
+                     e.Result = Engine.ErrorResult.Abort;
+                  else
                   {
-                     SkipExisting = true,
-                     SkipReadOnly = false,
-                     VerifyResults = true,
-                     Entries = archive.Roots
-                        .SelectMany(nodeSelector)
-                        .Where(n => n.Type == Backup.NodeType.File)
-                        .Select(
-                           n => archive.GetEntries(n)
-                              .OrderBy(e => e.Session.Created)
-                              .Where(e => e.State == Backup.EntryState.Completed)
-                              .Select(e => e.ID)
-                              .DefaultIfEmpty(0)
-                              .Last()
-                        ).Where(id => id != 0),
-                     RootPathMap = new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase)
-                     {
-                        { @"c:\temp\source", @"c:\temp\Result" },
-                        { @"l:\", @"e:\" }
-                     }
+                     Console.WriteLine("   Retrying...");
+                     System.Threading.Thread.Sleep(retries * 1000);
+                     e.Result = Engine.ErrorResult.Retry;
                   }
-               );
-            engine.StartRestore(session);
+               };
+               engine.OnProgress += e =>
+               {
+                  retries = 0;
+                  if (e.Entry != null)
+                     Console.WriteLine("   Restored {0}", e.Entry.Node.GetRelativePath());
+               };
+               engine.OpenArchive("Liono", "y7df3bn#");
+               foreach (Restore.Session existing in archive.Restores.ToList())
+                  if (existing.State == Restore.SessionState.Completed)
+                     engine.DeleteRestore(existing);
+               Restore.Session session = archive.Restores.FirstOrDefault();
+               if (session == null)
+                  session = engine.CreateRestore(
+                     new RestoreRequest()
+                     {
+                        SkipExisting = true,
+                        SkipReadOnly = false,
+                        VerifyResults = true,
+                        Entries = archive.Roots
+                           .SelectMany(nodeSelector)
+                           .Where(n => n.Type == Backup.NodeType.File)
+                           .Select(
+                              n => archive.GetEntries(n)
+                                 .OrderBy(e => e.Session.Created)
+                                 .Where(e => e.State == Backup.EntryState.Completed)
+                                 .Select(e => e.ID)
+                                 .DefaultIfEmpty(0)
+                                 .Last()
+                           ).Where(id => id != 0),
+                        RootPathMap = new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase)
+                        {
+                           { @"c:\temp\source", @"c:\temp\Result" },
+                           { @"l:\", @"e:\" }
+                        }
+                     }
+                  );
+               engine.StartRestore(session);
+            }
          }
 
          /*
@@ -156,6 +171,7 @@ namespace SkyFloe.Test
             foreach (Backup.Blob blob in archive.Blobs)
                Console.WriteLine("{0} bytes, {1}", blob.Length, blob.Name);
          */
+#endif
 
          Console.WriteLine("Duration: {0}", DateTime.UtcNow - started);
          Console.Write("Press enter to exit.");

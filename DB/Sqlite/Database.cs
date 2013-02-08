@@ -34,7 +34,6 @@ namespace SkyFloe.Sqlite
 
       protected static void Create (String path, String resource)
       {
-         SqliteConnection.CreateFile(path);
          try
          {
             // load the SQL script
@@ -63,12 +62,7 @@ namespace SkyFloe.Sqlite
       public Stream Serialize ()
       {
          Execute("VACUUM;");
-         return new FileStream(
-            this.path,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.ReadWrite
-         );
+         return IO.FileSystem.Open(this.path, FileShare.ReadWrite);
       }
       protected IDbCommand CreateCommand (String command, params Object[] parameters)
       {

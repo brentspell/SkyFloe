@@ -10,12 +10,7 @@ namespace SkyFloe.Store
       String Name { get; }
       IBackupIndex BackupIndex { get; }
       IRestoreIndex RestoreIndex { get; }
-      // backup operations
-      void PrepareBackup ();
-      void BackupEntry (Backup.Entry entry, Stream stream);
-      void Checkpoint ();
-      // restore operations
-      void PrepareRestore (Restore.Session session);
-      Stream RestoreEntry (Restore.Entry entry);
+      IBackup PrepareBackup (Backup.Session session);
+      IRestore PrepareRestore (Restore.Session session);
    }
 }

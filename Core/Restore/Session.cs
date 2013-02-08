@@ -23,7 +23,6 @@ namespace SkyFloe.Restore
    public class Session
    {
       public Int32 ID { get; set; }
-      public String Archive { get; set; }
       public SessionState State { get; set; }
       public SessionFlags Flags { get; set; }
       public DateTime Created { get; set; }

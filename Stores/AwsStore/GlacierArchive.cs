@@ -13,22 +13,14 @@ namespace SkyFloe.Aws
    public class GlacierArchive : IArchive
    {
       public const String IndexS3KeyExtension = ".db.gz";
-      public const Int32 PartSize = 16 * 1024 * 1024;
-      public const Int32 MinRetrievalSize = 1024 * 1024;
       private Amazon.S3.AmazonS3 s3;
       private Amazon.Glacier.AmazonGlacierClient glacier;
       private String vault;
       private String bucket;
       private String name;
-      private FileInfo backupIndexFile;
-      private FileInfo checkpointIndexFile;
-      private Sqlite.BackupIndex backupIndex;
-      private Sqlite.RestoreIndex restoreIndex;
-      private GlacierUploader uploader;
-      private GlacierDownloader downloader;
-      private DateTime restoreStarted;
-      private Int64 restoreRetrieving;
-      private Double maxRetrievalRate;
+      private IO.FileSystem.TempStream backupIndexFile;
+      private IBackupIndex backupIndex;
+      private IRestoreIndex restoreIndex;
 
       private String IndexS3Key
       {
@@ -47,14 +39,11 @@ namespace SkyFloe.Aws
          this.vault = vault;
          this.bucket = bucket;
          this.name = name;
-         this.backupIndexFile = new FileInfo(Path.GetTempFileName());
-         this.backupIndexFile.Attributes |= FileAttributes.Temporary;
-         this.checkpointIndexFile = new FileInfo(Path.GetTempFileName());
-         this.checkpointIndexFile.Attributes |= FileAttributes.Temporary;
          String restoreIndexPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SkyFloe",
             "AwsGlacier",
+            name,
             "restore.db"
          );
          Directory.CreateDirectory(System.IO.Path.GetDirectoryName(restoreIndexPath));
@@ -65,24 +54,15 @@ namespace SkyFloe.Aws
 
       public void Dispose ()
       {
-         if (this.uploader != null)
-            this.uploader.Dispose();
-         if (this.downloader != null)
-            this.downloader.Dispose();
          if (this.backupIndex != null)
             this.backupIndex.Dispose();
          if (this.restoreIndex != null)
             this.restoreIndex.Dispose();
          if (this.backupIndexFile != null)
-            this.backupIndexFile.Delete();
-         if (this.checkpointIndexFile != null)
-            this.checkpointIndexFile.Delete();
+            this.backupIndexFile.Dispose();
          this.backupIndexFile = null;
-         this.checkpointIndexFile = null;
          this.backupIndex = null;
          this.restoreIndex = null;
-         this.uploader = null;
-         this.downloader = null;
       }
 
       public void Create (Backup.Header header)
@@ -103,30 +83,39 @@ namespace SkyFloe.Aws
                BucketName = this.bucket
             }
          );
-         this.backupIndex = Sqlite.BackupIndex.Create(this.backupIndexFile.FullName, header);
+         this.backupIndexFile = IO.FileSystem.Temp();
+         this.backupIndex = Sqlite.BackupIndex.Create(this.backupIndexFile.Path, header);
+         // TODO: remove duplication between here and the backup object
+         using (Stream checkpointStream = IO.FileSystem.Temp())
+         {
+            using (GZipStream gzipStream = new GZipStream(checkpointStream, CompressionMode.Compress, true))
+            using (Stream indexStream = this.backupIndex.Serialize())
+               indexStream.CopyTo(gzipStream);
+            checkpointStream.Position = 0;
+            this.s3.PutObject(
+               new Amazon.S3.Model.PutObjectRequest()
+               {
+                  BucketName = this.bucket,
+                  Key = this.IndexS3Key,
+                  InputStream = checkpointStream
+               }
+            );
+         }
       }
       public void Open ()
       {
-         using (FileStream indexStream = 
-            new FileStream(
-               this.backupIndexFile.FullName, 
-               FileMode.Open, 
-               FileAccess.Write, 
-               FileShare.None
-            )
-         )
-         using (Stream s3Stream = 
-               this.s3.GetObject(
-                  new Amazon.S3.Model.GetObjectRequest()
-                  {
-                     BucketName = this.bucket,
-                     Key = this.IndexS3Key
-                  }
-               ).ResponseStream
-            )
+         this.backupIndexFile = IO.FileSystem.Temp();
+         Stream s3Stream = this.s3.GetObject(
+            new Amazon.S3.Model.GetObjectRequest()
+            {
+               BucketName = this.bucket,
+               Key = this.IndexS3Key
+            }
+         ).ResponseStream;
+         using (s3Stream)
          using (GZipStream gzip = new GZipStream(s3Stream, CompressionMode.Decompress))
-            gzip.CopyTo(indexStream);
-         this.backupIndex = Sqlite.BackupIndex.Open(this.backupIndexFile.FullName);
+            gzip.CopyTo(this.backupIndexFile);
+         this.backupIndex = Sqlite.BackupIndex.Open(this.backupIndexFile.Path);
       }
 
       #region IArchive Implementation
@@ -142,206 +131,25 @@ namespace SkyFloe.Aws
       {
          get { return this.restoreIndex; } 
       }
-      public void PrepareBackup ()
+      public IBackup PrepareBackup (Backup.Session session)
       {
+         return new GlacierBackup(
+            this.backupIndex,
+            this.s3,
+            this.glacier,
+            this.vault,
+            this.bucket,
+            this.IndexS3Key
+         );
       }
-      public void BackupEntry (Backup.Entry entry, Stream stream)
+      public IRestore PrepareRestore (Restore.Session session)
       {
-         if (this.uploader == null)
-         {
-            this.uploader = new GlacierUploader(
-               this.glacier, 
-               this.vault,
-               PartSize
-            );
-            this.backupIndex.InsertBlob(
-               new Backup.Blob()
-               {
-                  Name = this.uploader.UploadID
-               }
-            );
-         }
-         Backup.Blob blob = this.backupIndex.LookupBlob(this.uploader.UploadID);
-         if (blob.Length != this.uploader.Length)
-            blob.Length = this.uploader.Resync(blob.Length);
-         Int64 offset = this.uploader.Length;
-         Int64 length = this.uploader.Upload(stream);
-         entry.Blob = blob;
-         entry.Offset = offset;
-         entry.Length = length;
-      }
-      public void Checkpoint ()
-      {
-         if (this.uploader != null)
-         {
-            Backup.Blob blob = this.backupIndex.LookupBlob(this.uploader.UploadID);
-            this.uploader.Flush();
-            blob.Length = this.uploader.Length;
-            String archiveID = this.uploader.Complete();
-            blob.Name = archiveID;
-            this.backupIndex.UpdateBlob(blob);
-            this.uploader.Dispose();
-            this.uploader = null;
-         }
-         using (FileStream checkpointStream = 
-            new FileStream(
-               this.checkpointIndexFile.FullName, 
-               FileMode.Open, 
-               FileAccess.ReadWrite, 
-               FileShare.None
-            )
-         )
-         {
-            checkpointStream.SetLength(0);
-            using (GZipStream gzipStream = new GZipStream(checkpointStream, CompressionMode.Compress, true))
-            using (Stream indexStream = this.backupIndex.Serialize())
-               indexStream.CopyTo(gzipStream);
-            checkpointStream.Position = 0;
-            this.s3.PutObject(
-               new Amazon.S3.Model.PutObjectRequest()
-               {
-                  BucketName = this.bucket,
-                  Key = this.IndexS3Key,
-                  InputStream = checkpointStream
-               }
-            );
-         }
-      }
-      public void PrepareRestore (Restore.Session session)
-      {
-         if (session.State == Restore.SessionState.Pending)
-         {
-            foreach (Restore.Retrieval oldRetrieval in this.restoreIndex.ListRetrievals(session))
-            {
-               Backup.Blob blob = this.backupIndex.LookupBlob(oldRetrieval.Blob);
-               Restore.Retrieval newRetrieval = this.restoreIndex.FetchRetrieval(oldRetrieval.ID);
-               newRetrieval.Length = 0;
-               this.restoreIndex.UpdateRetrieval(newRetrieval);
-               foreach (Restore.Entry entry in this.restoreIndex.ListRetrievalEntries(oldRetrieval))
-               {
-                  if (entry.Offset < newRetrieval.Offset + newRetrieval.Length + MinRetrievalSize)
-                  {
-                     newRetrieval.Length = entry.Offset - newRetrieval.Offset + entry.Length;
-                     newRetrieval.Length += MinRetrievalSize - newRetrieval.Length % MinRetrievalSize;
-                     this.restoreIndex.UpdateRetrieval(newRetrieval);
-                  }
-                  else
-                  {
-                     newRetrieval = this.restoreIndex.InsertRetrieval(
-                        new Restore.Retrieval()
-                        {
-                           Session = session,
-                           Blob = newRetrieval.Blob,
-                           Offset = entry.Offset - entry.Offset % MinRetrievalSize,
-                           Length = entry.Length + (MinRetrievalSize - entry.Length % MinRetrievalSize)
-                        }
-                     );
-                  }
-                  entry.Retrieval = newRetrieval;
-                  entry.Offset -= entry.Retrieval.Offset;
-                  this.restoreIndex.UpdateEntry(entry);
-                  if (newRetrieval.Offset + newRetrieval.Length > blob.Length)
-                  {
-                     newRetrieval.Length = blob.Length - newRetrieval.Offset;
-                     this.restoreIndex.UpdateRetrieval(newRetrieval);
-                  }
-               }
-            }
-         }
-         /* TODO
-          * deprecate session.retrieved
-         this.maxRetrievalRate =
-            0.05d * this.backupIndex.ListSessions().Sum(s => s.ActualLength) /
-            TimeSpan.FromDays(30).TotalSeconds;
-         */
-         this.maxRetrievalRate = 1024 * 1024 * 1024 / TimeSpan.FromHours(1).TotalSeconds;
-         this.restoreStarted = DateTime.UtcNow;
-         this.downloader = new GlacierDownloader(this.glacier, this.vault);
-         foreach (Restore.Retrieval retrieval in this.restoreIndex.ListRetrievals(session))
-         {
-            Boolean clearRetrieval = false;
-            try
-            {
-               if (retrieval.Name != null)
-                  if (!this.restoreIndex.ListRetrievalEntries(retrieval).Any(e => e.State == Restore.EntryState.Pending))
-                     clearRetrieval = true;
-                  else if (!this.downloader.QueryJob(retrieval.Name))
-                     this.restoreRetrieving += retrieval.Length;
-            }
-            catch
-            {
-               clearRetrieval = true;
-            }
-            if (clearRetrieval)
-            {
-               retrieval.Name = null;
-               this.restoreIndex.UpdateRetrieval(retrieval);
-            }
-         }
-      }
-      public Stream RestoreEntry (Restore.Entry entry)
-      {
-         Boolean ready = false;
-         while (!ready)
-         {
-            try
-            {
-               if (entry.Retrieval.Name != null)
-                  ready = this.downloader.QueryJob(entry.Retrieval.Name);
-            }
-            catch
-            {
-               this.restoreRetrieving -= entry.Retrieval.Length;
-               entry.Retrieval.Name = null;
-               this.restoreIndex.UpdateRetrieval(entry.Retrieval);
-            }
-            foreach (Restore.Retrieval retrieval in this.restoreIndex
-               .ListRetrievals(entry.Retrieval.Session)
-               .SkipWhile(r => r.ID != entry.Retrieval.ID)
-            )
-            {
-               Double retrievalRate = 
-                  (Double)this.restoreRetrieving /
-                  (DateTime.UtcNow - this.restoreStarted).TotalSeconds;
-               if (retrievalRate > this.maxRetrievalRate)
-                  if (retrieval.ID != entry.Retrieval.ID)
-                     break;
-               if (retrieval.Name == null)
-               {
-                  // TODO: remove
-                  Console.WriteLine(
-                     "{0:MMM dd, hh:mm}: Retrieving blob {1}..., offset = {2}, length = {3}",
-                     DateTime.Now,
-                     retrieval.Blob.Substring(0, 20),
-                     retrieval.Offset,
-                     retrieval.Length
-                  );
-                  retrieval.Name = this.downloader.StartJob(
-                     retrieval.Blob,
-                     retrieval.Offset,
-                     retrieval.Length
-                  );
-                  this.restoreIndex.UpdateRetrieval(retrieval);
-                  if (retrieval.ID == entry.Retrieval.ID)
-                     entry.Retrieval = retrieval;
-                  this.restoreRetrieving += retrieval.Length;
-               }
-            }
-            foreach (Restore.Retrieval retrieval in this.restoreIndex
-               .ListRetrievals(entry.Retrieval.Session)
-               .TakeWhile(r => r.ID != entry.Retrieval.ID)
-               .Where(r => r.Name != null)
-            )
-               this.downloader.DeleteJob(retrieval.Name);
-            if (!ready)
-               System.Threading.Thread.Sleep(
-                  (Int32)TimeSpan.FromMinutes(20).TotalMilliseconds
-               );
-         }
-         return this.downloader.GetJobStream(
-            entry.Retrieval.Name, 
-            entry.Offset, 
-            entry.Length
+         return new GlacierRestore(
+            this.backupIndex,
+            this.restoreIndex,
+            session,
+            this.glacier,
+            this.vault
          );
       }
       #endregion

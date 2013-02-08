@@ -39,6 +39,8 @@
     <Compile Include="..\..\Version.cs">
       <Link>Properties\Version.cs</Link>
     </Compile>
+    <Compile Include="GlacierRestore.cs" />
+    <Compile Include="GlacierBackup.cs" />
     <Compile Include="GlacierDownloader.cs" />
     <Compile Include="GlacierArchive.cs" />
     <Compile Include="GlacierStore.cs" />
