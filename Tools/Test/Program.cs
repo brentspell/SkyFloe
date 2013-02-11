@@ -24,10 +24,12 @@ namespace SkyFloe.Test
 
       static void Main (String[] args)
       {
+         new Options.OptionSet()
+         {
+         }.Parse(args);
          Stopwatch watch = new Stopwatch();
          watch.Start();
          //------------------------------------------------------------------
-
          //------------------------------------------------------------------
          watch.Stop();
          Console.WriteLine("Duration: {0:0.000}secs", (Double)watch.ElapsedMilliseconds / 1000);

@@ -178,6 +178,10 @@ namespace SkyFloe
          {
             get { return this.archive.BackupIndex.ListNodes(null); }
          }
+         public IEnumerable<Backup.Node> AllNodes
+         {
+            get { return GetSubtrees(this.Roots); }
+         }
          public IEnumerable<Restore.Session> Restores
          {
             get { return this.archive.RestoreIndex.ListSessions(); }
@@ -185,6 +189,18 @@ namespace SkyFloe
          public IEnumerable<Backup.Node> GetChildren (Backup.Node parent)
          {
             return this.archive.BackupIndex.ListNodes(parent);
+         }
+         public IEnumerable<Backup.Node> GetDescendants (Backup.Node parent)
+         {
+            return this.archive.BackupIndex.ListNodes(parent).SelectMany(GetSubtree);
+         }
+         public IEnumerable<Backup.Node> GetSubtree (Backup.Node node)
+         {
+            return new[] { node }.Concat(GetDescendants(node));
+         }
+         public IEnumerable<Backup.Node> GetSubtrees (IEnumerable<Backup.Node> nodes)
+         {
+            return nodes.SelectMany(GetSubtree);
          }
          public IEnumerable<Backup.Entry> GetEntries (Backup.Node node)
          {

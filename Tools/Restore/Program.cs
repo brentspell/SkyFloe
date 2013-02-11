@@ -50,13 +50,13 @@ namespace SkyFloe.Restore
                { "c|connect=", v => connectionString = v },
                { "a|archive=", v => archiveName = v },
                { "p|password=", v => password = v },
-               { "r|max-retry=", v => maxRetries = Int32.Parse(v) },
-               { "f|max-fail=", v => maxFailures = Int32.Parse(v) },
+               { "r|max-retry=", (Int32 v) => maxRetries = v },
+               { "f|max-fail=", (Int32 v) => maxFailures = v },
                { "m|map-path=", v => rootPathMap.Add(v.Split('=')[0], v.Split('=')[1]) },
-               { "e|skip-existing", v => skipExisting = true },
-               { "o|skip-readonly", v => skipReadOnly = true },
-               { "v|verify", v => verifyResults = true },
-               { "d|delete", v => enableDeletes = true },
+               { "e|skip-existing", v => skipExisting = (v != null) },
+               { "o|skip-readonly", v => skipReadOnly = (v != null) },
+               { "v|verify", v => verifyResults = (v != null) },
+               { "k|delete", v => enableDeletes = (v != null) },
                { "i|file=", v => restoreFiles.Add(v) },
             }.Parse(args);
          }
@@ -131,12 +131,7 @@ namespace SkyFloe.Restore
                         }
                         nodes = nodeList;
                      }
-                     Func<Backup.Node, IEnumerable<Backup.Node>> nodeSelector = null;
-                     nodeSelector = node =>
-                        new[] { node }
-                        .Concat(archive.GetChildren(node)
-                        .SelectMany(nodeSelector));
-                     nodes = nodes.SelectMany(nodeSelector);
+                     nodes = archive.GetSubtrees(nodes);
                      session = engine.CreateRestore(
                         new RestoreRequest()
                         {
@@ -243,10 +238,10 @@ namespace SkyFloe.Restore
          Console.WriteLine("      -r|-max-retry {retries}    maximum file retries before skipping (default = 5)");
          Console.WriteLine("      -f|-max-fail {failures}    maximum file failures before aborting (default = 5)");
          Console.WriteLine("      -m|-map-path {src}={dst}   map a root backup path to a restore path");
-         Console.WriteLine("      -e|-skip-existing          ignore existing files (no overwrite)");
-         Console.WriteLine("      -o|-skip-readonly          ignore read-only files");
-         Console.WriteLine("      -v|-verify                 verify CRCs of restored files");
-         Console.WriteLine("      -d|-delete                 delete files marked as deleted in the archive");
+         Console.WriteLine("      -e|-skip-existing[+/-]     ignore existing files (no overwrite)");
+         Console.WriteLine("      -o|-skip-readonly[+/-]     ignore read-only files");
+         Console.WriteLine("      -v|-verify[+/-]            verify CRCs of restored files");
+         Console.WriteLine("      -k|-delete[+/-]            delete files marked as deleted in the archive");
          Console.WriteLine("      -i|-file {path}            specify an individual file to restore (source absolute path)");
       }
    }

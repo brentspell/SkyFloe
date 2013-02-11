@@ -48,11 +48,11 @@ namespace SkyFloe.Backup
                { "c|connect=", v => connectionString = v },
                { "a|archive=", v => archiveName = v },
                { "p|password=", v => password = v },
-               { "r|max-retry=", v => maxRetries = Int32.Parse(v) },
-               { "f|max-fail=", v => maxFailures = Int32.Parse(v) },
+               { "r|max-retry=", (Int32 v) => maxRetries = v },
+               { "f|max-fail=", (Int32 v) => maxFailures = v },
                { "s|source=", v => sourcePaths.Add(v) },
-               { "k|delete", v => deleteArchive = true },
-               { "d|diff=", v => diffMethod = (DiffMethod)Enum.Parse(typeof(DiffMethod), v) },
+               { "k|delete", v => deleteArchive = (v != null) },
+               { "d|diff=", (DiffMethod v) => diffMethod = v },
             }.Parse(args);
          }
          catch (Options.OptionException) { return false; }
@@ -205,7 +205,7 @@ namespace SkyFloe.Backup
          Console.WriteLine("      -r|-max-retry {retries}    maximum file retries before skipping (default = 5)");
          Console.WriteLine("      -f|-max-fail {failures}    maximum file failures before aborting (default = 5)");
          Console.WriteLine("      -s|-source {source}        backup source directory (zero or more, default: current)");
-         Console.WriteLine("      -k|-delete                 delete the archive before backing up");
+         Console.WriteLine("      -k|-delete[+/-]            delete the archive before backing up");
          Console.WriteLine("      -d|-diff {diff}            file diff method (Timestamp or Digest) default: Timestamp");
       }
    }
