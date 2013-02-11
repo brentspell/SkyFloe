@@ -104,10 +104,13 @@ namespace SkyFloe.IO
       /// </returns>
       public static UInt32 Calculate (FileInfo fileInfo)
       {
-         using (FileStream stream = fileInfo.Open(
+         using (FileStream stream = new FileStream(
+               fileInfo.FullName,
                FileMode.Open,
                FileAccess.Read,
-               FileShare.Read))
+               FileShare.Read,
+               65536,
+               FileOptions.SequentialScan))
             return Calculate(stream);
       }
       /// <summary>

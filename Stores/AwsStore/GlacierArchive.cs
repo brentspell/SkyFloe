@@ -22,11 +22,6 @@ namespace SkyFloe.Aws
       private IBackupIndex backupIndex;
       private IRestoreIndex restoreIndex;
 
-      private String IndexS3Key
-      {
-         get { return String.Format("{0}{1}", this.name, IndexS3KeyExtension); }
-      }
-
       public GlacierArchive (
          Amazon.S3.AmazonS3 s3, 
          Amazon.Glacier.AmazonGlacierClient glacier,
@@ -65,6 +60,19 @@ namespace SkyFloe.Aws
          this.restoreIndex = null;
       }
 
+      public Amazon.Glacier.AmazonGlacierClient Glacier
+      {
+         get { return this.glacier; }
+      }
+      public String Vault
+      {
+         get { return this.vault; }
+      }
+      private String IndexS3Key
+      {
+         get { return String.Format("{0}{1}", this.name, IndexS3KeyExtension); }
+      }
+
       public void Create (Backup.Header header)
       {
          // create the Glacier vault, fail if it exists
@@ -85,22 +93,8 @@ namespace SkyFloe.Aws
          );
          this.backupIndexFile = IO.FileSystem.Temp();
          this.backupIndex = Sqlite.BackupIndex.Create(this.backupIndexFile.Path, header);
-         // TODO: remove duplication between here and the backup object
-         using (Stream checkpointStream = IO.FileSystem.Temp())
-         {
-            using (GZipStream gzipStream = new GZipStream(checkpointStream, CompressionMode.Compress, true))
-            using (Stream indexStream = this.backupIndex.Serialize())
-               indexStream.CopyTo(gzipStream);
-            checkpointStream.Position = 0;
-            this.s3.PutObject(
-               new Amazon.S3.Model.PutObjectRequest()
-               {
-                  BucketName = this.bucket,
-                  Key = this.IndexS3Key,
-                  InputStream = checkpointStream
-               }
-            );
-         }
+         // upload the initial version of the backup index
+         Save();
       }
       public void Open ()
       {
@@ -116,6 +110,24 @@ namespace SkyFloe.Aws
          using (GZipStream gzip = new GZipStream(s3Stream, CompressionMode.Decompress))
             gzip.CopyTo(this.backupIndexFile);
          this.backupIndex = Sqlite.BackupIndex.Open(this.backupIndexFile.Path);
+      }
+      public void Save ()
+      {
+         using (Stream checkpointStream = IO.FileSystem.Temp())
+         {
+            using (GZipStream gzipStream = new GZipStream(checkpointStream, CompressionMode.Compress, true))
+            using (Stream indexStream = this.BackupIndex.Serialize())
+               indexStream.CopyTo(gzipStream);
+            checkpointStream.Position = 0;
+            this.s3.PutObject(
+               new Amazon.S3.Model.PutObjectRequest()
+               {
+                  BucketName = this.bucket,
+                  Key = this.IndexS3Key,
+                  InputStream = checkpointStream
+               }
+            );
+         }
       }
 
       #region IArchive Implementation
@@ -133,24 +145,11 @@ namespace SkyFloe.Aws
       }
       public IBackup PrepareBackup (Backup.Session session)
       {
-         return new GlacierBackup(
-            this.backupIndex,
-            this.s3,
-            this.glacier,
-            this.vault,
-            this.bucket,
-            this.IndexS3Key
-         );
+         return new GlacierBackup(this, session);
       }
       public IRestore PrepareRestore (Restore.Session session)
       {
-         return new GlacierRestore(
-            this.backupIndex,
-            this.restoreIndex,
-            session,
-            this.glacier,
-            this.vault
-         );
+         return new GlacierRestore(this, session);
       }
       #endregion
    }

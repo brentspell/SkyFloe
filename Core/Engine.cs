@@ -217,7 +217,29 @@ namespace SkyFloe
             {
                session.State = Backup.SessionState.InProgress;
                this.archive.BackupIndex.UpdateSession(session);
+               if (this.OnProgress != null)
+               {
+                  ProgressEvent progress = new ProgressEvent()
+                  {
+                     Type = EventType.BeginBackupCheckpoint,
+                     BackupSession = session
+                  };
+                  this.OnProgress(progress);
+                  if (progress.Cancel)
+                     return;  // TODO: fix
+               }
                backup.Checkpoint();
+               if (this.OnProgress != null)
+               {
+                  ProgressEvent progress = new ProgressEvent()
+                  {
+                     Type = EventType.EndBackupCheckpoint,
+                     BackupSession = session
+                  };
+                  this.OnProgress(progress);
+                  if (progress.Cancel)
+                     return;  // TODO: fix
+               }
             }
             Backup.Header header = this.archive.BackupIndex.FetchHeader();
             Int64 checkpointSize = 0;
@@ -228,6 +250,19 @@ namespace SkyFloe
                   break;
                try
                {
+                  entry.Length = new FileInfo(entry.Node.GetAbsolutePath()).Length;
+                  if (this.OnProgress != null)
+                  {
+                     ProgressEvent progress = new ProgressEvent()
+                     {
+                        Type = EventType.BeginBackupEntry,
+                        BackupSession = session,
+                        BackupEntry = entry
+                     };
+                     this.OnProgress(progress);
+                     if (progress.Cancel)
+                        break;
+                  }
                   using (Stream fileStream = IO.FileSystem.Open(entry.Node.GetAbsolutePath()))
                   using (IO.Crc32Stream crcStream = new IO.Crc32Stream(fileStream, IO.StreamMode.Read))
                   using (Stream cryptoStream = new CryptoStream(crcStream, this.aes.CreateEncryptor(), CryptoStreamMode.Read))
@@ -240,7 +275,9 @@ namespace SkyFloe
                {
                   ErrorEvent error = new ErrorEvent()
                   {
-                     Entry = entry,
+                     Type = EventType.BeginBackupEntry,
+                     BackupSession = session,
+                     BackupEntry = entry,
                      Exception = e,
                      Result = ErrorResult.Abort
                   };
@@ -277,20 +314,30 @@ namespace SkyFloe
                {
                   ProgressEvent progress = new ProgressEvent()
                   {
-                     Entry = entry
+                     Type = EventType.EndBackupEntry,
+                     BackupSession = session,
+                     BackupEntry = entry
                   };
                   this.OnProgress(progress);
                   if (progress.Cancel)
-                  {
-                     backup.Checkpoint();
                      break;
-                  }
                }
                // TODO: set checkpoint size based on configuration/request
                checkpointSize += entry.Length;
                if (checkpointSize > 1024 * 1024 * 1024)
                {
                   checkpointSize = 0;
+                  if (this.OnProgress != null)
+                  {
+                     ProgressEvent progress = new ProgressEvent()
+                     {
+                        Type = EventType.BeginBackupCheckpoint,
+                        BackupSession = session
+                     };
+                     this.OnProgress(progress);
+                     if (progress.Cancel)
+                        return;  // TODO: fix
+                  }
                   try
                   {
                      backup.Checkpoint();
@@ -299,6 +346,8 @@ namespace SkyFloe
                   {
                      ErrorEvent error = new ErrorEvent()
                      {
+                        Type = EventType.BeginBackupCheckpoint,
+                        BackupSession = session,
                         Exception = e,
                         Result = ErrorResult.Abort
                      };
@@ -322,12 +371,44 @@ namespace SkyFloe
                            throw;
                      }
                   }
+                  if (this.OnProgress != null)
+                  {
+                     ProgressEvent progress = new ProgressEvent()
+                     {
+                        Type = EventType.EndBackupCheckpoint,
+                        BackupSession = session
+                     };
+                     this.OnProgress(progress);
+                     if (progress.Cancel)
+                        return;  // TODO: fix
+                  }
                }
             }
-            session.State = Backup.SessionState.Completed;
-            this.archive.BackupIndex.UpdateSession(session);
+            if (this.archive.BackupIndex.LookupNextEntry(session) == null)
+            {
+               session.State = Backup.SessionState.Completed;
+               this.archive.BackupIndex.UpdateSession(session);
+            }
+            if (this.OnProgress != null)
+            {
+               ProgressEvent progress = new ProgressEvent()
+               {
+                  Type = EventType.BeginBackupCheckpoint,
+                  BackupSession = session
+               };
+               this.OnProgress(progress);
+            }
             // TODO: retry on final checkpoint failure
             backup.Checkpoint();
+            if (this.OnProgress != null)
+            {
+               ProgressEvent progress = new ProgressEvent()
+               {
+                  Type = EventType.EndBackupCheckpoint,
+                  BackupSession = session
+               };
+               this.OnProgress(progress);
+            }
          }
          finally
          {
@@ -399,12 +480,14 @@ namespace SkyFloe
                            Length = backupEntry.Length
                         }
                      );
+                     session.TotalLength += backupEntry.Length;
                      break;
                   case Backup.EntryState.Deleted:
                      // TODO: implement
                      break;
                }
             }
+            this.archive.RestoreIndex.UpdateSession(session);
             txn.Complete();
             return session;
          }
@@ -453,6 +536,20 @@ namespace SkyFloe
                      else
                         fileInfo.Attributes &= ~FileAttributes.ReadOnly;
                }
+               if (this.OnProgress != null)
+               {
+                  ProgressEvent progress = new ProgressEvent()
+                  {
+                     Type = EventType.BeginRestoreEntry,
+                     BackupSession = backupEntry.Session,
+                     BackupEntry = backupEntry,
+                     RestoreSession = session,
+                     RestoreEntry = restoreEntry
+                  };
+                  this.OnProgress(progress);
+                  if (progress.Cancel)
+                     break;
+               }
                if (restoreFile)
                {
                   try
@@ -474,7 +571,11 @@ namespace SkyFloe
                      catch { }
                      ErrorEvent error = new ErrorEvent()
                      {
-                        Entry = backupEntry,
+                        Type = EventType.BeginRestoreEntry,
+                        BackupSession = backupEntry.Session,
+                        BackupEntry = backupEntry,
+                        RestoreSession = session,
+                        RestoreEntry = restoreEntry,
                         Exception = e,
                         Result = ErrorResult.Abort
                      };
@@ -501,6 +602,8 @@ namespace SkyFloe
                using (TransactionScope txn = new TransactionScope())
                {
                   restoreEntry.State = Restore.EntryState.Completed;
+                  // TODO: don't set restore length for deletes + look for other cases
+                  session.RestoreLength += restoreEntry.Length;
                   this.archive.RestoreIndex.UpdateEntry(restoreEntry);
                   this.archive.RestoreIndex.UpdateSession(session);
                   txn.Complete();
@@ -509,16 +612,22 @@ namespace SkyFloe
                {
                   ProgressEvent progress = new ProgressEvent()
                   {
-                     Entry = backupEntry
+                     Type = EventType.EndRestoreEntry,
+                     BackupSession = backupEntry.Session,
+                     BackupEntry = backupEntry,
+                     RestoreSession = session,
+                     RestoreEntry = restoreEntry
                   };
                   this.OnProgress(progress);
                   if (progress.Cancel)
                      break;
                }
             }
-            // TODO: update session state
-            // session.State = Restore.SessionState.Completed;
-            // this.archive.RestoreIndex.UpdateSession(session);
+            if (this.archive.RestoreIndex.LookupNextEntry(session) == null)
+            {
+               session.State = Restore.SessionState.Completed;
+               this.archive.RestoreIndex.UpdateSession(session);
+            }
          }
          finally
          {
@@ -564,23 +673,39 @@ namespace SkyFloe
          }
       }
 
+      public enum EventType
+      {
+         BeginBackupEntry,
+         EndBackupEntry,
+         BeginBackupCheckpoint,
+         EndBackupCheckpoint,
+         BeginRestoreEntry,
+         EndRestoreEntry
+      }
       public enum ErrorResult
       {
          Abort = 1,
          Retry = 2,
          Fail = 3
       }
-
       public class ErrorEvent
       {
-         public Backup.Entry Entry { get; set; }
+         public EventType Type { get; set; }
+         public Backup.Session BackupSession { get; set; }
+         public Backup.Entry BackupEntry { get; set; }
+         public Restore.Session RestoreSession { get; set; }
+         public Restore.Entry RestoreEntry { get; set; }
          public Exception Exception { get; set; }
          public ErrorResult Result { get; set; }
       }
 
       public class ProgressEvent
       {
-         public Backup.Entry Entry { get; set; }
+         public EventType Type { get; set; }
+         public Backup.Session BackupSession { get; set; }
+         public Backup.Entry BackupEntry { get; set; }
+         public Restore.Session RestoreSession { get; set; }
+         public Restore.Entry RestoreEntry { get; set; }
          public Boolean Cancel { get; set; }
       }
    }

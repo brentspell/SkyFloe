@@ -103,6 +103,7 @@ namespace SkyFloe.Aws
       public void DeleteArchive (String name)
       {
          // TODO: consider not using archive implementation here
+         // TODO: or consider moving all delete code into archive
          String vault = this.VaultPrefix + name;
          List<String> blobs = new List<String>();
          try

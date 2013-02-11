@@ -11,28 +11,12 @@ namespace SkyFloe.Aws
    public class GlacierBackup : IBackup
    {
       public const Int32 PartSize = 16 * 1024 * 1024;
-      private IBackupIndex index;
-      private Amazon.S3.AmazonS3 s3;
-      private Amazon.Glacier.AmazonGlacierClient glacier;
-      private String vault;
-      private String indexS3Bucket;
-      private String indexS3Key;
+      private GlacierArchive archive;
       private GlacierUploader uploader;
 
-      public GlacierBackup (
-         IBackupIndex index,
-         Amazon.S3.AmazonS3 s3,
-         Amazon.Glacier.AmazonGlacierClient glacier,
-         String vault,
-         String indexS3Bucket,
-         String indexS3Key)
+      public GlacierBackup (GlacierArchive archive, Backup.Session session)
       {
-         this.index = index;
-         this.s3 = s3;
-         this.glacier = glacier;
-         this.vault = vault;
-         this.indexS3Bucket = indexS3Bucket;
-         this.indexS3Key = indexS3Key;
+         this.archive = archive;
       }
 
       public void Dispose ()
@@ -48,18 +32,18 @@ namespace SkyFloe.Aws
          if (this.uploader == null)
          {
             this.uploader = new GlacierUploader(
-               this.glacier,
-               this.vault,
+               this.archive.Glacier,
+               this.archive.Vault,
                PartSize
             );
-            this.index.InsertBlob(
+            this.archive.BackupIndex.InsertBlob(
                new Backup.Blob()
                {
                   Name = this.uploader.UploadID
                }
             );
          }
-         Backup.Blob blob = this.index.LookupBlob(this.uploader.UploadID);
+         Backup.Blob blob = this.archive.BackupIndex.LookupBlob(this.uploader.UploadID);
          if (blob.Length != this.uploader.Length)
             blob.Length = this.uploader.Resync(blob.Length);
          Int64 offset = this.uploader.Length;
@@ -72,30 +56,16 @@ namespace SkyFloe.Aws
       {
          if (this.uploader != null)
          {
-            Backup.Blob blob = this.index.LookupBlob(this.uploader.UploadID);
+            Backup.Blob blob = this.archive.BackupIndex.LookupBlob(this.uploader.UploadID);
             this.uploader.Flush();
             blob.Length = this.uploader.Length;
             String archiveID = this.uploader.Complete();
             blob.Name = archiveID;
-            this.index.UpdateBlob(blob);
+            this.archive.BackupIndex.UpdateBlob(blob);
             this.uploader.Dispose();
             this.uploader = null;
          }
-         using (Stream checkpointStream = IO.FileSystem.Temp())
-         {
-            using (GZipStream gzipStream = new GZipStream(checkpointStream, CompressionMode.Compress, true))
-            using (Stream indexStream = this.index.Serialize())
-               indexStream.CopyTo(gzipStream);
-            checkpointStream.Position = 0;
-            this.s3.PutObject(
-               new Amazon.S3.Model.PutObjectRequest()
-               {
-                  BucketName = this.indexS3Bucket,
-                  Key = this.indexS3Key,
-                  InputStream = checkpointStream
-               }
-            );
-         }
+         this.archive.Save();
       }
       #endregion
    }

@@ -10,10 +10,10 @@ namespace SkyFloe
    public class FileSystemRestore : IRestore
    {
       Stream blobFile;
-      
-      public FileSystemRestore (String blobPath)
+
+      public FileSystemRestore (FileSystemArchive archive, Restore.Session session)
       {
-         this.blobFile = IO.FileSystem.Open(blobPath);
+         this.blobFile = IO.FileSystem.Open(archive.BlobPath);
       }
 
       public void Dispose ()

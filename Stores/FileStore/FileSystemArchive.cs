@@ -7,7 +7,7 @@ using SkyFloe.Store;
 
 namespace SkyFloe
 {
-   internal class FileSystemArchive : IArchive
+   public class FileSystemArchive : IArchive
    {
       private IBackupIndex backupIndex;
       private IRestoreIndex restoreIndex;
@@ -70,10 +70,7 @@ namespace SkyFloe
                }
             );
             // copy the initial version of the index to the archive path
-            // TODO: refactor duplication between here and the backup object
-            using (Stream indexStream = IO.FileSystem.Truncate(this.IndexPath))
-            using (Stream tempStream = this.backupIndex.Serialize())
-               tempStream.CopyTo(indexStream);
+            Save();
          }
          catch
          {
@@ -96,6 +93,12 @@ namespace SkyFloe
             throw;
          }
       }
+      public void Save ()
+      {
+         using (Stream indexStream = IO.FileSystem.Truncate(this.IndexPath))
+         using (Stream tempStream = this.backupIndex.Serialize())
+            tempStream.CopyTo(indexStream);
+      }
       #endregion
 
       #region IArchive Implementation
@@ -113,15 +116,11 @@ namespace SkyFloe
       }
       public IBackup PrepareBackup (Backup.Session session)
       {
-         return new FileSystemBackup(
-            this.backupIndex,
-            this.IndexPath,
-            this.BlobPath
-         );
+         return new FileSystemBackup(this, session);
       }
       public IRestore PrepareRestore (Restore.Session session)
       {
-         return new FileSystemRestore(this.BlobPath);
+         return new FileSystemRestore(this, session);
       }
       #endregion
    }

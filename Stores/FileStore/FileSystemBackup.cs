@@ -9,32 +9,27 @@ namespace SkyFloe
 {
    public class FileSystemBackup : IBackup
    {
-      IBackupIndex index;
-      String indexPath;
+      FileSystemArchive archive;
       Stream blobFile;
-      
-      public FileSystemBackup (
-         IBackupIndex index, 
-         String indexPath,
-         String blobPath)
+
+      public FileSystemBackup (FileSystemArchive archive, Backup.Session session)
       {
-         this.index = index;
-         this.indexPath = indexPath;
-         this.blobFile = IO.FileSystem.Append(blobPath);
+         this.archive = archive;
+         this.blobFile = IO.FileSystem.Append(archive.BlobPath);
       }
 
       public void Dispose ()
       {
          if (this.blobFile != null)
             this.blobFile.Dispose();
-         this.index = null;
+         this.archive = null;
          this.blobFile = null;
       }
 
       #region IBackup Implementation
       public void Backup (Backup.Entry entry, Stream stream)
       {
-         Backup.Blob blob = this.index.FetchBlob(1);
+         Backup.Blob blob = this.archive.BackupIndex.FetchBlob(1);
          this.blobFile.Seek(blob.Length, SeekOrigin.Begin);
          stream.CopyTo(this.blobFile);
          entry.Blob = blob;
@@ -44,9 +39,7 @@ namespace SkyFloe
       public void Checkpoint ()
       {
          this.blobFile.Flush();
-         using (Stream indexStream = IO.FileSystem.Truncate(this.indexPath))
-         using (Stream tempStream = this.index.Serialize())
-            tempStream.CopyTo(indexStream);
+         this.archive.Save();
       }
       #endregion
    }

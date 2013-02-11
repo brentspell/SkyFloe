@@ -3,6 +3,7 @@
 );
 CREATE TABLE Session (
    ID Integer PRIMARY KEY NOT NULL,
+   TotalLength BigInt NOT NULL,
    State SmallInt NOT NULL CHECK (State IN (1, 2, 3)),
    Flags Integer NOT NULL,
    Created DateTime DEFAULT CURRENT_TIMESTAMP NOT NULL

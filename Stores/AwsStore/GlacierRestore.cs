@@ -11,43 +11,34 @@ namespace SkyFloe.Aws
    {
       public const Int32 MinRetrievalSize = 1024 * 1024;
       public const Int32 PartSize = 16 * 1024 * 1024;
-      private IRestoreIndex restoreIndex;
-      private Amazon.Glacier.AmazonGlacierClient glacier;
-      private String vault;
+      private GlacierArchive archive;
       private GlacierDownloader downloader;
       private DateTime restoreStarted;
       private Int64 restoreRetrieving;
       private Double maxRetrievalRate;
 
-      public GlacierRestore (
-         IBackupIndex backupIndex,
-         IRestoreIndex restoreIndex,
-         Restore.Session session,
-         Amazon.Glacier.AmazonGlacierClient glacier,
-         String vault)
+      public GlacierRestore (GlacierArchive archive, Restore.Session session)
       {
-         this.restoreIndex = restoreIndex;
-         this.glacier = glacier;
-         this.vault = vault;
+         this.archive = archive;
          if (session.State == SkyFloe.Restore.SessionState.Pending)
          {
-            foreach (Restore.Retrieval oldRetrieval in this.restoreIndex.ListRetrievals(session))
+            foreach (Restore.Retrieval oldRetrieval in this.archive.RestoreIndex.ListRetrievals(session))
             {
-               Backup.Blob blob = backupIndex.LookupBlob(oldRetrieval.Blob);
-               Restore.Retrieval newRetrieval = this.restoreIndex.FetchRetrieval(oldRetrieval.ID);
+               Backup.Blob blob = this.archive.BackupIndex.LookupBlob(oldRetrieval.Blob);
+               Restore.Retrieval newRetrieval = this.archive.RestoreIndex.FetchRetrieval(oldRetrieval.ID);
                newRetrieval.Length = 0;
-               this.restoreIndex.UpdateRetrieval(newRetrieval);
-               foreach (Restore.Entry entry in this.restoreIndex.ListRetrievalEntries(oldRetrieval))
+               this.archive.RestoreIndex.UpdateRetrieval(newRetrieval);
+               foreach (Restore.Entry entry in this.archive.RestoreIndex.ListRetrievalEntries(oldRetrieval))
                {
                   if (entry.Offset < newRetrieval.Offset + newRetrieval.Length + MinRetrievalSize)
                   {
                      newRetrieval.Length = entry.Offset - newRetrieval.Offset + entry.Length;
                      newRetrieval.Length += MinRetrievalSize - newRetrieval.Length % MinRetrievalSize;
-                     this.restoreIndex.UpdateRetrieval(newRetrieval);
+                     this.archive.RestoreIndex.UpdateRetrieval(newRetrieval);
                   }
                   else
                   {
-                     newRetrieval = this.restoreIndex.InsertRetrieval(
+                     newRetrieval = this.archive.RestoreIndex.InsertRetrieval(
                         new Restore.Retrieval()
                         {
                            Session = session,
@@ -59,11 +50,11 @@ namespace SkyFloe.Aws
                   }
                   entry.Retrieval = newRetrieval;
                   entry.Offset -= entry.Retrieval.Offset;
-                  this.restoreIndex.UpdateEntry(entry);
+                  this.archive.RestoreIndex.UpdateEntry(entry);
                   if (newRetrieval.Offset + newRetrieval.Length > blob.Length)
                   {
                      newRetrieval.Length = blob.Length - newRetrieval.Offset;
-                     this.restoreIndex.UpdateRetrieval(newRetrieval);
+                     this.archive.RestoreIndex.UpdateRetrieval(newRetrieval);
                   }
                }
             }
@@ -71,19 +62,19 @@ namespace SkyFloe.Aws
          /* TODO
           * deprecate session.retrieved
          this.maxRetrievalRate =
-            0.05d * backupIndex.ListSessions().Sum(s => s.ActualLength) /
+            0.05d * this.archive.BackupIndex.ListSessions().Sum(s => s.ActualLength) /
             TimeSpan.FromDays(30).TotalSeconds;
          */
          this.maxRetrievalRate = 1024 * 1024 * 1024 / TimeSpan.FromHours(1).TotalSeconds;
          this.restoreStarted = DateTime.UtcNow;
-         this.downloader = new GlacierDownloader(this.glacier, this.vault);
-         foreach (Restore.Retrieval retrieval in this.restoreIndex.ListRetrievals(session))
+         this.downloader = new GlacierDownloader(this.archive.Glacier, this.archive.Vault);
+         foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex.ListRetrievals(session))
          {
             Boolean clearRetrieval = false;
             try
             {
                if (retrieval.Name != null)
-                  if (!this.restoreIndex.ListRetrievalEntries(retrieval).Any(e => e.State == SkyFloe.Restore.EntryState.Pending))
+                  if (!this.archive.RestoreIndex.ListRetrievalEntries(retrieval).Any(e => e.State == SkyFloe.Restore.EntryState.Pending))
                      clearRetrieval = true;
                   else if (!this.downloader.QueryJob(retrieval.Name))
                      this.restoreRetrieving += retrieval.Length;
@@ -95,7 +86,7 @@ namespace SkyFloe.Aws
             if (clearRetrieval)
             {
                retrieval.Name = null;
-               this.restoreIndex.UpdateRetrieval(retrieval);
+               this.archive.RestoreIndex.UpdateRetrieval(retrieval);
             }
          }
       }
@@ -122,9 +113,9 @@ namespace SkyFloe.Aws
             {
                this.restoreRetrieving -= entry.Retrieval.Length;
                entry.Retrieval.Name = null;
-               this.restoreIndex.UpdateRetrieval(entry.Retrieval);
+               this.archive.RestoreIndex.UpdateRetrieval(entry.Retrieval);
             }
-            foreach (Restore.Retrieval retrieval in this.restoreIndex
+            foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex
                .ListRetrievals(entry.Retrieval.Session)
                .SkipWhile(r => r.ID != entry.Retrieval.ID)
             )
@@ -150,13 +141,13 @@ namespace SkyFloe.Aws
                      retrieval.Offset,
                      retrieval.Length
                   );
-                  this.restoreIndex.UpdateRetrieval(retrieval);
+                  this.archive.RestoreIndex.UpdateRetrieval(retrieval);
                   if (retrieval.ID == entry.Retrieval.ID)
                      entry.Retrieval = retrieval;
                   this.restoreRetrieving += retrieval.Length;
                }
             }
-            foreach (Restore.Retrieval retrieval in this.restoreIndex
+            foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex
                .ListRetrievals(entry.Retrieval.Session)
                .TakeWhile(r => r.ID != entry.Retrieval.ID)
                .Where(r => r.Name != null)
