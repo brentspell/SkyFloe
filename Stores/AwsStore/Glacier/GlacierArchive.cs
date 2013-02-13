@@ -34,15 +34,15 @@ namespace SkyFloe.Aws
          this.vault = vault;
          this.bucket = bucket;
          this.name = name;
-         String restoreIndexPath = System.IO.Path.Combine(
+         IO.Path restoreIndexPath = new IO.Path(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SkyFloe",
             "AwsGlacier",
             name,
             "restore.db"
          );
-         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(restoreIndexPath));
-         this.restoreIndex = (File.Exists(restoreIndexPath)) ?
+         IO.FileSystem.CreateDirectory(restoreIndexPath.Parent);
+         this.restoreIndex = (IO.FileSystem.GetMetadata(restoreIndexPath).Exists) ?
             Sqlite.RestoreIndex.Open(restoreIndexPath) :
             Sqlite.RestoreIndex.Create(restoreIndexPath, new Restore.Header());
       }

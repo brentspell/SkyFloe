@@ -186,6 +186,25 @@ namespace SkyFloe
          {
             get { return this.archive.RestoreIndex.ListSessions(); }
          }
+         public Backup.Node LookupNode (IO.Path path)
+         {
+            Backup.Node node = this.Roots.FirstOrDefault(
+               r => new IO.Path(r.Name).IsAncestor(path)
+            );
+            if (node != null)
+            {
+               IO.Path rootPath = node.Name;
+               foreach (String pathElem in path.Skip(rootPath.Count()))
+               {
+                  node = GetChildren(node).FirstOrDefault(
+                     n => String.Compare(n.Name, pathElem, true) == 0
+                  );
+                  if (node == null)
+                     break;
+               }
+            }
+            return node;
+         }
          public IEnumerable<Backup.Node> GetChildren (Backup.Node parent)
          {
             return this.archive.BackupIndex.ListNodes(parent);

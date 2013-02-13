@@ -23,30 +23,23 @@ namespace SkyFloe
       }
       public IEnumerable<String> ListArchives ()
       {
-         foreach (String dir in Directory.GetDirectories(this.Path))
-            yield return System.IO.Path.GetFileName(dir);
+         return IO.FileSystem.Children(this.Path).Select(p => p.Name);
       }
       public Store.IArchive CreateArchive (String name, Backup.Header header)
       {
-         FileSystemArchive archive = new FileSystemArchive(
-            System.IO.Path.Combine(this.Path, name)
-         );
+         FileSystemArchive archive = new FileSystemArchive((IO.Path)this.Path + name);
          archive.Create(header);
          return archive;
       }
       public Store.IArchive OpenArchive (String name)
       {
-         FileSystemArchive archive = new FileSystemArchive(
-            System.IO.Path.Combine(this.Path, name)
-         );
+         FileSystemArchive archive = new FileSystemArchive((IO.Path)this.Path + name);
          archive.Open();
          return archive;
       }
       public void DeleteArchive (String name)
       {
-         String path = System.IO.Path.Combine(this.Path, name);
-         if (Directory.Exists(path))
-            Directory.Delete(path, true);
+         IO.FileSystem.Delete((IO.Path)this.Path + name);
       }
       #endregion
    }

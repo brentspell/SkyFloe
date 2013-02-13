@@ -186,7 +186,7 @@ namespace SkyFloe.Backup
                   units[totalUnit],
                   entrySize,
                   units[entryUnit],
-                  evt.BackupEntry.Node.GetRelativePath()
+                  evt.BackupEntry.Node.GetAbsolutePath()
                );
                break;
             case Engine.EventType.EndBackupEntry:

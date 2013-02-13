@@ -94,8 +94,9 @@ namespace SkyFloe.Aws
                if (retrieval.Name == null)
                {
                   // TODO: remove
+                  Console.WriteLine();
                   Console.WriteLine(
-                     "{0:MMM dd, hh:mm}: Retrieving blob {1}..., offset = {2}, length = {3}",
+                     "{0:MMM dd, hh:mm}: Retrieving blob {1}, offset = {2}, length = {3}...",
                      DateTime.Now,
                      retrieval.Blob.Substring(0, 20),
                      retrieval.Offset,

@@ -10,6 +10,6 @@ namespace SkyFloe.Restore
       public Int32 ID { get; set; }
       public Session Session { get; set; }
       public Int32 NodeID { get; set; }
-      public String Path { get; set; }
+      public IO.Path Path { get; set; }
    }
 }

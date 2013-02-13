@@ -13,18 +13,18 @@ namespace SkyFloe
       private IRestoreIndex restoreIndex;
       private IO.FileSystem.TempStream tempIndex;
 
-      public FileSystemArchive (String path)
+      public FileSystemArchive (IO.Path path)
       {
          this.Path = path;
-         String restoreIndexPath = System.IO.Path.Combine(
+         IO.Path restoreIndexPath = new IO.Path(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SkyFloe",
             "FileStore",
             this.Name,
             "restore.db"
          );
-         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(restoreIndexPath));
-         this.restoreIndex = (File.Exists(restoreIndexPath)) ?
+         IO.FileSystem.CreateDirectory(restoreIndexPath.Parent);
+         this.restoreIndex = (IO.FileSystem.GetMetadata(restoreIndexPath).Exists) ?
             Sqlite.RestoreIndex.Open(restoreIndexPath) :
             Sqlite.RestoreIndex.Create(restoreIndexPath, new Restore.Header());
       }
@@ -42,17 +42,17 @@ namespace SkyFloe
          this.tempIndex = null;
       }
 
-      public String Path
+      public IO.Path Path
       { 
          get; private set;
       }
-      public String IndexPath
+      public IO.Path IndexPath
       {
-         get { return System.IO.Path.Combine(this.Path, "index.db"); } 
+         get { return this.Path + "index.db"; } 
       }
-      public String BlobPath
+      public IO.Path BlobPath
       {
-         get { return System.IO.Path.Combine(this.Path, "blob.dat"); }
+         get { return this.Path + "blob.dat"; }
       }
 
       #region Operations
@@ -60,13 +60,13 @@ namespace SkyFloe
       {
          try
          {
-            Directory.CreateDirectory(this.Path);
+            IO.FileSystem.CreateDirectory(this.Path);
             this.tempIndex = IO.FileSystem.Temp();
             this.backupIndex = Sqlite.BackupIndex.Create(this.tempIndex.Path, header);
             this.backupIndex.InsertBlob(
                new Backup.Blob()
                {
-                  Name = System.IO.Path.GetFileName(this.BlobPath)
+                  Name = this.BlobPath.FileName
                }
             );
             // copy the initial version of the index to the archive path
@@ -75,7 +75,7 @@ namespace SkyFloe
          catch
          {
             Dispose();
-            try { Directory.Delete(this.Path, true); } catch { }
+            try { IO.FileSystem.Delete(this.Path); } catch { }
             throw;
          }
       }
@@ -84,7 +84,7 @@ namespace SkyFloe
          try
          {
             this.tempIndex = IO.FileSystem.Temp();
-            File.Copy(this.IndexPath, this.tempIndex.Path, true);
+            IO.FileSystem.Copy(this.IndexPath, this.tempIndex.Path);
             this.backupIndex = Sqlite.BackupIndex.Open(this.tempIndex.Path);
          }
          catch
@@ -104,7 +104,7 @@ namespace SkyFloe
       #region IArchive Implementation
       public String Name
       {
-         get { return System.IO.Path.GetFileName(this.Path); }
+         get { return this.Path.FileName; }
       }
       public IBackupIndex BackupIndex
       {

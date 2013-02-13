@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 
 namespace SkyFloe
@@ -10,7 +9,7 @@ namespace SkyFloe
       public DiffMethod Method { get; set; }
       public Store.IBackupIndex Index { get; set; }
       public Backup.Node Root { get; set; }
-      public String Path { get; set; }
+      public IO.Path Path { get; set; }
 
       public IEnumerable<Diff> Enumerate ()
       {
@@ -18,16 +17,15 @@ namespace SkyFloe
             .Concat(DiffIndexPath(this.Root, this.Path));
       }
 
-      private IEnumerable<Diff> DiffPathIndex (Backup.Node parentNode, String parentPath)
+      private IEnumerable<Diff> DiffPathIndex (Backup.Node parentNode, IO.Path parentPath)
       {
          IList<Backup.Node> nodes = this.Index.ListNodes(parentNode).ToList();
-         foreach (String path in Directory.EnumerateDirectories(parentPath))
+         foreach (IO.FileSystem.Metadata metadata in IO.FileSystem.Children(parentPath))
          {
-            DirectoryInfo pathInfo = new DirectoryInfo(path);
-            if (!pathInfo.Attributes.HasFlag(FileAttributes.System))
+            if (!metadata.IsSystem)
             {
                Backup.Node node = nodes.FirstOrDefault(
-                  n => String.Compare(n.Name, pathInfo.Name, true) == 0
+                  n => String.Compare(n.Name, metadata.Name, true) == 0
                );
                if (node == null)
                   yield return new Diff()
@@ -36,57 +34,38 @@ namespace SkyFloe
                      Node = node = new Backup.Node()
                      {
                         Parent = parentNode,
-                        Type = Backup.NodeType.Directory,
-                        Name = pathInfo.Name
+                        Type = metadata.IsDirectory ? 
+                           Backup.NodeType.Directory : 
+                           Backup.NodeType.File,
+                        Name = metadata.Name
                      }
                   };
-               foreach (Diff diff in DiffPathIndex(node, path))
-                  yield return diff;
-            }
-         }
-         foreach (String path in Directory.EnumerateFiles(parentPath))
-         {
-            FileInfo pathInfo = new FileInfo(path);
-            if (!pathInfo.Attributes.HasFlag(FileAttributes.System))
-            {
-               Backup.Node node = nodes.FirstOrDefault(
-                  n => String.Compare(n.Name, pathInfo.Name, true) == 0
-               );
-               if (node == null)
-                  yield return new Diff()
-                  {
-                     Type = DiffType.New,
-                     Node = node = new Backup.Node()
-                     {
-                        Parent = parentNode,
-                        Type = Backup.NodeType.File,
-                        Name = pathInfo.Name
-                     }
-                  };
+               if (metadata.IsDirectory)
+                  foreach (Diff diff in DiffPathIndex(node, metadata.Path))
+                     yield return diff;
             }
          }
       }
 
-      private IEnumerable<Diff> DiffIndexPath (Backup.Node parentNode, String parentPath)
+      private IEnumerable<Diff> DiffIndexPath (Backup.Node parentNode, IO.Path parentPath)
       {
          foreach (Backup.Node node in this.Index.ListNodes(parentNode))
          {
-            String path = System.IO.Path.Combine(parentPath, node.Name);
+            IO.Path path = parentPath + node.Name;
+            IO.FileSystem.Metadata metadata = IO.FileSystem.GetMetadata(path);
             if (node.Type == Backup.NodeType.Directory)
             {
-               DirectoryInfo pathInfo = new DirectoryInfo(path);
-               if (!pathInfo.Exists || !pathInfo.Attributes.HasFlag(FileAttributes.System))
+               if (!metadata.Exists || !metadata.IsSystem)
                   foreach (Diff diff in DiffIndexPath(node, path))
                      yield return diff;
             }
             else
             {
-               FileInfo pathInfo = new FileInfo(path);
                Backup.Entry entry = this.Index
                   .ListNodeEntries(node)
                   .OrderBy(e => e.Session.Created)
                   .LastOrDefault();
-               if (!pathInfo.Exists || pathInfo.Attributes.HasFlag(FileAttributes.System))
+               if (!metadata.Exists || metadata.IsSystem)
                {
                   if (entry != null && entry.State != Backup.EntryState.Deleted)
                      yield return new Diff()
@@ -109,11 +88,11 @@ namespace SkyFloe
                   switch (this.Method)
                   {
                      case DiffMethod.Timestamp:
-                        if (File.GetLastWriteTimeUtc(path) < entry.Session.Created)
+                        if (metadata.Updated < entry.Session.Created)
                            isChanged = false;
                         break;
                      case DiffMethod.Digest:
-                        if (IO.Crc32Stream.Calculate(new FileInfo(path)) == entry.Crc32)
+                        if (IO.Crc32Stream.Calculate(path) == entry.Crc32)
                            isChanged = false;
                         break;
                      default:

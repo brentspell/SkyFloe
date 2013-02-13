@@ -182,7 +182,7 @@ namespace SkyFloe
                      this.archive.BackupIndex.InsertNode(diff.Node);
                   if (diff.Node.Type == Backup.NodeType.File)
                   {
-                     this.archive.BackupIndex.InsertEntry(
+                     Backup.Entry entry = this.archive.BackupIndex.InsertEntry(
                         new Backup.Entry()
                         {
                            Session = session,
@@ -191,12 +191,12 @@ namespace SkyFloe
                               Backup.EntryState.Pending :
                               Backup.EntryState.Deleted,
                            Offset = -1,
-                           Length = -1,
+                           Length = IO.FileSystem.GetMetadata(diff.Node.GetAbsolutePath()).Length,
                            Crc32 = IO.Crc32Stream.InitialValue
                         }
                      );
                      if (diff.Type != DiffType.Deleted)
-                        session.EstimatedLength += new FileInfo(diff.Node.GetAbsolutePath()).Length;
+                        session.EstimatedLength += entry.Length;
                   }
                }
                txn.Complete();
@@ -253,7 +253,6 @@ namespace SkyFloe
                   break;
                try
                {
-                  entry.Length = new FileInfo(entry.Node.GetAbsolutePath()).Length;
                   if (this.OnProgress != null)
                   {
                      ProgressEvent progress = new ProgressEvent()
@@ -526,20 +525,20 @@ namespace SkyFloe
                Backup.Entry backupEntry = this.archive.BackupIndex.FetchEntry(restoreEntry.BackupEntryID);
                Backup.Node rootNode = backupEntry.Node.GetRoot();
                Restore.PathMap rootMap = this.archive.RestoreIndex.LookupPathMap(session, rootNode.ID);
-               String rootPath = (rootMap != null) ? rootMap.Path : rootNode.Name;
-               String path = Path.Combine(rootPath, backupEntry.Node.GetRelativePath());
-               Directory.CreateDirectory(Path.GetDirectoryName(path));
-               FileInfo fileInfo = new FileInfo(path);
+               IO.Path rootPath = (rootMap != null) ? rootMap.Path : (IO.Path)rootNode.Name;
+               IO.Path path = rootPath + backupEntry.Node.GetRelativePath();
+               IO.FileSystem.CreateDirectory(path.Parent);
+               IO.FileSystem.Metadata metadata = IO.FileSystem.GetMetadata(path);
                Boolean restoreFile = true;
-               if (fileInfo.Exists)
+               if (metadata.Exists)
                {
-                  if (session.SkipExisting && fileInfo.Length > 0)
+                  if (session.SkipExisting && metadata.Length > 0)
                      restoreFile = false;
-                  else if (fileInfo.Attributes.HasFlag(FileAttributes.ReadOnly))
+                  else if (metadata.IsReadOnly)
                      if (session.SkipReadOnly)
                         restoreFile = false;
                      else
-                        fileInfo.Attributes &= ~FileAttributes.ReadOnly;
+                        IO.FileSystem.MakeWritable(path);
                }
                if (this.OnProgress != null)
                {
@@ -573,7 +572,7 @@ namespace SkyFloe
                   }
                   catch (Exception e)
                   {
-                     try { File.Delete(path); }
+                     try { IO.FileSystem.Delete(path); }
                      catch { }
                      ErrorEvent error = new ErrorEvent()
                      {
@@ -657,7 +656,7 @@ namespace SkyFloe
             };
             foreach (Backup.Node root in this.archive.BackupIndex.ListNodes(null))
             {
-               String path = root.Name;
+               IO.Path path = root.Name;
                String mapPath = null;
                if (request.RootPathMap.TryGetValue(path, out mapPath))
                   path = mapPath;

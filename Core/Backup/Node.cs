@@ -25,17 +25,17 @@ namespace SkyFloe.Backup
             node = node.Parent;
          return node;
       }
-      public String GetAbsolutePath ()
-      {
-         return (this.Parent != null) ? 
-            System.IO.Path.Combine(this.Parent.GetAbsolutePath(), this.Name) :
-            this.Name;
-      }
-      public String GetRelativePath ()
+      public IO.Path GetAbsolutePath ()
       {
          return (this.Parent != null) ?
-            System.IO.Path.Combine(this.Parent.GetRelativePath(), this.Name) :
-            "";
+            this.Parent.GetAbsolutePath() + this.Name :
+            (IO.Path)this.Name;
+      }
+      public IO.Path GetRelativePath ()
+      {
+         return (this.Parent != null) ?
+            this.Parent.GetRelativePath() + this.Name :
+            IO.Path.Empty;
       }
    }
 }

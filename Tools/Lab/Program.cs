@@ -54,11 +54,12 @@ namespace SkyFloe.Lab
 
       static void ExecuteTests ()
       {
-         Console.Write(
-            "   Running {0} threads, {1} iterations...",
+         Console.WriteLine(
+            "Running {0} threads, {1} iterations.",
             threadCount,
             iterationCount
          );
+         Console.WriteLine();
          realClock.Start();
          List<Thread> threads = new List<Thread>();
          for (Int32 i = 0; i < threadCount; i++)
@@ -71,14 +72,14 @@ namespace SkyFloe.Lab
          for (Int32 i = 0; i < threadCount; i++)
             threads[i].Join();
          realClock.Stop();
-         Console.WriteLine("done.");
-         Console.WriteLine("   Performance:");
-         Console.WriteLine("      Runs:  {0,12}", testClocks.Runs());
-         Console.WriteLine("      Real:  {0,12:0.000} s", realClock.MeanTime);
-         Console.WriteLine("      Min:   {0,12:0.000} ms", testClocks.MinTime() * 1000);
-         Console.WriteLine("      Max:   {0,12:0.000} ms", testClocks.MaxTime() * 1000);
-         Console.WriteLine("      Mean:  {0,12:0.000} ms", testClocks.MeanTime() * 1000);
-         Console.WriteLine("      StdDev:{0,12:0.000} ms", testClocks.StdDevTime() * 1000);
+         Console.WriteLine();
+         Console.WriteLine("Performance:");
+         Console.WriteLine("   Runs:  {0,12}", testClocks.Runs());
+         Console.WriteLine("   Real:  {0,12:0.000} s", realClock.MeanTime);
+         Console.WriteLine("   Min:   {0,12:0.000} ms", testClocks.MinTime() * 1000);
+         Console.WriteLine("   Max:   {0,12:0.000} ms", testClocks.MaxTime() * 1000);
+         Console.WriteLine("   Mean:  {0,12:0.000} ms", testClocks.MeanTime() * 1000);
+         Console.WriteLine("   StdDev:{0,12:0.000} ms", testClocks.StdDevTime() * 1000);
          if (Debugger.IsAttached)
          {
             Console.WriteLine();

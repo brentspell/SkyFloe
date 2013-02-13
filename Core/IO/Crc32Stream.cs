@@ -96,16 +96,16 @@ namespace SkyFloe.IO
       /// <summary>
       /// Calculates a CRC checksum over a file.
       /// </summary>
-      /// <param name="fileInfo">
-      /// The descriptor of the file to process
+      /// <param name="path">
+      /// The path to the file to process
       /// </param>
       /// <returns>
       /// The CRC value for the file
       /// </returns>
-      public static UInt32 Calculate (FileInfo fileInfo)
+      public static UInt32 Calculate (String path)
       {
          using (FileStream stream = new FileStream(
-               fileInfo.FullName,
+               path,
                FileMode.Open,
                FileAccess.Read,
                FileShare.Read,

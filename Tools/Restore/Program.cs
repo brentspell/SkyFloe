@@ -133,19 +133,9 @@ namespace SkyFloe.Restore
                      else
                      {
                         List<Backup.Node> nodeList = new List<Backup.Node>();
-                        foreach (String file in restoreFiles)
+                        foreach (IO.Path file in restoreFiles)
                         {
-                           Backup.Node node = archive.Roots.FirstOrDefault(
-                              r => file.StartsWith(r.Name, StringComparison.OrdinalIgnoreCase)
-                           );
-                           String path = file.Substring(node.Name.Length);
-                           while (node != null && path != String.Empty)
-                           {
-                              node = archive.GetChildren(node).FirstOrDefault(n => path.StartsWith(n.Name, StringComparison.OrdinalIgnoreCase));
-                              path = (node != null) ?
-                                 path = path.Substring(node.Name.Length + 1) : 
-                                 String.Empty;
-                           }
+                           Backup.Node node = archive.LookupNode(file);
                            if (node == null)
                               throw new InvalidOperationException(String.Format("Path not found in the archive: {0}.", file));
                            nodeList.Add(node);
@@ -219,7 +209,7 @@ namespace SkyFloe.Restore
                   units[totalUnit],
                   entrySize,
                   units[entryUnit],
-                  evt.BackupEntry.Node.GetRelativePath()
+                  evt.BackupEntry.Node.GetAbsolutePath()
                );
                break;
             case Engine.EventType.EndRestoreEntry:

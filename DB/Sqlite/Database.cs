@@ -49,15 +49,15 @@ namespace SkyFloe.Sqlite
          }
          catch
          {
-            try { File.Delete(path); }
+            try { IO.FileSystem.Delete(path); }
             catch { }
             throw;
          }
       }
       public static void Delete (String path)
       {
-         File.Delete(path);
-         File.Delete(String.Format("{0}-journal", path));
+         IO.FileSystem.Delete(path);
+         IO.FileSystem.Delete(String.Format("{0}-journal", path));
       }
       public Stream Serialize ()
       {
