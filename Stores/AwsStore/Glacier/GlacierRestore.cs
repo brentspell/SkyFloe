@@ -58,27 +58,6 @@ namespace SkyFloe.Aws
          }
          this.retrievalLimiter = new IO.RateLimiter(session.RateLimit);
          this.downloader = new GlacierDownloader(this.archive.Glacier, this.archive.Vault);
-         foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex.ListRetrievals(session))
-         {
-            Boolean clearRetrieval = false;
-            try
-            {
-               if (retrieval.Name != null)
-                  if (!this.archive.RestoreIndex.ListRetrievalEntries(retrieval).Any(e => e.State == SkyFloe.Restore.EntryState.Pending))
-                     clearRetrieval = true;
-                  else if (!this.downloader.QueryJob(retrieval.Name))
-                     this.retrievalLimiter.Register(retrieval.Length);
-            }
-            catch
-            {
-               clearRetrieval = true;
-            }
-            if (clearRetrieval)
-            {
-               retrieval.Name = null;
-               this.archive.RestoreIndex.UpdateRetrieval(retrieval);
-            }
-         }
       }
 
       public void Dispose ()

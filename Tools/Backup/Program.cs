@@ -208,12 +208,14 @@ namespace SkyFloe.Backup
          {
             System.Threading.Thread.Sleep(retries * 1000);
             evt.Result = Engine.ErrorResult.Retry;
+            Console.WriteLine();
             Console.WriteLine("      Retrying...");
          }
          else if (++failures <= maxFailures && evt.BackupEntry != null)
          {
             evt.Result = Engine.ErrorResult.Fail;
             retries = 0;
+            Console.WriteLine();
             Console.WriteLine("      Skipping {0} due to error.", evt.BackupEntry.Node.Name);
             Console.WriteLine(
                "         {0}",
