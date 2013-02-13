@@ -15,8 +15,10 @@ namespace SkyFloe.Backup
    {
       public Int32 ID { get; set; }
       public SessionState State { get; set; }
-      public DateTime Created { get; set; }
+      public Int32 RateLimit { get; set; }
+      public Int64 CheckpointLength { get; set; }
       public Int64 EstimatedLength { get; set; }
       public Int64 ActualLength { get; set; }
+      public DateTime Created { get; set; }
    }
 }

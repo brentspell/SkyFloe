@@ -39,13 +39,13 @@
     <Compile Include="..\..\Version.cs">
       <Link>Properties\Version.cs</Link>
     </Compile>
-    <Compile Include="GlacierRestore.cs" />
-    <Compile Include="GlacierBackup.cs" />
-    <Compile Include="GlacierDownloader.cs" />
-    <Compile Include="GlacierArchive.cs" />
-    <Compile Include="GlacierStore.cs" />
-    <Compile Include="GlacierStream.cs" />
-    <Compile Include="GlacierUploader.cs" />
+    <Compile Include="Glacier\GlacierRestore.cs" />
+    <Compile Include="Glacier\GlacierBackup.cs" />
+    <Compile Include="Glacier\GlacierDownloader.cs" />
+    <Compile Include="Glacier\GlacierArchive.cs" />
+    <Compile Include="Glacier\GlacierStore.cs" />
+    <Compile Include="Glacier\GlacierStream.cs" />
+    <Compile Include="Glacier\GlacierUploader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

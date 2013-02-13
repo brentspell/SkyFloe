@@ -10,12 +10,9 @@ namespace SkyFloe.Aws
    public class GlacierRestore : IRestore
    {
       public const Int32 MinRetrievalSize = 1024 * 1024;
-      public const Int32 PartSize = 16 * 1024 * 1024;
       private GlacierArchive archive;
       private GlacierDownloader downloader;
-      private DateTime restoreStarted;
-      private Int64 restoreRetrieving;
-      private Double maxRetrievalRate;
+      private IO.RateLimiter retrievalLimiter;
 
       public GlacierRestore (GlacierArchive archive, Restore.Session session)
       {
@@ -59,14 +56,7 @@ namespace SkyFloe.Aws
                }
             }
          }
-         /* TODO
-          * deprecate session.retrieved
-         this.maxRetrievalRate =
-            0.05d * this.archive.BackupIndex.ListSessions().Sum(s => s.ActualLength) /
-            TimeSpan.FromDays(30).TotalSeconds;
-         */
-         this.maxRetrievalRate = 1024 * 1024 * 1024 / TimeSpan.FromHours(1).TotalSeconds;
-         this.restoreStarted = DateTime.UtcNow;
+         this.retrievalLimiter = new IO.RateLimiter(session.RateLimit);
          this.downloader = new GlacierDownloader(this.archive.Glacier, this.archive.Vault);
          foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex.ListRetrievals(session))
          {
@@ -77,7 +67,7 @@ namespace SkyFloe.Aws
                   if (!this.archive.RestoreIndex.ListRetrievalEntries(retrieval).Any(e => e.State == SkyFloe.Restore.EntryState.Pending))
                      clearRetrieval = true;
                   else if (!this.downloader.QueryJob(retrieval.Name))
-                     this.restoreRetrieving += retrieval.Length;
+                     this.retrievalLimiter.Register(retrieval.Length);
             }
             catch
             {
@@ -111,7 +101,6 @@ namespace SkyFloe.Aws
             }
             catch
             {
-               this.restoreRetrieving -= entry.Retrieval.Length;
                entry.Retrieval.Name = null;
                this.archive.RestoreIndex.UpdateRetrieval(entry.Retrieval);
             }
@@ -120,10 +109,7 @@ namespace SkyFloe.Aws
                .SkipWhile(r => r.ID != entry.Retrieval.ID)
             )
             {
-               Double retrievalRate =
-                  (Double)this.restoreRetrieving /
-                  (DateTime.UtcNow - this.restoreStarted).TotalSeconds;
-               if (retrievalRate > this.maxRetrievalRate)
+               if (this.retrievalLimiter.OutOfControl)
                   if (retrieval.ID != entry.Retrieval.ID)
                      break;
                if (retrieval.Name == null)
@@ -144,7 +130,7 @@ namespace SkyFloe.Aws
                   this.archive.RestoreIndex.UpdateRetrieval(retrieval);
                   if (retrieval.ID == entry.Retrieval.ID)
                      entry.Retrieval = retrieval;
-                  this.restoreRetrieving += retrieval.Length;
+                  this.retrievalLimiter.Register(retrieval.Length);
                }
             }
             foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex

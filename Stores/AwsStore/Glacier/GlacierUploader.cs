@@ -9,9 +9,9 @@ namespace SkyFloe.Aws
 {
    public class GlacierUploader : IDisposable
    {
+      public const Int32 PartSize = 16 * 1024 * 1024;
       private AmazonGlacierClient glacier;
       private String vault;
-      private Int32 partSize;
       private Int32 partOffset;
       private Stream partStream;
       private Byte[] readBuffer;
@@ -22,24 +22,20 @@ namespace SkyFloe.Aws
       public String UploadID { get { return this.uploadID; } }
       public Int64 Length { get { return this.archiveOffset + this.partOffset; } }
       
-      public GlacierUploader (
-         AmazonGlacierClient glacier,
-         String vault,
-         Int32 partSize)
+      public GlacierUploader (AmazonGlacierClient glacier, String vault)
       {
          this.glacier = glacier;
          this.vault = vault;
-         this.partSize = partSize;
          this.partOffset = 0;
          this.partStream = IO.FileSystem.Temp();
-         this.partStream.SetLength(this.partSize);
+         this.partStream.SetLength(PartSize);
          this.readBuffer = new Byte[65536];
          this.partChecksums = new List<String>();
          this.uploadID = this.glacier.InitiateMultipartUpload(
             new InitiateMultipartUploadRequest()
             {
                VaultName = this.vault,
-               PartSize = this.partSize
+               PartSize = PartSize
             }
          ).InitiateMultipartUploadResult.UploadId;
          this.archiveOffset = 0;
@@ -57,14 +53,14 @@ namespace SkyFloe.Aws
          Int64 streamLength = 0;
          for (; ; )
          {
-            if (this.partOffset == this.partSize)
+            if (this.partOffset == PartSize)
                Flush();
             Int32 read = stream.Read(
                this.readBuffer,
                0,
                Math.Min(
-                  this.readBuffer.Length, 
-                  this.partSize - this.partOffset
+                  this.readBuffer.Length,
+                  PartSize - this.partOffset
                )
             );
             if (read == 0)
@@ -113,7 +109,7 @@ namespace SkyFloe.Aws
          this.partStream.Position = this.partOffset;
          if (commitLength < this.Length)
          {
-            Int32 commitPartLength = (Int32)(commitLength % this.partSize);
+            Int32 commitPartLength = (Int32)(commitLength % PartSize);
             Int64 commitPartOffset = commitLength - commitPartLength;
             // if we haven't committed any parts since the failure,
             // simply reset the current part length and continue
@@ -127,10 +123,10 @@ namespace SkyFloe.Aws
                this.partStream.Position = this.partOffset = 0;
                this.archiveOffset = commitPartOffset;
                if (commitPartLength > 0)
-                  this.archiveOffset += this.partSize;
+                  this.archiveOffset += PartSize;
                // remove any checksums already calculated for 
                // uncommitted parts
-               Int32 partIdx = (Int32)(this.archiveOffset / this.partSize);
+               Int32 partIdx = (Int32)(this.archiveOffset / PartSize);
                if (partIdx < this.partChecksums.Count)
                   this.partChecksums.RemoveRange(partIdx, this.partChecksums.Count - partIdx);
             }

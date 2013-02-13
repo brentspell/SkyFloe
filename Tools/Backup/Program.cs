@@ -10,16 +10,19 @@ namespace SkyFloe.Backup
       private static String connectionString;
       private static String archiveName;
       private static String password;
-      private static DiffMethod diffMethod;
-      private static IList<String> sourcePaths;
-      private static Boolean deleteArchive;
       private static Int32 maxRetries;
       private static Int32 maxFailures;
+      private static IList<String> sourcePaths;
+      private static Boolean deleteArchive;
+      private static DiffMethod diffMethod;
+      private static Int32 checkpointLength;
+      private static Int32 rateLimit;
       private static Int32 retries;
       private static Int32 failures;
 
       static Int32 Main (String[] args)
       {
+         Console.SetBufferSize(Math.Max(1000, Console.BufferWidth), Console.BufferHeight);
          Console.WriteLine("SkyFloe Backup");
          if (!ParseOptions(args))
          {
@@ -40,6 +43,8 @@ namespace SkyFloe.Backup
          deleteArchive = false;
          maxRetries = 5;
          maxFailures = 5;
+         checkpointLength = 1024;
+         rateLimit = Int32.MaxValue / 1024;
          // parse options
          try
          {
@@ -53,6 +58,8 @@ namespace SkyFloe.Backup
                { "s|source=", v => sourcePaths.Add(v) },
                { "k|delete", v => deleteArchive = (v != null) },
                { "d|diff=", (DiffMethod v) => diffMethod = v },
+               { "t|checkpoint=", (Int32 v) => checkpointLength = v },
+               { "l|rate=", (Int32 v) => rateLimit = v },
             }.Parse(args);
          }
          catch (Options.OptionException) { return false; }
@@ -60,8 +67,6 @@ namespace SkyFloe.Backup
          if (String.IsNullOrWhiteSpace(connectionString))
             return false;
          if (String.IsNullOrWhiteSpace(archiveName))
-            return false;
-         if (diffMethod == 0)
             return false;
          if (maxRetries < 0)
             return false;
@@ -71,7 +76,28 @@ namespace SkyFloe.Backup
             sourcePaths.Add(Environment.CurrentDirectory);
          if (sourcePaths.Any(p => String.IsNullOrWhiteSpace(p)))
             return false;
+         if (diffMethod == 0)
+            return false;
+         if (checkpointLength < 1)
+            return false;
+         if (rateLimit < 1)
+            return false;
          return true;
+      }
+
+      static void ReportUsage ()
+      {
+         Console.WriteLine("   Usage: SkyFloe.Backup {options}");
+         Console.WriteLine("      -c|-connect {connect}      backup store connection string");
+         Console.WriteLine("      -a|-archive {archive}      archive name");
+         Console.WriteLine("      -p|-password {password}    archive password");
+         Console.WriteLine("      -r|-max-retry {retries}    maximum file retries before skipping (default = 5)");
+         Console.WriteLine("      -f|-max-fail {failures}    maximum file failures before aborting (default = 5)");
+         Console.WriteLine("      -s|-source {source}        backup source directory (zero or more, default: current)");
+         Console.WriteLine("      -k|-delete[+/-]            delete the archive before backing up");
+         Console.WriteLine("      -d|-diff {diff}            file diff method (Timestamp or Digest) default: Timestamp");
+         Console.WriteLine("      -t|-checkpoint {size}      backup checkpoint interval, in megabytes, default: 1024");
+         Console.WriteLine("      -l|-rate {limit}           backup rate limit, in KB/sec, default: unlimited");
       }
 
       static Boolean ExecuteBackup ()
@@ -109,7 +135,9 @@ namespace SkyFloe.Backup
                      new BackupRequest()
                      {
                         DiffMethod = diffMethod,
-                        Sources = sourcePaths
+                        Sources = sourcePaths,
+                        CheckpointLength = checkpointLength * 1048576,
+                        RateLimit = rateLimit * 1024
                      }
                   );
                   Console.WriteLine("done.");
@@ -165,7 +193,7 @@ namespace SkyFloe.Backup
                Console.WriteLine("done.");
                break;
             case Engine.EventType.BeginBackupCheckpoint:
-               Console.Write("Checkpointing...");
+               Console.Write("   Checkpointing...");
                break;
             case Engine.EventType.EndBackupCheckpoint:
                Console.WriteLine("done.");
@@ -194,19 +222,6 @@ namespace SkyFloe.Backup
          }
          else
             evt.Result = Engine.ErrorResult.Abort;
-      }
-
-      static void ReportUsage ()
-      {
-         Console.WriteLine("   Usage: SkyFloe.Backup {options}");
-         Console.WriteLine("      -c|-connect {connect}      backup store connection string");
-         Console.WriteLine("      -a|-archive {archive}      archive name");
-         Console.WriteLine("      -p|-password {password}    archive password");
-         Console.WriteLine("      -r|-max-retry {retries}    maximum file retries before skipping (default = 5)");
-         Console.WriteLine("      -f|-max-fail {failures}    maximum file failures before aborting (default = 5)");
-         Console.WriteLine("      -s|-source {source}        backup source directory (zero or more, default: current)");
-         Console.WriteLine("      -k|-delete[+/-]            delete the archive before backing up");
-         Console.WriteLine("      -d|-diff {diff}            file diff method (Timestamp or Digest) default: Timestamp");
       }
    }
 }

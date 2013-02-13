@@ -37,6 +37,7 @@
     <Compile Include="Differencer.cs" />
     <Compile Include="Backup\Header.cs" />
     <Compile Include="IO\FileSystem.cs" />
+    <Compile Include="IO\RateLimiter.cs" />
     <Compile Include="Options\Options.cs" />
     <Compile Include="Request\BackupRequest.cs" />
     <Compile Include="Connection.cs" />

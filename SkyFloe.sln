@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{0D4C9A62-2325-450E-B55A-96D945C7C742}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Tools\Test\Test.csproj", "{1EC58884-222D-4100-9D00-E971C4FB752A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lab", "Tools\Lab\Lab.csproj", "{1EC58884-222D-4100-9D00-E971C4FB752A}"
 	ProjectSection(ProjectDependencies) = postProject
 		{5934F389-F519-4B17-AC51-8575A202D165} = {5934F389-F519-4B17-AC51-8575A202D165}
 	EndProjectSection

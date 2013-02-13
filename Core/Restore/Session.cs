@@ -27,6 +27,7 @@ namespace SkyFloe.Restore
       public Int64 RestoreLength { get; set; }  
       public SessionState State { get; set; }
       public SessionFlags Flags { get; set; }
+      public Int32 RateLimit { get; set; }
       public DateTime Created { get; set; }
 
       public Boolean SkipExisting

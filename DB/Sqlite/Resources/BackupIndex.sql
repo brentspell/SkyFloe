@@ -17,9 +17,11 @@ CREATE UNIQUE INDEX AK_Blob_Name
 CREATE TABLE Session (
    ID Integer PRIMARY KEY NOT NULL,
    State SmallInt NOT NULL CHECK (State IN (1, 2, 3)),
-   Created DateTime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+   RateLimit Integer NOT NULL,
    EstimatedLength BigInt NOT NULL,
-   ActualLength BigInt NOT NULL
+   ActualLength BigInt NOT NULL,
+   CheckpointLength BigInt NOT NULL,
+   Created DateTime DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 CREATE TABLE Node (
    ID Integer PRIMARY KEY NOT NULL,

@@ -7,6 +7,7 @@ CREATE TABLE Session (
    RestoreLength BigInt NOT NULL,
    State SmallInt NOT NULL CHECK (State IN (1, 2, 3)),
    Flags Integer NOT NULL,
+   RateLimit Integer NOT NULL,
    Created DateTime DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 CREATE TABLE PathMap (

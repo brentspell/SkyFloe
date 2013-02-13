@@ -62,7 +62,7 @@ namespace SkyFloe.Sqlite
       #region Session Operations
       public IEnumerable<Session> ListSessions ()
       {
-         using (IDataReader reader = ExecuteReader("SELECT ID, TotalLength, RestoreLength, State, Flags, Created FROM Session;"))
+         using (IDataReader reader = ExecuteReader("SELECT ID, TotalLength, RestoreLength, State, Flags, RateLimit, Created FROM Session;"))
             while (reader.Read())
                yield return new Session()
                {
@@ -71,12 +71,13 @@ namespace SkyFloe.Sqlite
                   RestoreLength = Convert.ToInt64(reader[2]),
                   State = (SessionState)Convert.ToInt32(reader[3]),
                   Flags = (SessionFlags)Convert.ToInt32(reader[4]),
-                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[5]), DateTimeKind.Utc)
+                  RateLimit = Convert.ToInt32(reader[5]),
+                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[6]), DateTimeKind.Utc)
                };
       }
       public Session FetchSession (Int32 id)
       {
-         using (IDataReader reader = ExecuteReader("SELECT TotalLength, RestoreLength, State, Flags, Created FROM Session WHERE ID = @p0;", id))
+         using (IDataReader reader = ExecuteReader("SELECT TotalLength, RestoreLength, State, Flags, RateLimit, Created FROM Session WHERE ID = @p0;", id))
             if (reader.Read())
                return new Session()
                {
@@ -85,18 +86,20 @@ namespace SkyFloe.Sqlite
                   RestoreLength = Convert.ToInt64(reader[1]),
                   State = (SessionState)Convert.ToInt32(reader[2]),
                   Flags = (SessionFlags)Convert.ToInt32(reader[3]),
-                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[4]), DateTimeKind.Utc)
+                  RateLimit = Convert.ToInt32(reader[4]),
+                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[5]), DateTimeKind.Utc)
                };
          return null;
       }
       public Session InsertSession (Session session)
       {
          Execute(
-            "INSERT INTO Session (TotalLength, RestoreLength, State, Flags, Created) VALUES (@p0, @p1, @p2, @p3, @p4);",
+            "INSERT INTO Session (TotalLength, RestoreLength, State, Flags, RateLimit, Created) VALUES (@p0, @p1, @p2, @p3, @p4, @p5);",
             session.TotalLength,
             session.RestoreLength,
             session.State,
             session.Flags,
+            session.RateLimit,
             session.Created = DateTime.UtcNow
          );
          session.ID = QueryRowID();
@@ -105,12 +108,13 @@ namespace SkyFloe.Sqlite
       public Session UpdateSession (Session session)
       {
          Execute(
-            "UPDATE Session SET TotalLength = @p1, RestoreLength = @p2, State = @p3, Flags = @p4 WHERE ID = @p0;",
+            "UPDATE Session SET TotalLength = @p1, RestoreLength = @p2, State = @p3, Flags = @p4, RateLimit = @p5 WHERE ID = @p0;",
             session.ID,
             session.TotalLength,
             session.RestoreLength,
             session.State,
-            session.Flags
+            session.Flags,
+            session.RateLimit
          );
          return session;
       }

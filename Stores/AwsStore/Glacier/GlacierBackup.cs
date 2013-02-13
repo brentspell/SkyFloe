@@ -10,7 +10,6 @@ namespace SkyFloe.Aws
 {
    public class GlacierBackup : IBackup
    {
-      public const Int32 PartSize = 16 * 1024 * 1024;
       private GlacierArchive archive;
       private GlacierUploader uploader;
 
@@ -33,8 +32,7 @@ namespace SkyFloe.Aws
          {
             this.uploader = new GlacierUploader(
                this.archive.Glacier,
-               this.archive.Vault,
-               PartSize
+               this.archive.Vault
             );
             this.archive.BackupIndex.InsertBlob(
                new Backup.Blob()

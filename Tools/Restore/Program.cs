@@ -18,11 +18,13 @@ namespace SkyFloe.Restore
       private static List<String> restoreFiles;
       private static Int32 maxRetries;
       private static Int32 maxFailures;
+      private static Int32 rateLimit;
       private static Int32 retries;
       private static Int32 failures;
 
       static Int32 Main (String[] args)
       {
+         Console.SetBufferSize(Math.Max(1000, Console.BufferWidth), Console.BufferHeight);
          Console.WriteLine("SkyFloe Restore");
          if (!ParseOptions(args))
          {
@@ -42,6 +44,7 @@ namespace SkyFloe.Restore
          maxRetries = 5;
          maxFailures = 5;
          restoreFiles = new List<String>();
+         rateLimit = Int32.MaxValue / 1024;
          // parse options
          try
          {
@@ -58,6 +61,7 @@ namespace SkyFloe.Restore
                { "v|verify", v => verifyResults = (v != null) },
                { "k|delete", v => enableDeletes = (v != null) },
                { "i|file=", v => restoreFiles.Add(v) },
+               { "l|rate=", (Int32 v) => rateLimit = v },
             }.Parse(args);
          }
          catch (Options.OptionException) { return false; }
@@ -77,6 +81,23 @@ namespace SkyFloe.Restore
          if (restoreFiles.Any(f => String.IsNullOrWhiteSpace(f)))
             return false;
          return true;
+      }
+
+      static void ReportUsage ()
+      {
+         Console.WriteLine("   Usage: SkyFloe.Restore {options}");
+         Console.WriteLine("      -c|-connect {connect}      backup store connection string");
+         Console.WriteLine("      -a|-archive {archive}      archive name");
+         Console.WriteLine("      -p|-password {password}    archive password");
+         Console.WriteLine("      -r|-max-retry {retries}    maximum file retries before skipping (default = 5)");
+         Console.WriteLine("      -f|-max-fail {failures}    maximum file failures before aborting (default = 5)");
+         Console.WriteLine("      -m|-map-path {src}={dst}   map a root backup path to a restore path");
+         Console.WriteLine("      -e|-skip-existing[+/-]     ignore existing files (no overwrite)");
+         Console.WriteLine("      -o|-skip-readonly[+/-]     ignore read-only files");
+         Console.WriteLine("      -v|-verify[+/-]            verify CRCs of restored files");
+         Console.WriteLine("      -k|-delete[+/-]            delete files marked as deleted in the archive");
+         Console.WriteLine("      -i|-file {path}            specify an individual file to restore (source absolute path)");
+         Console.WriteLine("      -l|-rate {limit}           restore rate limit, in KB/sec, default: unlimited");
       }
 
       static Boolean ExecuteRestore ()
@@ -140,6 +161,7 @@ namespace SkyFloe.Restore
                            SkipReadOnly = skipReadOnly,
                            VerifyResults = verifyResults,
                            EnableDeletes = enableDeletes,
+                           RateLimit = rateLimit * 1024,
                            Entries = nodes.Select(
                               n => archive.GetEntries(n)
                                  .OrderBy(e => e.Session.Created)
@@ -227,22 +249,6 @@ namespace SkyFloe.Restore
          }
          else
             evt.Result = Engine.ErrorResult.Abort;
-      }
-
-      static void ReportUsage ()
-      {
-         Console.WriteLine("   Usage: SkyFloe.Restore {options}");
-         Console.WriteLine("      -c|-connect {connect}      backup store connection string");
-         Console.WriteLine("      -a|-archive {archive}      archive name");
-         Console.WriteLine("      -p|-password {password}    archive password");
-         Console.WriteLine("      -r|-max-retry {retries}    maximum file retries before skipping (default = 5)");
-         Console.WriteLine("      -f|-max-fail {failures}    maximum file failures before aborting (default = 5)");
-         Console.WriteLine("      -m|-map-path {src}={dst}   map a root backup path to a restore path");
-         Console.WriteLine("      -e|-skip-existing[+/-]     ignore existing files (no overwrite)");
-         Console.WriteLine("      -o|-skip-readonly[+/-]     ignore read-only files");
-         Console.WriteLine("      -v|-verify[+/-]            verify CRCs of restored files");
-         Console.WriteLine("      -k|-delete[+/-]            delete files marked as deleted in the archive");
-         Console.WriteLine("      -i|-file {path}            specify an individual file to restore (source absolute path)");
       }
    }
 }

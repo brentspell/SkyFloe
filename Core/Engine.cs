@@ -148,7 +148,9 @@ namespace SkyFloe
          Backup.Session session = this.archive.BackupIndex.InsertSession(
             new Backup.Session()
             {
-               State = Backup.SessionState.Pending
+               State = Backup.SessionState.Pending,
+               CheckpointLength = request.CheckpointLength,
+               RateLimit = request.RateLimit
             }
          );
          foreach (String source in request.Sources)
@@ -241,6 +243,7 @@ namespace SkyFloe
                      return;  // TODO: fix
                }
             }
+            IO.RateLimiter limiter = new IO.RateLimiter(session.RateLimit);
             Backup.Header header = this.archive.BackupIndex.FetchHeader();
             Int64 checkpointSize = 0;
             for (; ; )
@@ -266,8 +269,9 @@ namespace SkyFloe
                   using (Stream fileStream = IO.FileSystem.Open(entry.Node.GetAbsolutePath()))
                   using (IO.Crc32Stream crcStream = new IO.Crc32Stream(fileStream, IO.StreamMode.Read))
                   using (Stream cryptoStream = new CryptoStream(crcStream, this.aes.CreateEncryptor(), CryptoStreamMode.Read))
+                  using (Stream limiterStream = limiter.CreateStream(cryptoStream, IO.StreamMode.Read))
                   {
-                     backup.Backup(entry, cryptoStream);
+                     backup.Backup(entry, limiterStream);
                      entry.Crc32 = crcStream.Value;
                   }
                }
@@ -322,9 +326,8 @@ namespace SkyFloe
                   if (progress.Cancel)
                      break;
                }
-               // TODO: set checkpoint size based on configuration/request
                checkpointSize += entry.Length;
-               if (checkpointSize > 1024 * 1024 * 1024)
+               if (checkpointSize > session.CheckpointLength)
                {
                   checkpointSize = 0;
                   if (this.OnProgress != null)
@@ -430,7 +433,8 @@ namespace SkyFloe
                   ((request.SkipExisting) ? Restore.SessionFlags.SkipExisting : 0) | 
                   ((request.SkipReadOnly) ? Restore.SessionFlags.SkipReadOnly : 0) | 
                   ((request.VerifyResults) ? Restore.SessionFlags.VerifyResults : 0) | 
-                  ((request.EnableDeletes) ? Restore.SessionFlags.EnableDeletes : 0)
+                  ((request.EnableDeletes) ? Restore.SessionFlags.EnableDeletes : 0),
+               RateLimit = request.RateLimit
             }
          );
          using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
@@ -513,6 +517,7 @@ namespace SkyFloe
                }
                txn.Complete();
             }
+            IO.RateLimiter limiter = new IO.RateLimiter(session.RateLimit);
             for (; ; )
             {
                Restore.Entry restoreEntry = this.archive.RestoreIndex.LookupNextEntry(session);
@@ -557,10 +562,11 @@ namespace SkyFloe
                      // TODO: fault tolerance
                      using (Stream fileStream = IO.FileSystem.Truncate(path))
                      using (IO.Crc32Stream crcStream = new IO.Crc32Stream(fileStream, IO.StreamMode.Write))
+                     using (Stream limiterStream = limiter.CreateStream(crcStream, IO.StreamMode.Write))
                      using (Stream archiveStream = restore.Restore(restoreEntry))
                      using (Stream cryptoStream = new CryptoStream(archiveStream, this.aes.CreateDecryptor(), CryptoStreamMode.Read))
                      {
-                        cryptoStream.CopyTo(crcStream);
+                        cryptoStream.CopyTo(limiterStream);
                         if (session.VerifyResults && crcStream.Value != backupEntry.Crc32)
                            throw new InvalidOperationException("TODO: CRC does not match");
                      }
