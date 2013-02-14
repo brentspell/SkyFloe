@@ -10,7 +10,7 @@ namespace SkyFloe.Restore
       private static String connectionString;
       private static String archiveName;
       private static String password;
-      private static Dictionary<String, String> rootPathMap;
+      private static Dictionary<IO.Path, IO.Path> rootPathMap;
       private static Boolean skipExisting;
       private static Boolean skipReadOnly;
       private static Boolean verifyResults;
@@ -40,7 +40,7 @@ namespace SkyFloe.Restore
       {
          // initialize options
          password = "";
-         rootPathMap = new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase);
+         rootPathMap = new Dictionary<IO.Path, IO.Path>();
          maxRetries = 5;
          maxFailures = 5;
          restoreFiles = new List<String>();
@@ -155,8 +155,10 @@ namespace SkyFloe.Restore
                            Entries = nodes.Select(
                               n => archive.GetEntries(n)
                                  .OrderBy(e => e.Session.Created)
-                                 .Where(e => e.State == Backup.EntryState.Completed)
-                                 .Select(e => e.ID)
+                                 .Where(
+                                    e => e.State == Backup.EntryState.Completed ||
+                                         e.State == Backup.EntryState.Deleted
+                                 ).Select(e => e.ID)
                                  .DefaultIfEmpty(0)
                                  .Last()
                            ).Where(id => id != 0),
@@ -219,18 +221,17 @@ namespace SkyFloe.Restore
          retries = failures = 0;
       }
 
-      static void HandleError (Engine.ErrorEvent evt)
+      static Engine.ErrorResult HandleError (Engine.ErrorEvent evt)
       {
          if (++retries <= maxRetries)
          {
             System.Threading.Thread.Sleep(retries * 1000);
-            evt.Result = Engine.ErrorResult.Retry;
             Console.WriteLine();
             Console.WriteLine("      Retrying...");
+            return Engine.ErrorResult.Retry;
          }
          else if (++failures <= maxFailures && evt.RestoreEntry != null)
          {
-            evt.Result = Engine.ErrorResult.Fail;
             retries = 0;
             Console.WriteLine();
             Console.WriteLine("      Skipping {0} due to error.", evt.BackupEntry.Node.GetRelativePath());
@@ -238,9 +239,9 @@ namespace SkyFloe.Restore
                "         {0}",
                evt.Exception.ToString().Replace("\n", "\n         ")
             );
+            return Engine.ErrorResult.Fail;
          }
-         else
-            evt.Result = Engine.ErrorResult.Abort;
+         return Engine.ErrorResult.Abort;
       }
    }
 }

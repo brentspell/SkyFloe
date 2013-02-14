@@ -6,7 +6,7 @@ namespace SkyFloe
 {
    public class DiffRequest
    {
-      public Dictionary<String, String> RootPathMap { get; set; }
+      public Dictionary<IO.Path, IO.Path> RootPathMap { get; set; }
       public DiffMethod Method { get; set; }
    }
 }

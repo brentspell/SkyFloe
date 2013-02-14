@@ -66,6 +66,8 @@
     <Compile Include="Store\IArchive.cs" />
     <Compile Include="Store\IBackupIndex.cs" />
     <Compile Include="Store\IStore.cs" />
+    <Compile Include="Tasks\Backup.cs" />
+    <Compile Include="Tasks\Task.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

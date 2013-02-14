@@ -60,6 +60,10 @@ namespace SkyFloe.IO
       {
          get { return SysPath.GetPathRoot(ToString()); }
       }
+      public static Char Separator
+      {
+         get { return SysPath.DirectorySeparatorChar; }
+      }
       public static Path Current
       {
          get { return Environment.CurrentDirectory; }

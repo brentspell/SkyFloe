@@ -288,6 +288,7 @@ namespace SkyFloe.Sqlite
                {
                   ID = Convert.ToInt32(reader[0]),
                   BackupEntryID = Convert.ToInt32(reader[1]),
+                  Session = retrieval.Session,
                   Retrieval = retrieval,
                   State = (EntryState)Convert.ToInt32(reader[2]),
                   Offset = Convert.ToInt64(reader[3]),
@@ -314,12 +315,14 @@ namespace SkyFloe.Sqlite
                {
                   ID = Convert.ToInt32(reader[0]),
                   BackupEntryID = Convert.ToInt32(reader[1]),
-                  Retrieval = FetchRetrieval(Convert.ToInt32(reader[2])),
+                  Session = session,
+                  Retrieval = (!reader.IsDBNull(2)) ? FetchRetrieval(Convert.ToInt32(reader[2])) : null,
                   State = (EntryState)Convert.ToInt32(reader[3]),
                   Offset = Convert.ToInt64(reader[4]),
                   Length = Convert.ToInt64(reader[5])
                };
-               entry.Retrieval.Session = session;
+               if (entry.Retrieval != null)
+                  entry.Retrieval.Session = session;
                return entry;
             }
          return null;
@@ -328,7 +331,7 @@ namespace SkyFloe.Sqlite
       {
          using (IDataReader reader = 
                ExecuteReader(
-                  "SELECT BackupEntryID, RetrievalID, State, Offset, Length FROM Entry WHERE ID = @p0;", 
+                  "SELECT BackupEntryID, SessionID, RetrievalID, State, Offset, Length FROM Entry WHERE ID = @p0;", 
                   id
                )
             )
@@ -337,10 +340,11 @@ namespace SkyFloe.Sqlite
                {
                   ID = id,
                   BackupEntryID = Convert.ToInt32(reader[0]),
-                  Retrieval = FetchRetrieval(Convert.ToInt32(reader[1])),
-                  State = (EntryState)Convert.ToInt32(reader[2]),
-                  Offset = Convert.ToInt64(reader[3]),
-                  Length = Convert.ToInt64(reader[4])
+                  Session = FetchSession(Convert.ToInt32(reader[1])),
+                  Retrieval = (!reader.IsDBNull(2)) ? FetchRetrieval(Convert.ToInt32(reader[2])) : null,
+                  State = (EntryState)Convert.ToInt32(reader[3]),
+                  Offset = Convert.ToInt64(reader[4]),
+                  Length = Convert.ToInt64(reader[5])
                };
          return null;
       }
@@ -349,8 +353,8 @@ namespace SkyFloe.Sqlite
          Execute(
             "INSERT INTO Entry (BackupEntryID, SessionID, RetrievalID, State, Offset, Length) VALUES (@p0, @p1, @p2, @p3, @p4, @p5);",
             entry.BackupEntryID,
-            entry.Retrieval.Session.ID,
-            entry.Retrieval.ID,
+            entry.Session.ID,
+            (entry.Retrieval != null) ? entry.Retrieval.ID : (Object)null,
             Convert.ToInt32(entry.State),
             entry.Offset,
             entry.Length
@@ -363,8 +367,8 @@ namespace SkyFloe.Sqlite
             "UPDATE Entry SET BackupEntryID = @p1, SessionID = @p2, RetrievalID = @p3, State = @p4, Offset = @p5, Length = @p6 WHERE ID = @p0;",
             entry.ID,
             entry.BackupEntryID,
-            entry.Retrieval.Session.ID,
-            entry.Retrieval.ID,
+            entry.Session.ID,
+            (entry.Retrieval != null) ? entry.Retrieval.ID : (Object)null,
             Convert.ToInt32(entry.State),
             entry.Offset,
             entry.Length

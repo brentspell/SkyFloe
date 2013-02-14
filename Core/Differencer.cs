@@ -92,7 +92,7 @@ namespace SkyFloe
                            isChanged = false;
                         break;
                      case DiffMethod.Digest:
-                        if (IO.Crc32Stream.Calculate(path) == entry.Crc32)
+                        if (IO.Crc32Stream.Calculate(path.ToString()) == entry.Crc32)
                            isChanged = false;
                         break;
                      default:

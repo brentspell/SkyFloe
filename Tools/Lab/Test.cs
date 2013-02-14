@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SkyFloe.Lab
 {
@@ -20,6 +22,9 @@ namespace SkyFloe.Lab
 
       public void Run ()
       {
+         CancellationTokenSource cts = new CancellationTokenSource();
+         cts.Cancel();
+         Task.Factory.StartNew(() => { }, cts.Token).Wait();
       }
    }
 }

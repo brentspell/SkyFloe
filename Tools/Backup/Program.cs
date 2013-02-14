@@ -202,18 +202,17 @@ namespace SkyFloe.Backup
          retries = failures = 0;
       }
 
-      static void HandleError (Engine.ErrorEvent evt)
+      static Engine.ErrorResult HandleError (Engine.ErrorEvent evt)
       {
          if (++retries <= maxRetries)
          {
             System.Threading.Thread.Sleep(retries * 1000);
-            evt.Result = Engine.ErrorResult.Retry;
             Console.WriteLine();
             Console.WriteLine("      Retrying...");
+            return Engine.ErrorResult.Retry;
          }
          else if (++failures <= maxFailures && evt.BackupEntry != null)
          {
-            evt.Result = Engine.ErrorResult.Fail;
             retries = 0;
             Console.WriteLine();
             Console.WriteLine("      Skipping {0} due to error.", evt.BackupEntry.Node.Name);
@@ -221,9 +220,9 @@ namespace SkyFloe.Backup
                "         {0}",
                evt.Exception.ToString().Replace("\n", "\n         ")
             );
+            return Engine.ErrorResult.Fail;
          }
-         else
-            evt.Result = Engine.ErrorResult.Abort;
+         return Engine.ErrorResult.Abort;
       }
    }
 }

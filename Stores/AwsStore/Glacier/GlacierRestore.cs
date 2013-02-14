@@ -121,7 +121,7 @@ namespace SkyFloe.Aws
                this.downloader.DeleteJob(retrieval.Name);
             if (!ready)
                System.Threading.Thread.Sleep(
-                  (Int32)TimeSpan.FromMinutes(20).TotalMilliseconds
+                  (Int32)TimeSpan.FromMinutes(5).TotalMilliseconds
                );
          }
          return this.downloader.GetJobStream(

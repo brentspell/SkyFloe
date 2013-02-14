@@ -32,7 +32,7 @@ CREATE TABLE Entry (
    ID Integer PRIMARY KEY NOT NULL,
    BackupEntryID Integer NOT NULL,
    SessionID Integer NOT NULL REFERENCES Session (ID) ON DELETE CASCADE,
-   RetrievalID Integer NOT NULL REFERENCES Retrieval (ID) ON DELETE CASCADE,
+   RetrievalID Integer NULL REFERENCES Retrieval (ID) ON DELETE CASCADE,
    State SmallInt NOT NULL CHECK (State IN (1, 2, 3)),
    Offset BigInt NOT NULL,
    Length BigInt NOT NULL

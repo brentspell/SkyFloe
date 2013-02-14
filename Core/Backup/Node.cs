@@ -31,11 +31,14 @@ namespace SkyFloe.Backup
             this.Parent.GetAbsolutePath() + this.Name :
             (IO.Path)this.Name;
       }
-      public IO.Path GetRelativePath ()
+      public String GetRelativePath ()
       {
-         return (this.Parent != null) ?
-            this.Parent.GetRelativePath() + this.Name :
-            IO.Path.Empty;
+         if (this.Parent == null)
+            return String.Empty;
+         String parentPath = this.Parent.GetRelativePath();
+         if (!String.IsNullOrEmpty(parentPath))
+            parentPath += IO.Path.Separator;
+         return parentPath + this.Name;
       }
    }
 }
