@@ -43,9 +43,9 @@ namespace SkyFloe.IO
          Throttle();
       }
 
-      public Stream CreateStream (Stream baseStream, StreamMode mode)
+      public Stream CreateStreamFilter (Stream baseStream)
       {
-         return new LimiterStream(baseStream, mode, this);
+         return new LimiterFilter(baseStream, this);
       }
 
       private Int32 GetDelay ()
@@ -62,42 +62,18 @@ namespace SkyFloe.IO
          return 0;
       }
 
-      private class LimiterStream : SequentialStream
+      private class LimiterFilter : FilterStream
       {
-         private Stream stream;
          private RateLimiter limiter;
 
-         public LimiterStream (Stream stream, StreamMode mode, RateLimiter limiter)
-            : base(mode)
+         public LimiterFilter (Stream stream, RateLimiter limiter)
+            : base(stream)
          {
-            this.stream = stream;
             this.limiter = limiter;
          }
-         protected override void Dispose (Boolean disposing)
+         protected override void Filter (Byte [] buffer, Int32 offset, Int32 count)
          {
-            base.Dispose(disposing);
-            if (this.stream != null)
-               this.stream.Dispose();
-            this.stream = null;
-         }
-         public override Int32 Read (Byte[] buffer, Int32 offset, Int32 count)
-         {
-            if (!this.CanRead)
-               throw new InvalidOperationException();
-            Int32 read = this.stream.Read(buffer, offset, count);
-            this.limiter.RegisterAndThrottle(read);
-            return read;
-         }
-         public override void Write (Byte[] buffer, Int32 offset, Int32 count)
-         {
-            if (!this.CanWrite)
-               throw new InvalidOperationException();
-            this.stream.Write(buffer, offset, count);
             this.limiter.RegisterAndThrottle(count);
-         }
-         public override void Flush ()
-         {
-            this.stream.Flush();
          }
       }
    }

@@ -9,7 +9,7 @@ namespace SkyFloe.Lab
 {
    public class Test
    {
-      public Int32 Thread;
+      public Int32 ThreadID;
       public Int32 Iteration;
       
       static Test ()
@@ -22,9 +22,10 @@ namespace SkyFloe.Lab
 
       public void Run ()
       {
-         CancellationTokenSource cts = new CancellationTokenSource();
-         cts.Cancel();
-         Task.Factory.StartNew(() => { }, cts.Token).Wait();
+         var cts = new CancellationTokenSource();
+         var ct = cts.Token;
+         Task t = Task.Factory.StartNew(() => { Thread.Sleep(1000); ct.ThrowIfCancellationRequested(); }, ct).ContinueWith(t1 => { Thread.Sleep(2000); }, ct);
+         t.Wait();
       }
    }
 }

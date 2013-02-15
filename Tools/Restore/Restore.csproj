@@ -29,7 +29,7 @@
     <Optimize>true</Optimize>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>SkyFloe.ico</ApplicationIcon>
+    <ApplicationIcon>..\..\SkyFloe.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -46,9 +46,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Properties\App.manifest" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="SkyFloe.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

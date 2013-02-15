@@ -6,14 +6,13 @@ using System.Linq;
 namespace SkyFloe.IO
 {
    [CLSCompliant(false)]
-   public class Crc32Stream : SequentialStream
+   public class Crc32Filter : FilterStream
    {
       public const UInt32 InitialValue = 0xFFFFFFFF;
       private static UInt32[] table = new UInt32[256];
-      private Stream stream;
       private UInt32 value;
 
-      static Crc32Stream ()
+      static Crc32Filter ()
       {
          const UInt32 poly = 0xEDB88320;
          for (UInt32 i = 0; i < table.Length; i++)
@@ -30,18 +29,9 @@ namespace SkyFloe.IO
          }
       }
 
-      public Crc32Stream (Stream stream, StreamMode mode) : base(mode)
+      public Crc32Filter (Stream stream) : base(stream)
       {
-         this.stream = stream;
          this.value = InitialValue;
-      }
-
-      protected override void Dispose (Boolean disposing)
-      {
-         base.Dispose(disposing);
-         if (this.stream != null)
-            this.stream.Close();
-         this.stream = null;
       }
 
       public UInt32 Value
@@ -156,37 +146,10 @@ namespace SkyFloe.IO
       }
       #endregion
 
-      #region Stream Overrides
-      public override Int64 Length
+      #region FilterStream Overrides
+      protected override void Filter (Byte [] buffer, Int32 offset, Int32 count)
       {
-         get { return this.stream.Length; }
-      }
-      public override Int64 Position
-      {
-         get { return this.stream.Position; }
-      }
-      public override Int32 Read (Byte[] buffer, Int32 offset, Int32 length)
-      {
-         if (!this.CanRead)
-            throw new InvalidOperationException("Stream not opened for reading");
-         Int32 read = this.stream.Read(buffer, offset, length);
-         this.value = CalculateIncremental(this.value, buffer, offset, read);
-         return read;
-      }
-      public override void Write (Byte[] buffer, Int32 offset, Int32 length)
-      {
-         if (!this.CanWrite)
-            throw new InvalidOperationException("Stream not opened for writing");
-         this.value = CalculateIncremental(this.value, buffer, offset, length);
-         this.stream.Write(buffer, offset, length);
-      }
-      public override void Flush ()
-      {
-         this.stream.Flush();
-      }
-      public override void SetLength (Int64 value)
-      {
-         this.stream.SetLength(value);
+         this.value = CalculateIncremental(this.value, buffer, offset, count);
       }
       #endregion
    }

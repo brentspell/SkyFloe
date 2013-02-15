@@ -34,17 +34,17 @@
     <Compile Include="..\Version.cs">
       <Link>Properties\Version.cs</Link>
     </Compile>
-    <Compile Include="Differencer.cs" />
     <Compile Include="Backup\Header.cs" />
+    <Compile Include="IO\CancelFilter.cs" />
     <Compile Include="IO\FileSystem.cs" />
+    <Compile Include="IO\FilterStream.cs" />
     <Compile Include="IO\Path.cs" />
     <Compile Include="IO\RateLimiter.cs" />
     <Compile Include="Options\Options.cs" />
     <Compile Include="Request\BackupRequest.cs" />
     <Compile Include="Connection.cs" />
     <Compile Include="Engine.cs" />
-    <Compile Include="IO\Crc32Stream.cs" />
-    <Compile Include="IO\SequentialStream.cs" />
+    <Compile Include="IO\Crc32Filter.cs" />
     <Compile Include="IO\SubStream.cs" />
     <Compile Include="Backup\Blob.cs" />
     <Compile Include="Backup\Entry.cs" />
@@ -52,8 +52,8 @@
     <Compile Include="Backup\Node.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Request\DiffRequest.cs" />
-    <Compile Include="Request\DiffResult.cs" />
     <Compile Include="Request\DiffMethod.cs" />
+    <Compile Include="Request\DiffEntry.cs" />
     <Compile Include="Request\RestoreRequest.cs" />
     <Compile Include="Restore\Entry.cs" />
     <Compile Include="Restore\Header.cs" />
@@ -66,7 +66,11 @@
     <Compile Include="Store\IArchive.cs" />
     <Compile Include="Store\IBackupIndex.cs" />
     <Compile Include="Store\IStore.cs" />
-    <Compile Include="Tasks\Backup.cs" />
+    <Compile Include="Tasks\CreateRestore.cs" />
+    <Compile Include="Tasks\CreateBackup.cs" />
+    <Compile Include="Tasks\Difference.cs" />
+    <Compile Include="Tasks\ExecuteBackup.cs" />
+    <Compile Include="Tasks\ExecuteRestore.cs" />
     <Compile Include="Tasks\Task.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

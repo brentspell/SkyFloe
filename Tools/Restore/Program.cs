@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using Tpl = System.Threading.Tasks;
 
 namespace SkyFloe.Restore
 {
@@ -102,146 +105,181 @@ namespace SkyFloe.Restore
 
       static Boolean ExecuteRestore ()
       {
+         CancellationTokenSource canceler = new CancellationTokenSource();
+         Boolean restoreOk = false;
          try
          {
             Console.Write("   Connecting to archive {0}...", archiveName);
-            Engine engine = new Engine()
+            using (Engine engine = Connect())
             {
-               Connection = new Connection(connectionString)
-            };
-            using (engine)
-            {
-               engine.OnProgress += HandleProgress;
-               engine.OnError += HandleError;
-               engine.OpenArchive(archiveName, password);
                Console.WriteLine("done.");
-               Restore.Session session = null;
-               using (Connection.Archive archive = engine.Connection.OpenArchive(archiveName))
+               Restore.Session session = engine.Archive.Restores
+                  .FirstOrDefault(s => s.State != SessionState.Completed);
+               if (session != null)
+                  Console.WriteLine(
+                     "   Resuming restore session started {0:MMM d, yyyy h:m tt}.",
+                     session.Created
+                  );
+               else
                {
-                  session = archive.Restores.FirstOrDefault(s => s.State != SessionState.Completed);
-                  if (session != null)
-                     Console.WriteLine(
-                        "   Resuming restore session started {0:MMM d, yyyy h:m tt}.",
-                        session.Created
-                     );
+                  Console.Write("   Creating a new restore session...");
+                  IEnumerable<Backup.Node> nodes;
+                  if (!restoreFiles.Any())
+                     nodes = engine.Archive.Roots;
                   else
                   {
-                     Console.Write("   Creating a new restore session...");
-                     IEnumerable<Backup.Node> nodes;
-                     if (!restoreFiles.Any())
-                        nodes = archive.Roots;
-                     else
+                     List<Backup.Node> nodeList = new List<Backup.Node>();
+                     foreach (IO.Path file in restoreFiles)
                      {
-                        List<Backup.Node> nodeList = new List<Backup.Node>();
-                        foreach (IO.Path file in restoreFiles)
-                        {
-                           Backup.Node node = archive.LookupNode(file);
-                           if (node == null)
-                              throw new InvalidOperationException(String.Format("Path not found in the archive: {0}.", file));
-                           nodeList.Add(node);
-                        }
-                        nodes = nodeList;
+                        Backup.Node node = engine.Archive.LookupNode(file);
+                        if (node == null)
+                           throw new InvalidOperationException(String.Format("Path not found in the archive: {0}.", file));
+                        nodeList.Add(node);
                      }
-                     nodes = archive.GetSubtrees(nodes);
-                     session = engine.CreateRestore(
-                        new RestoreRequest()
-                        {
-                           RootPathMap = rootPathMap,
-                           SkipExisting = skipExisting,
-                           SkipReadOnly = skipReadOnly,
-                           VerifyResults = verifyResults,
-                           EnableDeletes = enableDeletes,
-                           RateLimit = rateLimit * 1024,
-                           Entries = nodes.Select(
-                              n => archive.GetEntries(n)
-                                 .OrderBy(e => e.Session.Created)
-                                 .Where(
-                                    e => e.State == Backup.EntryState.Completed ||
-                                         e.State == Backup.EntryState.Deleted
-                                 ).Select(e => e.ID)
-                                 .DefaultIfEmpty(0)
-                                 .Last()
-                           ).Where(id => id != 0),
-                        }
-                     );
-                     Console.WriteLine("done.");
+                     nodes = nodeList;
+                  }
+                  nodes = engine.Archive.GetSubtrees(nodes);
+                  session = engine.CreateRestore(
+                     new RestoreRequest()
+                     {
+                        RootPathMap = rootPathMap,
+                        SkipExisting = skipExisting,
+                        SkipReadOnly = skipReadOnly,
+                        VerifyResults = verifyResults,
+                        EnableDeletes = enableDeletes,
+                        RateLimit = rateLimit * 1024,
+                        Entries = nodes.Select(
+                           n => engine.Archive.GetEntries(n)
+                              .OrderBy(e => e.Session.Created)
+                              .Where(
+                                 e => e.State == Backup.EntryState.Completed ||
+                                       e.State == Backup.EntryState.Deleted
+                              ).Select(e => e.ID)
+                              .DefaultIfEmpty(0)
+                              .Last()
+                        ).Where(id => id != 0),
+                     },
+                     canceler.Token
+                  );
+                  Console.WriteLine("done.");
+               }
+               Tpl.Task t = Tpl.Task.Factory.StartNew(
+                  () => engine.ExecuteRestore(session, canceler.Token)
+               );
+               while (!t.Wait(1000))
+               {
+                  while (Console.KeyAvailable)
+                  {
+                     if (Console.ReadKey(true).Key == ConsoleKey.Escape)
+                     {
+                        Console.WriteLine();
+                        Console.Write("   Canceling...");
+                        canceler.Cancel();
+                     }
                   }
                }
-               engine.StartRestore(session);
             }
-            Console.WriteLine();
             Console.WriteLine("   Restore complete.");
+            restoreOk = true;
          }
          catch (Exception e)
          {
             Console.WriteLine();
-            Console.WriteLine(
-               "   Restore failed: {0}", 
-               e.ToString().Replace("\n", "\n      ")
-            );
-            return false;
+            if (canceler.IsCancellationRequested)
+               Console.WriteLine("   Restore canceled.");
+            else
+               Console.WriteLine(
+                  "   Restore failed: {0}",
+                  e.ToString().Replace("\n", "\n      ")
+               );
          }
-         return true;
+         if (Debugger.IsAttached)
+         {
+            Console.WriteLine();
+            Console.Write("Press enter to exit.");
+            Console.ReadLine();
+         }
+         return restoreOk;
       }
 
-      static void HandleProgress (Engine.ProgressEvent evt)
+      static Engine Connect ()
       {
-         switch (evt.Type)
+         Engine engine = new Engine()
          {
-            case Engine.EventType.BeginRestoreEntry:
-               String[] units = { "KB", "MB", "GB", "TB" };
-               Int64 totalSize = evt.RestoreSession.RestoreLength / 1024;
-               Int64 entrySize = evt.RestoreEntry.Length / 1024;
-               Int32 totalUnit = 0;
-               Int32 entryUnit = 0;
-               while (totalSize > 999)
-               {
-                  totalSize /= 1024;
-                  totalUnit++;
-               }
-               while (entrySize > 999)
-               {
-                  entrySize /= 1024;
-                  entryUnit++;
-               }
-               Console.Write(
-                  "   {0:MM/dd hh:mm}: Total: {1,3:#,0} {2}, Current: {3,3:#,0} {4} - {5}...",
-                  DateTime.Now,
-                  totalSize,
-                  units[totalUnit],
-                  entrySize,
-                  units[entryUnit],
-                  evt.BackupEntry.Node.GetAbsolutePath()
-               );
-               break;
-            case Engine.EventType.EndRestoreEntry:
-               Console.WriteLine("done.");
-               break;
+            Connection = new Connection(connectionString)
+         };
+         try
+         {
+            engine.OnProgress += HandleProgress;
+            engine.OnError += HandleError;
+            engine.OpenArchive(archiveName, password);
+            return engine;
+         }
+         catch
+         {
+            engine.Dispose();
+            throw;
+         }
+      }
+
+      static void HandleProgress (Object sender, Engine.ProgressEventArgs args)
+      {
+         if (args.Action == "BeginRestoreEntry")
+         {
+            String[] units = { "KB", "MB", "GB", "TB" };
+            Int64 totalSize = args.RestoreSession.RestoreLength / 1024;
+            Int64 entrySize = args.RestoreEntry.Length / 1024;
+            Int32 totalUnit = 0;
+            Int32 entryUnit = 0;
+            while (totalSize > 999)
+            {
+               totalSize /= 1024;
+               totalUnit++;
+            }
+            while (entrySize > 999)
+            {
+               entrySize /= 1024;
+               entryUnit++;
+            }
+            Console.Write(
+               "   {0:MM/dd hh:mm}: Total: {1,3:#,0} {2}, Current: {3,3:#,0} {4} - {5}...",
+               DateTime.Now,
+               totalSize,
+               units[totalUnit],
+               entrySize,
+               units[entryUnit],
+               args.BackupEntry.Node.GetAbsolutePath()
+            );
+         }
+         else if (args.Action == "EndRestoreEntry")
+         {
+            Console.WriteLine("done.");
          }
          retries = failures = 0;
       }
 
-      static Engine.ErrorResult HandleError (Engine.ErrorEvent evt)
+      static void HandleError (Object sender, Engine.ErrorEventArgs args)
       {
          if (++retries <= maxRetries)
          {
             System.Threading.Thread.Sleep(retries * 1000);
             Console.WriteLine();
             Console.WriteLine("      Retrying...");
-            return Engine.ErrorResult.Retry;
+            args.Result = Engine.ErrorResult.Retry;
          }
-         else if (++failures <= maxFailures && evt.RestoreEntry != null)
+         else if (++failures <= maxFailures && args.Action == "RestoreEntry")
          {
             retries = 0;
             Console.WriteLine();
-            Console.WriteLine("      Skipping {0} due to error.", evt.BackupEntry.Node.GetRelativePath());
+            Console.WriteLine("      Skipping due to error.");
             Console.WriteLine(
                "         {0}",
-               evt.Exception.ToString().Replace("\n", "\n         ")
+               args.Exception.ToString().Replace("\n", "\n         ")
             );
-            return Engine.ErrorResult.Fail;
+            args.Result = Engine.ErrorResult.Fail;
          }
-         return Engine.ErrorResult.Abort;
+         else
+            args.Result = Engine.ErrorResult.Abort;
       }
    }
 }

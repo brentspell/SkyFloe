@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using Tpl = System.Threading.Tasks;
 
 namespace SkyFloe.Backup
 {
@@ -19,6 +22,8 @@ namespace SkyFloe.Backup
       private static Int32 rateLimit;
       private static Int32 retries;
       private static Int32 failures;
+      private static Engine engine;
+      private static CancellationTokenSource canceler;
 
       static Int32 Main (String[] args)
       {
@@ -102,127 +107,179 @@ namespace SkyFloe.Backup
 
       static Boolean ExecuteBackup ()
       {
+         Boolean backupOk = false;
+         canceler = new CancellationTokenSource();
          try
          {
-            Console.Write("   Connecting to archive {0}...", archiveName);
-            Engine engine = new Engine()
+            Tpl.Task tasks = Tpl.Task.Factory
+               .StartNew(() => Connect())
+               .ContinueWith<Backup.Session>(t => CreateSession())
+               .ContinueWith(t => ExecuteBackup(t.Result));
+            while (!tasks.Wait(1000))
             {
-               Connection = new Connection(connectionString)
-            };
-            using (engine)
-            {
-               engine.OnProgress += HandleProgress;
-               engine.OnError += HandleError;
-               if (deleteArchive)
-                  engine.DeleteArchive(archiveName);
-               if (engine.Connection.ListArchives().Contains(archiveName, StringComparer.OrdinalIgnoreCase))
-                  engine.OpenArchive(archiveName, password);
-               else
-                  engine.CreateArchive(archiveName, password);
-               Console.WriteLine("done.");
-               Backup.Session session = null;
-               using (Connection.Archive archive = engine.Connection.OpenArchive(archiveName))
-                  session = archive.Backups.FirstOrDefault(s => s.State != SessionState.Completed);
-               if (session != null)
-                  Console.WriteLine(
-                     "   Resuming backup session started {0:MMM d, yyyy h:m tt}.",
-                     session.Created
-                  );
-               else
+               while (Console.KeyAvailable)
                {
-                  Console.Write("   Creating a new backup session...");
-                  session = engine.CreateBackup(
-                     new BackupRequest()
-                     {
-                        DiffMethod = diffMethod,
-                        Sources = sourcePaths,
-                        CheckpointLength = checkpointLength * 1048576,
-                        RateLimit = rateLimit * 1024
-                     }
-                  );
-                  Console.WriteLine("done.");
+                  if (Console.ReadKey(true).Key == ConsoleKey.Escape)
+                  {
+                     Console.WriteLine();
+                     Console.Write("   Canceling...");
+                     canceler.Cancel();
+                  }
                }
-               engine.StartBackup(session);
             }
-            Console.WriteLine();
-            Console.WriteLine("   Backup complete.");
+            backupOk = true;
          }
          catch (Exception e)
          {
             Console.WriteLine();
-            Console.WriteLine(
-               "   Backup failed: {0}", 
-               e.ToString().Replace("\n", "\n      ")
-            );
-            return false;
+            if (canceler.IsCancellationRequested)
+               Console.WriteLine("   Backup canceled.");
+            else
+               Console.WriteLine(
+                  "   Backup failed: {0}",
+                  e.ToString().Replace("\n", "\n      ")
+               );
          }
-         return true;
+         if (Debugger.IsAttached)
+         {
+            Console.WriteLine();
+            Console.Write("Press enter to exit.");
+            Console.ReadLine();
+         }
+         return backupOk;
       }
 
-      static void HandleProgress (Engine.ProgressEvent evt)
+      static void Connect ()
       {
-         switch (evt.Type)
+         Console.Write("   Connecting to archive {0}...", archiveName);
+         engine = new Engine()
          {
-            case Engine.EventType.BeginBackupEntry:
-               String[] units = { "KB", "MB", "GB", "TB" };
-               Int64 totalSize = evt.BackupSession.ActualLength / 1024;
-               Int64 entrySize = evt.BackupEntry.Length / 1024;
-               Int32 totalUnit = 0;
-               Int32 entryUnit = 0;
-               while (totalSize > 999)
+            Connection = new Connection(connectionString),
+            Canceler = canceler.Token
+         };
+         try
+         {
+            engine.OnProgress += HandleProgress;
+            engine.OnError += HandleError;
+            if (deleteArchive)
+               engine.DeleteArchive(archiveName);
+            if (engine.Connection.ListArchives().Contains(archiveName, StringComparer.OrdinalIgnoreCase))
+               engine.OpenArchive(archiveName, password);
+            else
+               engine.CreateArchive(archiveName, password);
+            Console.WriteLine("done.");
+         }
+         catch
+         {
+            engine.Dispose();
+            throw;
+         }
+      }
+
+      static Backup.Session CreateSession ()
+      {
+         Console.WriteLine("   Starting the backup. Press escape to cancel/pause.");
+         Backup.Session session = engine.Archive.Sessions
+            .FirstOrDefault(s => s.State != SessionState.Completed);
+         if (session != null)
+         {
+            Console.WriteLine(
+               "   Resuming backup session started {0:MMM d, yyyy h:m tt}.",
+               session.Created
+            );
+            return session;
+         }
+         else
+         {
+            Console.WriteLine("   Creating a new backup session.");
+            return engine.CreateBackup(
+               new BackupRequest()
                {
-                  totalSize /= 1024;
-                  totalUnit++;
+                  DiffMethod = diffMethod,
+                  Sources = sourcePaths,
+                  CheckpointLength = checkpointLength * 1048576,
+                  RateLimit = rateLimit * 1024
                }
-               while (entrySize > 999)
-               {
-                  entrySize /= 1024;
-                  entryUnit++;
-               }
-               Console.Write(
-                  "   {0:MM/dd hh:mm}: Total: {1,3:#,0} {2}, Current: {3,3:#,0} {4} - {5}...",
-                  DateTime.Now,
-                  totalSize,
-                  units[totalUnit],
-                  entrySize,
-                  units[entryUnit],
-                  evt.BackupEntry.Node.GetAbsolutePath()
-               );
-               break;
-            case Engine.EventType.EndBackupEntry:
-               Console.WriteLine("done.");
-               break;
-            case Engine.EventType.BeginBackupCheckpoint:
-               Console.Write("   Checkpointing...");
-               break;
-            case Engine.EventType.EndBackupCheckpoint:
-               Console.WriteLine("done.");
-               break;
+            );
+         }
+      }
+
+      static void ExecuteBackup (Backup.Session session)
+      {
+         engine.ExecuteBackup(session);
+         Console.WriteLine("   Backup complete.");
+      }
+
+      static void HandleProgress (Object sender, Engine.ProgressEventArgs args)
+      {
+         if (args.Action == "CreateBackupEntry")
+         {
+            Console.WriteLine("   Registering {0}.", args.BackupEntry.Node.GetAbsolutePath());
+         }
+         if (args.Action == "BeginBackupEntry")
+         {
+            String[] units = { "KB", "MB", "GB", "TB" };
+            Int64 totalSize = args.BackupSession.ActualLength / 1024;
+            Int64 entrySize = args.BackupEntry.Length / 1024;
+            Int32 totalUnit = 0;
+            Int32 entryUnit = 0;
+            while (totalSize > 999)
+            {
+               totalSize /= 1024;
+               totalUnit++;
+            }
+            while (entrySize > 999)
+            {
+               entrySize /= 1024;
+               entryUnit++;
+            }
+            Console.Write(
+               "   {0:MM/dd hh:mm}: Total: {1,3:#,0} {2}, Current: {3,3:#,0} {4} - {5}...",
+               DateTime.Now,
+               totalSize,
+               units[totalUnit],
+               entrySize,
+               units[entryUnit],
+               args.BackupEntry.Node.GetAbsolutePath()
+            );
+         }
+         else if (args.Action == "EndBackupEntry")
+         {
+            Console.WriteLine("done.");
+         }
+         else if (args.Action == "BeginCheckpoint")
+         {
+            Console.Write("   Checkpointing...");
+         }
+         else if (args.Action == "EndCheckpoint")
+         {
+            Console.WriteLine("done.");
          }
          retries = failures = 0;
       }
 
-      static Engine.ErrorResult HandleError (Engine.ErrorEvent evt)
+      static void HandleError (Object sender, Engine.ErrorEventArgs args)
       {
          if (++retries <= maxRetries)
          {
             System.Threading.Thread.Sleep(retries * 1000);
             Console.WriteLine();
             Console.WriteLine("      Retrying...");
-            return Engine.ErrorResult.Retry;
+            args.Result = Engine.ErrorResult.Retry;
          }
-         else if (++failures <= maxFailures && evt.BackupEntry != null)
+         else if (++failures <= maxFailures && args.Action == "BackupEntry")
          {
             retries = 0;
             Console.WriteLine();
-            Console.WriteLine("      Skipping {0} due to error.", evt.BackupEntry.Node.Name);
+            Console.WriteLine("      Skipping due to error.");
             Console.WriteLine(
                "         {0}",
-               evt.Exception.ToString().Replace("\n", "\n         ")
+               args.Exception.ToString().Replace("\n", "\n         ")
             );
-            return Engine.ErrorResult.Fail;
+            args.Result = Engine.ErrorResult.Fail;
          }
-         return Engine.ErrorResult.Abort;
+         else
+            args.Result = Engine.ErrorResult.Abort;
       }
    }
 }

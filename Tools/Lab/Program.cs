@@ -92,7 +92,7 @@ namespace SkyFloe.Lab
       {
          Int32 t = (Int32)param;
          Clock clock = testClocks[t];
-         Test test = new Test() { Thread = t };
+         Test test = new Test() { ThreadID = t };
          for (test.Iteration = 0; test.Iteration < iterationCount; test.Iteration++)
          {
             clock.Start();

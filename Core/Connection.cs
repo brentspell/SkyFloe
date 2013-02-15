@@ -170,7 +170,7 @@ namespace SkyFloe
          {
             get { return this.archive.BackupIndex.ListBlobs(); }
          }
-         public IEnumerable<Backup.Session> Backups
+         public IEnumerable<Backup.Session> Sessions
          {
             get { return this.archive.BackupIndex.ListSessions(); }
          }
