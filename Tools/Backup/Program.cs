@@ -111,10 +111,14 @@ namespace SkyFloe.Backup
          canceler = new CancellationTokenSource();
          try
          {
-            Tpl.Task tasks = Tpl.Task.Factory
-               .StartNew(() => Connect())
-               .ContinueWith<Backup.Session>(t => CreateSession())
-               .ContinueWith(t => ExecuteBackup(t.Result));
+            Tpl.Task tasks = Tpl.Task.Factory.StartNew(
+               () =>
+               {
+                  Connect();
+                  Backup.Session session = CreateSession();
+                  ExecuteBackup(session);
+               }
+            );
             while (!tasks.Wait(1000))
             {
                while (Console.KeyAvailable)

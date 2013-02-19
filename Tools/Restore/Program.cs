@@ -24,6 +24,7 @@ namespace SkyFloe.Restore
       private static Int32 rateLimit;
       private static Int32 retries;
       private static Int32 failures;
+      private static CancellationTokenSource canceler;
 
       static Int32 Main (String[] args)
       {
@@ -48,6 +49,7 @@ namespace SkyFloe.Restore
          maxFailures = 5;
          restoreFiles = new List<String>();
          rateLimit = Int32.MaxValue / 1024;
+         canceler = new CancellationTokenSource();
          // parse options
          try
          {
@@ -105,7 +107,6 @@ namespace SkyFloe.Restore
 
       static Boolean ExecuteRestore ()
       {
-         CancellationTokenSource canceler = new CancellationTokenSource();
          Boolean restoreOk = false;
          try
          {
@@ -158,13 +159,12 @@ namespace SkyFloe.Restore
                               .DefaultIfEmpty(0)
                               .Last()
                         ).Where(id => id != 0),
-                     },
-                     canceler.Token
+                     }
                   );
                   Console.WriteLine("done.");
                }
                Tpl.Task t = Tpl.Task.Factory.StartNew(
-                  () => engine.ExecuteRestore(session, canceler.Token)
+                  () => engine.ExecuteRestore(session)
                );
                while (!t.Wait(1000))
                {
@@ -206,7 +206,8 @@ namespace SkyFloe.Restore
       {
          Engine engine = new Engine()
          {
-            Connection = new Connection(connectionString)
+            Connection = new Connection(connectionString),
+            Canceler = canceler.Token
          };
          try
          {
