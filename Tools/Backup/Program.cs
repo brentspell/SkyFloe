@@ -27,7 +27,6 @@ namespace SkyFloe.Backup
 
       static Int32 Main (String[] args)
       {
-         Console.SetBufferSize(Math.Max(1000, Console.BufferWidth), Console.BufferHeight);
          Console.WriteLine("SkyFloe Backup");
          if (!ParseOptions(args))
          {
