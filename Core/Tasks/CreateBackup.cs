@@ -13,7 +13,38 @@ namespace SkyFloe.Tasks
       public BackupRequest Request { get; set; }
       public Backup.Session Session { get; private set; }
 
-      public override void Execute ()
+      protected override void DoValidate ()
+      {
+         if (this.Request == null)
+            throw new ArgumentException("Request");
+         if (!this.Request.Sources.Any())
+            throw new ArgumentException("Request.Sources");
+         foreach (String source in this.Request.Sources)
+         {
+            IO.FileSystem.Metadata metadata = IO.FileSystem.GetMetadata(source);
+            if (!metadata.Exists)
+               throw new InvalidOperationException("TODO: source path not found");
+            if (!metadata.IsDirectory)
+               throw new InvalidOperationException("TODO: source path not a directory");
+         }
+         if (!this.Request.Filter.IsValid)
+            throw new ArgumentException("Request.Filter");
+         switch (this.Request.DiffMethod)
+         {
+            case DiffMethod.Timestamp: break;
+            case DiffMethod.Digest: break;
+            default:
+               throw new ArgumentException("Request.DiffMethod");
+         }
+         if (this.Request.RateLimit <= 0)
+            throw new ArgumentOutOfRangeException("Request.RateLimit");
+         if (this.Request.CheckpointLength <= 0)
+            throw new ArgumentOutOfRangeException("Request.CheckpointLength");
+         if (this.Archive.BackupIndex.ListSessions()
+               .Any(s => s.State != Backup.SessionState.Completed))
+            throw new InvalidOperationException("TODO: session in progress");
+      }
+      protected override void DoExecute ()
       {
          using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
          {
@@ -30,10 +61,12 @@ namespace SkyFloe.Tasks
                Archive = this.Archive,
                Crypto = this.Crypto,
                Canceler = this.Canceler,
+               OnProgress = this.OnProgress,
+               OnError = this.OnError,
                Request = new DiffRequest()
                {
-                  RootPathMap = new Dictionary<IO.Path, IO.Path>(),
-                  Method = this.Request.DiffMethod
+                  Method = this.Request.DiffMethod,
+                  Filter = this.Request.Filter
                }
             };
             foreach (String source in this.Request.Sources)
@@ -48,7 +81,7 @@ namespace SkyFloe.Tasks
                         Name = source
                      }
                   );
-               foreach (DiffEntry diff in differenceTask.Enumerate(root))
+               foreach (DiffResult diff in differenceTask.Enumerate(root))
                {
                   if (diff.Node.ID == 0)
                      this.Archive.BackupIndex.InsertNode(diff.Node);

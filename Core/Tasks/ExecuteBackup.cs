@@ -21,7 +21,14 @@ namespace SkyFloe.Tasks
             this.backup.Dispose();
          this.backup = null;
       }
-      public override void Execute ()
+      protected override void DoValidate ()
+      {
+         if (this.Session == null)
+            throw new ArgumentException("Session");
+         if (this.Session.State == Backup.SessionState.Completed)
+            throw new ArgumentException("Session.State");
+      }
+      protected override void DoExecute ()
       {
          this.backup = this.Archive.PrepareBackup(this.Session);
          if (this.Session.State == SkyFloe.Backup.SessionState.Pending)
@@ -76,8 +83,7 @@ namespace SkyFloe.Tasks
             using (Stream fileStream = IO.FileSystem.Open(entry.Node.GetAbsolutePath()))
             using (IO.Crc32Filter crcFilter = new IO.Crc32Filter(fileStream))
             using (Stream cryptoFilter = new CryptoStream(crcFilter, this.Crypto.CreateEncryptor(), CryptoStreamMode.Read))
-            using (Stream cancelFilter = new IO.CancelFilter(cryptoFilter, this.Canceler))
-            using (Stream limiterFilter = this.limiter.CreateStreamFilter(cancelFilter))
+            using (Stream limiterFilter = this.limiter.CreateStreamFilter(cryptoFilter))
             {
                this.backup.Backup(entry, limiterFilter);
                entry.Crc32 = crcFilter.Value;
@@ -131,19 +137,10 @@ namespace SkyFloe.Tasks
                BackupSession = this.Session
             }
          );
-         for ( ; ; )
-         {
-            try
-            {
-               this.backup.Checkpoint();
-               break;
-            }
-            catch (Exception e)
-            {
-               if (ReportError("Checkpoint", e) != Engine.ErrorResult.Retry)
-                  throw;
-            }
-         }
+         Execute(
+            "Checkpoint",
+            () => this.backup.Checkpoint()
+         );
          ReportProgress(
             new Engine.ProgressEventArgs()
             {

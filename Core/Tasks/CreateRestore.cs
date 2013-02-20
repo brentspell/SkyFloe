@@ -13,7 +13,23 @@ namespace SkyFloe.Tasks
       public RestoreRequest Request { get; set; }
       public Restore.Session Session { get; private set; }
 
-      public override void Execute ()
+      protected override void DoValidate ()
+      {
+         if (this.Request == null)
+            throw new ArgumentException("Request");
+         foreach (KeyValuePair<IO.Path, IO.Path> map in this.Request.RootPathMap)
+         {
+            if (map.Key.IsEmpty)
+               throw new ArgumentException("Request.RootPathMap.Key");
+            if (map.Value.IsEmpty)
+               throw new ArgumentException("Request.RootPathMap.Value");
+         }
+         if (!this.Request.Filter.IsValid)
+            throw new ArgumentException("Request.Filter");
+         if (this.Request.RateLimit <= 0)
+            throw new ArgumentException("Request.RateLimit");
+      }
+      protected override void DoExecute ()
       {
          using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
          {
@@ -48,60 +64,63 @@ namespace SkyFloe.Tasks
             foreach (Int32 backupEntryID in this.Request.Entries)
             {
                Backup.Entry backupEntry = this.Archive.BackupIndex.FetchEntry(backupEntryID);
-               Restore.Entry restoreEntry = null;
-               switch (backupEntry.State)
+               if (!this.Request.Filter.Evaluate(backupEntry.Node.GetAbsolutePath()))
                {
-                  case Backup.EntryState.Completed:
-                     Restore.Retrieval retrieval =
-                        this.Archive.RestoreIndex
-                           .ListBlobRetrievals(session, backupEntry.Blob.Name)
-                           .FirstOrDefault() ??
-                        this.Archive.RestoreIndex.InsertRetrieval(
-                           new Restore.Retrieval()
+                  Restore.Entry restoreEntry = null;
+                  switch (backupEntry.State)
+                  {
+                     case Backup.EntryState.Completed:
+                        Restore.Retrieval retrieval =
+                           this.Archive.RestoreIndex
+                              .ListBlobRetrievals(session, backupEntry.Blob.Name)
+                              .FirstOrDefault() ??
+                           this.Archive.RestoreIndex.InsertRetrieval(
+                              new Restore.Retrieval()
+                              {
+                                 Session = session,
+                                 Blob = backupEntry.Blob.Name,
+                                 Offset = 0,
+                                 Length = backupEntry.Blob.Length
+                              }
+                           );
+                        restoreEntry = this.Archive.RestoreIndex.InsertEntry(
+                          new Restore.Entry()
                            {
+                              BackupEntryID = backupEntry.ID,
                               Session = session,
-                              Blob = backupEntry.Blob.Name,
-                              Offset = 0,
-                              Length = backupEntry.Blob.Length
+                              Retrieval = retrieval,
+                              State = Restore.EntryState.Pending,
+                              Offset = backupEntry.Offset,
+                              Length = backupEntry.Length
                            }
                         );
-                     restoreEntry = this.Archive.RestoreIndex.InsertEntry(
-                       new Restore.Entry()
+                        session.TotalLength += backupEntry.Length;
+                        break;
+                     case Backup.EntryState.Deleted:
+                        restoreEntry = this.Archive.RestoreIndex.InsertEntry(
+                           new Restore.Entry()
+                           {
+                              BackupEntryID = backupEntry.ID,
+                              Session = session,
+                              State = Restore.EntryState.Pending,
+                              Offset = -1,
+                              Length = 0
+                           }
+                        );
+                        break;
+                  }
+                  if (restoreEntry != null)
+                     ReportProgress(
+                        new Engine.ProgressEventArgs()
                         {
-                           BackupEntryID = backupEntry.ID,
-                           Session = session,
-                           Retrieval = retrieval,
-                           State = Restore.EntryState.Pending,
-                           Offset = backupEntry.Offset,
-                           Length = backupEntry.Length
+                           Action = "CreateRestoreEntry",
+                           BackupSession = backupEntry.Session,
+                           BackupEntry = backupEntry,
+                           RestoreSession = session,
+                           RestoreEntry = restoreEntry
                         }
                      );
-                     session.TotalLength += backupEntry.Length;
-                     break;
-                  case Backup.EntryState.Deleted:
-                     restoreEntry = this.Archive.RestoreIndex.InsertEntry(
-                        new Restore.Entry()
-                        {
-                           BackupEntryID = backupEntry.ID,
-                           Session = session,
-                           State = Restore.EntryState.Pending,
-                           Offset = -1,
-                           Length = 0
-                        }
-                     );
-                     break;
                }
-               if (restoreEntry != null)
-                  ReportProgress(
-                     new Engine.ProgressEventArgs()
-                     {
-                        Action = "CreateRestoreEntry",
-                        BackupSession = backupEntry.Session,
-                        BackupEntry = backupEntry,
-                        RestoreSession = session,
-                        RestoreEntry = restoreEntry
-                     }
-                  );
             }
             this.Archive.RestoreIndex.UpdateSession(session);
             txn.Complete();

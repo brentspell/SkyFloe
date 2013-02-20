@@ -35,7 +35,6 @@
       <Link>Properties\Version.cs</Link>
     </Compile>
     <Compile Include="Backup\Header.cs" />
-    <Compile Include="IO\CancelFilter.cs" />
     <Compile Include="IO\FileSystem.cs" />
     <Compile Include="IO\FilterStream.cs" />
     <Compile Include="IO\Path.cs" />
@@ -52,8 +51,8 @@
     <Compile Include="Backup\Node.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Request\DiffRequest.cs" />
-    <Compile Include="Request\DiffMethod.cs" />
-    <Compile Include="Request\DiffEntry.cs" />
+    <Compile Include="Request\DiffResult.cs" />
+    <Compile Include="Request\RegexFilter.cs" />
     <Compile Include="Request\RestoreRequest.cs" />
     <Compile Include="Restore\Entry.cs" />
     <Compile Include="Restore\Header.cs" />

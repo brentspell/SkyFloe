@@ -7,11 +7,32 @@ namespace SkyFloe.Tasks
    public class Difference : Task
    {
       public DiffRequest Request { get; set; }
-      
-      public override void Execute ()
+
+      protected override void DoValidate ()
+      {
+         if (this.Request == null)
+            throw new ArgumentException("Request");
+         foreach (KeyValuePair<IO.Path, IO.Path> map in this.Request.RootPathMap)
+         {
+            if (map.Key.IsEmpty)
+               throw new ArgumentException("Request.RootPathMap.Key");
+            if (map.Value.IsEmpty)
+               throw new ArgumentException("Request.RootPathMap.Value");
+         }
+         if (!this.Request.Filter.IsValid)
+            throw new ArgumentException("Request.Filter");
+         switch (this.Request.Method)
+         {
+            case DiffMethod.Timestamp: break;
+            case DiffMethod.Digest: break;
+            default:
+               throw new ArgumentException("Request.Method");
+         }
+      }
+      protected override void DoExecute ()
       {
          foreach (Backup.Node root in this.Archive.BackupIndex.ListNodes(null))
-            foreach (DiffEntry entry in Enumerate(root))
+            foreach (DiffResult entry in Enumerate(root))
                ReportProgress(
                   new Engine.ProgressEventArgs()
                   {
@@ -19,7 +40,7 @@ namespace SkyFloe.Tasks
                   }
                );
       }
-      public IEnumerable<DiffEntry> Enumerate (Backup.Node root)
+      public IEnumerable<DiffResult> Enumerate (Backup.Node root)
       {
          IO.Path path = root.Name;
          IO.Path mapPath = null;
@@ -29,60 +50,73 @@ namespace SkyFloe.Tasks
             .Concat(DiffIndexPath(root, path));
       }
 
-      private IEnumerable<DiffEntry> DiffPathIndex (Backup.Node parentNode, IO.Path parentPath)
+      private IEnumerable<DiffResult> DiffPathIndex (Backup.Node parentNode, IO.Path parentPath)
       {
          IList<Backup.Node> nodes = this.Archive.BackupIndex.ListNodes(parentNode).ToList();
-         foreach (IO.FileSystem.Metadata metadata in IO.FileSystem.Children(parentPath))
+         IList<IO.FileSystem.Metadata> files = TryExecute(
+            "DiffPathIndex", 
+            () => IO.FileSystem.Children(parentPath).ToList()
+         );
+         if (files != null)
          {
-            this.Canceler.ThrowIfCancellationRequested();
-            if (!metadata.IsSystem)
+            foreach (IO.FileSystem.Metadata metadata in files)
             {
-               Backup.Node node = nodes.FirstOrDefault(
-                  n => String.Compare(n.Name, metadata.Name, true) == 0
-               );
-               if (node == null)
-                  yield return new DiffEntry()
+               this.Canceler.ThrowIfCancellationRequested();
+               if (!metadata.IsSystem)
+               {
+                  if (metadata.IsDirectory || this.Request.Filter.Evaluate(metadata.Path))
                   {
-                     Type = DiffType.New,
-                     Node = node = new Backup.Node()
-                     {
-                        Parent = parentNode,
-                        Type = metadata.IsDirectory ?
-                           Backup.NodeType.Directory :
-                           Backup.NodeType.File,
-                        Name = metadata.Name
-                     }
-                  };
-               if (metadata.IsDirectory)
-                  foreach (DiffEntry diff in DiffPathIndex(node, metadata.Path))
-                     yield return diff;
+                     Backup.Node node = nodes.FirstOrDefault(
+                        n => String.Compare(n.Name, metadata.Name, true) == 0
+                     );
+                     if (node == null)
+                        yield return new DiffResult()
+                        {
+                           Type = DiffType.New,
+                           Node = node = new Backup.Node()
+                           {
+                              Parent = parentNode,
+                              Type = metadata.IsDirectory ?
+                                 Backup.NodeType.Directory :
+                                 Backup.NodeType.File,
+                              Name = metadata.Name
+                           }
+                        };
+                     if (metadata.IsDirectory)
+                        foreach (DiffResult diff in DiffPathIndex(node, metadata.Path))
+                           yield return diff;
+                  }
+               }
             }
          }
       }
 
-      private IEnumerable<DiffEntry> DiffIndexPath (Backup.Node parentNode, IO.Path parentPath)
+      private IEnumerable<DiffResult> DiffIndexPath (Backup.Node parentNode, IO.Path parentPath)
       {
          foreach (Backup.Node node in this.Archive.BackupIndex.ListNodes(parentNode))
          {
             this.Canceler.ThrowIfCancellationRequested();
             IO.Path path = parentPath + node.Name;
-            IO.FileSystem.Metadata metadata = IO.FileSystem.GetMetadata(path);
             if (node.Type == Backup.NodeType.Directory)
             {
-               if (!metadata.Exists || !metadata.IsSystem)
-                  foreach (DiffEntry diff in DiffIndexPath(node, path))
-                     yield return diff;
+               foreach (DiffResult diff in DiffIndexPath(node, path))
+                  yield return diff;
             }
             else
             {
+               IO.FileSystem.Metadata metadata = TryExecute(
+                  "DiffIndexPath",
+                  () => IO.FileSystem.GetMetadata(path),
+                  IO.FileSystem.Metadata.Empty
+               );
                Backup.Entry entry = this.Archive.BackupIndex
                   .ListNodeEntries(node)
                   .OrderBy(e => e.Session.Created)
                   .LastOrDefault();
-               if (!metadata.Exists || metadata.IsSystem)
+               if (!metadata.Exists || metadata.IsSystem || !this.Request.Filter.Evaluate(path))
                {
                   if (entry != null && entry.State != Backup.EntryState.Deleted)
-                     yield return new DiffEntry()
+                     yield return new DiffResult()
                      {
                         Type = DiffType.Deleted,
                         Node = node
@@ -90,7 +124,7 @@ namespace SkyFloe.Tasks
                }
                else if (entry == null || entry.State == Backup.EntryState.Deleted)
                {
-                  yield return new DiffEntry()
+                  yield return new DiffResult()
                   {
                      Type = DiffType.New,
                      Node = node
@@ -98,22 +132,22 @@ namespace SkyFloe.Tasks
                }
                else if (entry != null && entry.State != Backup.EntryState.Pending)
                {
-                  Boolean isChanged = true;
+                  Boolean isChanged = false;
                   switch (this.Request.Method)
                   {
                      case DiffMethod.Timestamp:
-                        if (metadata.Updated < entry.Session.Created)
-                           isChanged = false;
+                        if (metadata.Updated > entry.Session.Created)
+                           isChanged = true;
                         break;
                      case DiffMethod.Digest:
-                        if (IO.Crc32Filter.Calculate(path.ToString()) == entry.Crc32)
-                           isChanged = false;
+                        isChanged = TryExecute(
+                           "CalculateCrc",
+                           () => IO.Crc32Filter.Calculate(path.ToString()) != entry.Crc32
+                        );
                         break;
-                     default:
-                        throw new InvalidOperationException("TODO");
                   }
                   if (isChanged)
-                     yield return new DiffEntry()
+                     yield return new DiffResult()
                      {
                         Type = DiffType.Changed,
                         Node = node

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Tpl = System.Threading.Tasks;
 
@@ -16,6 +17,8 @@ namespace SkyFloe.Backup
       private static Int32 maxRetries;
       private static Int32 maxFailures;
       private static IList<String> sourcePaths;
+      private static IList<Regex> includeFilter;
+      private static IList<Regex> excludeFilter;
       private static Boolean deleteArchive;
       private static DiffMethod diffMethod;
       private static Int32 checkpointLength;
@@ -44,6 +47,8 @@ namespace SkyFloe.Backup
          password = "";
          diffMethod = DiffMethod.Timestamp;
          sourcePaths = new List<String>();
+         includeFilter = new List<Regex>();
+         excludeFilter = new List<Regex>();
          deleteArchive = false;
          maxRetries = 5;
          maxFailures = 5;
@@ -60,13 +65,15 @@ namespace SkyFloe.Backup
                { "r|max-retry=", (Int32 v) => maxRetries = v },
                { "f|max-fail=", (Int32 v) => maxFailures = v },
                { "s|source=", v => sourcePaths.Add(v) },
+               { "n|include=", v => includeFilter.Add(new Regex(v, RegexOptions.IgnoreCase)) },
+               { "x|exclude=", v => excludeFilter.Add(new Regex(v, RegexOptions.IgnoreCase)) },
                { "k|delete", v => deleteArchive = (v != null) },
                { "d|diff=", (DiffMethod v) => diffMethod = v },
                { "t|checkpoint=", (Int32 v) => checkpointLength = v },
                { "l|rate=", (Int32 v) => rateLimit = v },
             }.Parse(args);
          }
-         catch (Options.OptionException) { return false; }
+         catch { return false; }
          // validate options
          if (String.IsNullOrWhiteSpace(connectionString))
             return false;
@@ -82,9 +89,9 @@ namespace SkyFloe.Backup
             return false;
          if (diffMethod == 0)
             return false;
-         if (checkpointLength < 1)
+         if (checkpointLength <= 0)
             return false;
-         if (rateLimit < 1)
+         if (rateLimit <= 0)
             return false;
          return true;
       }
@@ -98,6 +105,8 @@ namespace SkyFloe.Backup
          Console.WriteLine("      -r|-max-retry {retries}    maximum file retries before skipping (default = 5)");
          Console.WriteLine("      -f|-max-fail {failures}    maximum file failures before aborting (default = 5)");
          Console.WriteLine("      -s|-source {source}        backup source directory (zero or more, default: current)");
+         Console.WriteLine("      -n|-include {regex}        source path inclusion filter regular expression");
+         Console.WriteLine("      -x|-exclude {regex}        source path exclusion filter regular expression");
          Console.WriteLine("      -k|-delete[+/-]            delete the archive before backing up");
          Console.WriteLine("      -d|-diff {diff}            file diff method (Timestamp or Digest) default: Timestamp");
          Console.WriteLine("      -t|-checkpoint {size}      backup checkpoint interval, in megabytes, default: 1024");
@@ -108,6 +117,8 @@ namespace SkyFloe.Backup
       {
          Boolean backupOk = false;
          canceler = new CancellationTokenSource();
+         if (Debugger.IsAttached)
+            Console.SetBufferSize(1000, 1000);
          try
          {
             Tpl.Task tasks = Tpl.Task.Factory.StartNew(
@@ -200,6 +211,11 @@ namespace SkyFloe.Backup
                {
                   DiffMethod = diffMethod,
                   Sources = sourcePaths,
+                  Filter = new RegexFilter()
+                  {
+                     Include = includeFilter,
+                     Exclude = excludeFilter
+                  },
                   CheckpointLength = checkpointLength * 1048576,
                   RateLimit = rateLimit * 1024
                }
@@ -270,7 +286,7 @@ namespace SkyFloe.Backup
             Console.WriteLine("      Retrying...");
             args.Result = Engine.ErrorResult.Retry;
          }
-         else if (++failures <= maxFailures && args.Action == "BackupEntry")
+         else if (++failures <= maxFailures)
          {
             retries = 0;
             Console.WriteLine();

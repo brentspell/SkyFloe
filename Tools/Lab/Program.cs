@@ -37,10 +37,7 @@ namespace SkyFloe.Lab
                { "p|param=", v => param = v }
             }.Parse(options);
          }
-         catch (Options.OptionException)
-         {
-            return false;
-         }
+         catch { return false; }
          return true;
       }
 

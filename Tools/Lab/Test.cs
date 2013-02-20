@@ -22,10 +22,6 @@ namespace SkyFloe.Lab
 
       public void Run ()
       {
-         var cts = new CancellationTokenSource();
-         var ct = cts.Token;
-         Task t = Task.Factory.StartNew(() => { Thread.Sleep(1000); ct.ThrowIfCancellationRequested(); }, ct).ContinueWith(t1 => { Thread.Sleep(2000); }, ct);
-         t.Wait();
       }
    }
 }

@@ -12,7 +12,7 @@ namespace SkyFloe
       Deleted
    }
 
-   public class DiffEntry
+   public class DiffResult
    {
       public DiffType Type { get; set; }
       public Backup.Node Node { get; set; }

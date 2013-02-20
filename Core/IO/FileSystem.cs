@@ -119,6 +119,11 @@ namespace SkyFloe.IO
 
       public class Metadata
       {
+         public static readonly Metadata Empty = new Metadata();
+
+         public Metadata ()
+         {
+         }
          public Metadata (IO.Path path)
          {
             this.Path = path;

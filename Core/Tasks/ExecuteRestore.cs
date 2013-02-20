@@ -20,7 +20,14 @@ namespace SkyFloe.Tasks
             this.restore.Dispose();
          this.restore = null;
       }
-      public override void Execute ()
+      protected override void DoValidate ()
+      {
+         if (this.Session == null)
+            throw new ArgumentException("Session");
+         if (this.Session.State == Restore.SessionState.Completed)
+            throw new ArgumentException("Session.State");
+      }
+      protected override void DoExecute ()
       {
          using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
          {
@@ -88,8 +95,7 @@ namespace SkyFloe.Tasks
                {
                   using (Stream fileStream = IO.FileSystem.Truncate(path))
                   using (IO.Crc32Filter crcFilter = new IO.Crc32Filter(fileStream))
-                  using (Stream cancelFilter = new IO.CancelFilter(crcFilter, this.Canceler))
-                  using (Stream limiterFilter = this.limiter.CreateStreamFilter(cancelFilter))
+                  using (Stream limiterFilter = this.limiter.CreateStreamFilter(crcFilter))
                   using (Stream archiveFilter = this.restore.Restore(restoreEntry))
                   using (Stream cryptoFilter = new CryptoStream(archiveFilter, this.Crypto.CreateDecryptor(), CryptoStreamMode.Read))
                   {

@@ -12,7 +12,14 @@ namespace SkyFloe
 
    public class DiffRequest
    {
-      public Dictionary<IO.Path, IO.Path> RootPathMap { get; set; }
+      public DiffRequest ()
+      {
+         this.RootPathMap = new Dictionary<IO.Path, IO.Path>();
+         this.Filter = new RegexFilter();
+      }
+
+      public IDictionary<IO.Path, IO.Path> RootPathMap { get; set; }
       public DiffMethod Method { get; set; }
+      public RegexFilter Filter { get; set; }
    }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Tpl = System.Threading.Tasks;
 
@@ -14,6 +15,8 @@ namespace SkyFloe.Restore
       private static String archiveName;
       private static String password;
       private static Dictionary<IO.Path, IO.Path> rootPathMap;
+      private static IList<Regex> includeFilter;
+      private static IList<Regex> excludeFilter;
       private static Boolean skipExisting;
       private static Boolean skipReadOnly;
       private static Boolean verifyResults;
@@ -44,11 +47,12 @@ namespace SkyFloe.Restore
          // initialize options
          password = "";
          rootPathMap = new Dictionary<IO.Path, IO.Path>();
+         includeFilter = new List<Regex>();
+         excludeFilter = new List<Regex>();
          maxRetries = 5;
          maxFailures = 5;
          restoreFiles = new List<String>();
          rateLimit = Int32.MaxValue / 1024;
-         canceler = new CancellationTokenSource();
          // parse options
          try
          {
@@ -60,6 +64,8 @@ namespace SkyFloe.Restore
                { "r|max-retry=", (Int32 v) => maxRetries = v },
                { "f|max-fail=", (Int32 v) => maxFailures = v },
                { "m|map-path=", v => rootPathMap.Add(v.Split('=')[0], v.Split('=')[1]) },
+               { "n|include=", v => includeFilter.Add(new Regex(v, RegexOptions.IgnoreCase)) },
+               { "x|exclude=", v => excludeFilter.Add(new Regex(v, RegexOptions.IgnoreCase)) },
                { "e|skip-existing", v => skipExisting = (v != null) },
                { "o|skip-readonly", v => skipReadOnly = (v != null) },
                { "v|verify", v => verifyResults = (v != null) },
@@ -68,7 +74,7 @@ namespace SkyFloe.Restore
                { "l|rate=", (Int32 v) => rateLimit = v },
             }.Parse(args);
          }
-         catch (Options.OptionException) { return false; }
+         catch { return false; }
          // validate options
          if (String.IsNullOrWhiteSpace(connectionString))
             return false;
@@ -84,6 +90,8 @@ namespace SkyFloe.Restore
             return false;
          if (restoreFiles.Any(f => String.IsNullOrWhiteSpace(f)))
             return false;
+         if (rateLimit <= 0)
+            return false;
          return true;
       }
 
@@ -96,6 +104,8 @@ namespace SkyFloe.Restore
          Console.WriteLine("      -r|-max-retry {retries}    maximum file retries before skipping (default = 5)");
          Console.WriteLine("      -f|-max-fail {failures}    maximum file failures before aborting (default = 5)");
          Console.WriteLine("      -m|-map-path {src}={dst}   map a root backup path to a restore path");
+         Console.WriteLine("      -n|-include {regex}        source path inclusion filter regular expression");
+         Console.WriteLine("      -x|-exclude {regex}        source path exclusion filter regular expression");
          Console.WriteLine("      -e|-skip-existing[+/-]     ignore existing files (no overwrite)");
          Console.WriteLine("      -o|-skip-readonly[+/-]     ignore read-only files");
          Console.WriteLine("      -v|-verify[+/-]            verify CRCs of restored files");
@@ -107,6 +117,9 @@ namespace SkyFloe.Restore
       static Boolean ExecuteRestore ()
       {
          Boolean restoreOk = false;
+         canceler = new CancellationTokenSource();
+         if (Debugger.IsAttached)
+            Console.SetBufferSize(1000, 1000);
          try
          {
             Console.Write("   Connecting to archive {0}...", archiveName);
@@ -143,6 +156,11 @@ namespace SkyFloe.Restore
                      new RestoreRequest()
                      {
                         RootPathMap = rootPathMap,
+                        Filter = new RegexFilter()
+                        {
+                           Include = includeFilter,
+                           Exclude = excludeFilter
+                        },
                         SkipExisting = skipExisting,
                         SkipReadOnly = skipReadOnly,
                         VerifyResults = verifyResults,

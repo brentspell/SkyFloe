@@ -217,9 +217,9 @@ namespace SkyFloe
       public void Execute (Tasks.Task task)
       {
          if (this.OnProgress != null)
-            task.OnProgress += (o, a) => this.OnProgress(o, a);
+            task.OnProgress = (o, a) => this.OnProgress(o, a);
          if (this.OnError != null)
-            task.OnError += (o, a) => this.OnError(o, a);
+            task.OnError = (o, a) => this.OnError(o, a);
          task.Execute();
       }
 
@@ -242,7 +242,7 @@ namespace SkyFloe
          public Backup.Entry BackupEntry { get; set; }
          public Restore.Session RestoreSession { get; set; }
          public Restore.Entry RestoreEntry { get; set; }
-         public DiffEntry DiffEntry { get; set; }
+         public DiffResult DiffEntry { get; set; }
       }
    }
 }
