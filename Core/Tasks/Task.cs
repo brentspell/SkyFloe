@@ -86,6 +86,7 @@ namespace SkyFloe.Tasks
             try
             {
                action();
+               return;
             }
             catch (Exception e)
             {
