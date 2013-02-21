@@ -18,6 +18,10 @@
     <WarningLevel>4</WarningLevel>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DefineConstants>TRACE</DefineConstants>
+    <StartAction>Program</StartAction>
+    <StartProgram>mstest.exe</StartProgram>
+    <StartArguments>/testcontainer:$(MSBuildProjectDirectory)\$(OutputPath)$(AssemblyName).dll /noisolation</StartArguments>
+    <StartWorkingDirectory>$(MSBuildProjectDirectory)..\..\</StartWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <DebugSymbols>true</DebugSymbols>
@@ -38,6 +42,9 @@
       <Project>{b0e755f5-be17-4756-8b14-43eea8698c5d}</Project>
       <Name>Core</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="IO\TestPath.cs" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>

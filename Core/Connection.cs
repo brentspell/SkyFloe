@@ -45,12 +45,12 @@ namespace SkyFloe
       public static void Bind (Dictionary<String, String> paramMap, Object props)
       {
          foreach (KeyValuePair<String, String> param in paramMap
-            .Where(p => String.Compare(p.Key, "Store", true) != 0)
+            .Where(p => !StringComparer.OrdinalIgnoreCase.Equals(p.Key, "Store"))
          )
          {
             PropertyDescriptor prop = TypeDescriptor.GetProperties(props)
                .Cast<PropertyDescriptor>()
-               .FirstOrDefault(p => String.Compare(p.Name, param.Key, true) == 0);
+               .FirstOrDefault(p => StringComparer.OrdinalIgnoreCase.Equals(p.Name, param.Key));
             if (prop == null)
                throw new InvalidOperationException("TODO: connection string param not found");
             try
@@ -96,6 +96,10 @@ namespace SkyFloe
       public String ConnectionString
       {
          get { return this.connectionString; }
+      }
+      public String Caption
+      {
+         get { return this.store.Caption; }
       }
       internal Store.IStore Store
       {
@@ -197,7 +201,7 @@ namespace SkyFloe
                foreach (String pathElem in path.Skip(rootPath.Count()))
                {
                   node = GetChildren(node).FirstOrDefault(
-                     n => String.Compare(n.Name, pathElem, true) == 0
+                     n => StringComparer.OrdinalIgnoreCase.Equals(n.Name, pathElem)
                   );
                   if (node == null)
                      break;

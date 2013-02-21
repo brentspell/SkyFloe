@@ -21,11 +21,13 @@ namespace SkyFloe.IO
       private static readonly Char[] Separators = 
       { 
          SysPath.DirectorySeparatorChar, 
-         SysPath.DirectorySeparatorChar 
+         SysPath.AltDirectorySeparatorChar
       };
+      public static Char Separator = SysPath.DirectorySeparatorChar;
       public static readonly Path Empty = new Path();
       private String value;
 
+      #region Construction/Disposal
       public Path (String path)
       {
          this.value = (!String.IsNullOrWhiteSpace(path)) ?
@@ -35,7 +37,9 @@ namespace SkyFloe.IO
       public Path (params String[] elements) : this(SysPath.Combine(elements))
       {
       }
+      #endregion
 
+      #region Properties
       public Boolean IsEmpty
       {
          get { return String.IsNullOrEmpty(ToString()); }
@@ -58,21 +62,24 @@ namespace SkyFloe.IO
       }
       public Path Root
       {
-         get { return SysPath.GetPathRoot(ToString()); }
-      }
-      public static Char Separator
-      {
-         get { return SysPath.DirectorySeparatorChar; }
+         get { return (!IsEmpty) ? SysPath.GetPathRoot(ToString()) : String.Empty; }
       }
       public static Path Current
       {
-         get { return Environment.CurrentDirectory; }
+         get
+         {
+            return Environment.CurrentDirectory;
+         }
+         set
+         {
+            if (value.IsEmpty)
+               throw new ArgumentException("value");
+            Environment.CurrentDirectory = value;
+         }
       }
-      public String this[Int32 pos]
-      {
-         get { return Split()[pos]; }
-      }
+      #endregion
 
+      #region Operations
       public String[] Split ()
       {
          return ToString().Split(Separators, StringSplitOptions.RemoveEmptyEntries);
@@ -83,7 +90,15 @@ namespace SkyFloe.IO
       }
       public Path Pop ()
       {
-         return SysPath.GetDirectoryName(ToString());
+         return (!IsEmpty) ? SysPath.GetDirectoryName(ToString()) : String.Empty;
+      }
+      public Boolean IsParent (Path path)
+      {
+         return this == path.Parent;
+      }
+      public Boolean IsChild (Path path)
+      {
+         return this.Parent == path;
       }
       public Boolean IsAncestor (Path path)
       {
@@ -94,6 +109,35 @@ namespace SkyFloe.IO
             path.ToString().Substring(0, ToString().Length)
          );
       }
+      public Boolean IsDescendant (Path path)
+      {
+         return path.IsAncestor(this);
+      }
+      #endregion
+
+      #region Object Overrides
+      public override String ToString ()
+      {
+         return this.value ?? String.Empty;
+      }
+      public override Boolean Equals (Object other)
+      {
+         String value = null;
+         if (other is Path)
+            value = ((Path)other).value;
+         else if (other is String)
+            value = (String)other;
+         else if (other != null)
+            return false;
+         if (String.IsNullOrWhiteSpace(value))
+            value = String.Empty;
+         return Comparer.Equals(ToString(), value);
+      }
+      public override Int32 GetHashCode ()
+      {
+         return Comparer.GetHashCode(ToString());
+      }
+      #endregion
 
       #region IComparable Implementation
       public Int32 CompareTo (Object other)
@@ -103,6 +147,10 @@ namespace SkyFloe.IO
             value = ((Path)other).value;
          else if (other is String)
             value = (String)other;
+         else if (other != null)
+            throw new ArgumentException("other");
+         if (String.IsNullOrWhiteSpace(value))
+            value = String.Empty;
          return Comparer.Compare(ToString(), value);
       }
       #endregion
@@ -124,14 +172,18 @@ namespace SkyFloe.IO
       #region IEquatable<String> Implementation
       public Boolean Equals (String other)
       {
-         return Comparer.Equals(ToString(), other);
+         if (String.IsNullOrWhiteSpace(other))
+            other = String.Empty;
+         return Comparer.Equals(ToString(), other ?? String.Empty);
       }
       #endregion
 
       #region IComparable<String> Implementation
       public Int32 CompareTo (String other)
       {
-         return Comparer.Compare(ToString(), other);
+         if (String.IsNullOrWhiteSpace(other))
+            other = String.Empty;
+         return Comparer.Compare(ToString(), other ?? String.Empty);
       }
       #endregion
 
@@ -143,26 +195,6 @@ namespace SkyFloe.IO
       IEnumerator IEnumerable.GetEnumerator ()
       {
          return Split().GetEnumerator();
-      }
-      #endregion
-
-      #region Object Overrides
-      public override String ToString ()
-      {
-         return this.value ?? String.Empty;
-      }
-      public override Boolean Equals (Object other)
-      {
-         String value = null;
-         if (other is Path)
-            value = ((Path)other).value;
-         else if (other is String)
-            value = (String)other;
-         return Comparer.Equals(ToString(), value);
-      }
-      public override Int32 GetHashCode ()
-      {
-         return Comparer.GetHashCode(ToString());
       }
       #endregion
 

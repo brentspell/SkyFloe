@@ -6,6 +6,7 @@ namespace SkyFloe.Store
 {
    public interface IStore : IDisposable
    {
+      String Caption { get; }
       void Open ();
       IEnumerable<String> ListArchives ();
       IArchive CreateArchive (String name, Backup.Header header);

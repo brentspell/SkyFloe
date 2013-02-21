@@ -47,7 +47,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Data\ConnectionStringList.cs" />
+    <Compile Include="Data\ConnectionString.cs" />
     <Compile Include="Forms\ConnectionForm.cs">
       <SubType>Form</SubType>
     </Compile>

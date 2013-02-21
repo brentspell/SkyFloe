@@ -9,14 +9,19 @@ namespace SkyFloe
 {
    public class FileSystemStore : Store.IStore
    {
+      public void Dispose ()
+      {
+      }
+
       #region Connection Properties
       [Required]
       public String Path { get; set; }
       #endregion
 
       #region IStore Implementation
-      public void Dispose ()
+      public String Caption
       {
+         get { return this.Path; }
       }
       public void Open ()
       {

@@ -62,10 +62,10 @@ namespace SkyFloe.App.Forms
             new BindingList<KeyValuePair<String, String>>();
          foreach (KeyValuePair<String, String> known in knownStores)
             stores.Add(known);
-         foreach (String connect in Program.Settings.ConnectionStrings)
+         foreach (Data.ConnectionString connect in Program.Settings.ConnectionStrings.Items)
          {
             String store = null;
-            if (Connection.Parse(connect).TryGetValue("Store", out store))
+            if (Connection.Parse(connect.Value).TryGetValue("Store", out store))
                if (!String.IsNullOrWhiteSpace(store))
                   if (!knownStores.ContainsKey(store))
                      stores.Add(new KeyValuePair<String, String>(store, store));
@@ -75,7 +75,8 @@ namespace SkyFloe.App.Forms
          // bind the recent connection strings
          this.cboRecent.DataSource = new BindingList<KeyValuePair<String, String>>(
             Program.Settings.ConnectionStrings
-               .Select(s => new KeyValuePair<String, String>(s, s))
+               .Items
+               .Select(s => new KeyValuePair<String, String>(s.Value, s.Caption))
                .Concat(new[] { new KeyValuePair<String, String>(null, "<New>") })
                .ToList()
          );
@@ -83,7 +84,7 @@ namespace SkyFloe.App.Forms
             this.cboStoreType.Focus();
       }
 
-      private void ConnectionForm_FormClosing (object sender, FormClosingEventArgs a)
+      private void ConnectionForm_FormClosing (Object sender, FormClosingEventArgs a)
       {
          this.Connection = null;
          if (DialogResult == DialogResult.OK)
@@ -101,18 +102,22 @@ namespace SkyFloe.App.Forms
                      ),
                      "Connecting..."
                   ).ShowDialog(this);
-                  Program.Settings.ConnectionStrings.Remove(
-                     Program.Settings.ConnectionStrings.FirstOrDefault(
-                        s => String.Compare(s, this.Connection.ConnectionString, true) == 0
+                  Program.Settings.ConnectionStrings.Items.Remove(
+                     Program.Settings.ConnectionStrings.Items.FirstOrDefault(
+                        s => StringComparer.OrdinalIgnoreCase.Equals(s.Value, this.Connection.ConnectionString)
                      )
                   );
-                  Program.Settings.ConnectionStrings.Insert(
+                  Program.Settings.ConnectionStrings.Items.Insert(
                      0, 
-                     this.Connection.ConnectionString
+                     new Data.ConnectionString()
+                     {
+                        Caption = this.Connection.Caption,
+                        Value = this.Connection.ConnectionString
+                     }
                   );
-                  while (Program.Settings.ConnectionStrings.Count > 10)
-                     Program.Settings.ConnectionStrings.RemoveAt(
-                        Program.Settings.ConnectionStrings.Count - 1
+                  while (Program.Settings.ConnectionStrings.Items.Count > 10)
+                     Program.Settings.ConnectionStrings.Items.RemoveAt(
+                        Program.Settings.ConnectionStrings.Items.Count - 1
                      );
                   this.DialogResult = DialogResult.OK;
                }

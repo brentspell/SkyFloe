@@ -73,7 +73,7 @@ namespace SkyFloe.Tasks
             {
                Backup.Node root = 
                   this.Archive.BackupIndex.ListNodes(null)
-                     .FirstOrDefault(n => String.Compare(n.Name, source, true) == 0) ??
+                     .FirstOrDefault(n => StringComparer.OrdinalIgnoreCase.Equals(n.Name, source)) ??
                   this.Archive.BackupIndex.InsertNode(
                      new Backup.Node()
                      {

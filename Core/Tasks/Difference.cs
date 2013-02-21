@@ -67,7 +67,7 @@ namespace SkyFloe.Tasks
                   if (metadata.IsDirectory || this.Request.Filter.Evaluate(metadata.Path))
                   {
                      Backup.Node node = nodes.FirstOrDefault(
-                        n => String.Compare(n.Name, metadata.Name, true) == 0
+                        n => StringComparer.OrdinalIgnoreCase.Equals(n.Name, metadata.Name)
                      );
                      if (node == null)
                         yield return new DiffResult()

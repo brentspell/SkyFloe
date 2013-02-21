@@ -5,6 +5,12 @@ using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Amazon.IdentityManagement;
+using Amazon.Glacier;
+using Amazon.Glacier.Model;
+using Amazon.Runtime;
+using Amazon.S3;
+using Amazon.S3.Model;
 
 using SkyFloe.Store;
 
@@ -12,8 +18,9 @@ namespace SkyFloe.Aws
 {
    public class GlacierStore : IStore
    {
-      private Amazon.S3.AmazonS3 s3;
-      private Amazon.Glacier.AmazonGlacierClient glacier;
+      private AmazonS3 s3;
+      private AmazonGlacierClient glacier;
+      private String arn;
 
       public GlacierStore ()
       {
@@ -48,17 +55,23 @@ namespace SkyFloe.Aws
       }
 
       #region IStore Implementation
+      public String Caption
+      {
+         get { return String.Format("Amazon Glacier - {0}", this.arn); }
+      }
+
       public void Open ()
       {
-         Amazon.Runtime.BasicAWSCredentials credentials = 
-            new Amazon.Runtime.BasicAWSCredentials(
-               this.AccessKey,
-               this.SecretKey
-            );
+         BasicAWSCredentials credentials = new BasicAWSCredentials(
+            this.AccessKey,
+            this.SecretKey
+         );
+         this.arn = new AmazonIdentityManagementServiceClient(credentials)
+            .GetUser().GetUserResult.User.Arn;
          this.s3 = Amazon.AWSClientFactory.CreateAmazonS3Client(credentials);
-         this.glacier = new Amazon.Glacier.AmazonGlacierClient(credentials);
+         this.glacier = new AmazonGlacierClient(credentials);
          this.s3.PutBucket(
-            new Amazon.S3.Model.PutBucketRequest()
+            new PutBucketRequest()
             {
                BucketName = this.Bucket
             }
@@ -68,7 +81,7 @@ namespace SkyFloe.Aws
       {
          return this.s3
             .ListObjects(
-               new Amazon.S3.Model.ListObjectsRequest()
+               new ListObjectsRequest()
                {
                   BucketName = this.Bucket
                }
@@ -114,7 +127,7 @@ namespace SkyFloe.Aws
          catch { }
          foreach (String blob in blobs)
             this.glacier.DeleteArchive(
-               new Amazon.Glacier.Model.DeleteArchiveRequest()
+               new DeleteArchiveRequest()
                {
                   VaultName = vault,
                   ArchiveId = blob
@@ -123,7 +136,7 @@ namespace SkyFloe.Aws
          try
          {
             this.glacier.DeleteVault(
-               new Amazon.Glacier.Model.DeleteVaultRequest()
+               new DeleteVaultRequest()
                {
                   VaultName = vault
                }
@@ -131,7 +144,7 @@ namespace SkyFloe.Aws
          }
          catch { }
          this.s3.DeleteObject(
-            new Amazon.S3.Model.DeleteObjectRequest()
+            new DeleteObjectRequest()
             {
                BucketName = this.Bucket,
                Key = String.Format("{0}{1}", name, GlacierArchive.IndexS3KeyExtension)
