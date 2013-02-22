@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -61,6 +62,18 @@ namespace Core.Test.IO
          Assert.AreEqual(
             new Path("test", "test.exe").ToString(),
             SysPath.GetFullPath(SysPath.Combine("test", "test.exe"))
+         );
+         Assert.AreEqual(
+            new Path(null, "test", null).ToString(),
+            SysPath.GetFullPath("test")
+         );
+         Assert.AreEqual(
+            new Path("", "test", "").ToString(),
+            SysPath.GetFullPath("test")
+         );
+         Assert.AreEqual(
+            new Path(" ", "test", " ").ToString(),
+            SysPath.GetFullPath("test")
          );
       }
 
@@ -509,6 +522,13 @@ namespace Core.Test.IO
          Assert.IsTrue(new Path().IsEmpty);
          Assert.IsFalse(new Path("test").IsEmpty);
          Assert.IsFalse(new Path("testa", "testb").IsEmpty);
+         // Top
+         Assert.AreEqual(default(Path).Top, String.Empty);
+         Assert.AreEqual(Path.Empty.Top, String.Empty);
+         Assert.AreEqual(new Path().Top, String.Empty);
+         Assert.AreEqual(new Path("test").Top, "test");
+         Assert.AreEqual(new Path("testa", "testb").Top, "testb");
+         Assert.AreEqual(new Path("testa", "testb", "testc.exe").Top, "testc.exe");
          // FileName
          Assert.AreEqual(default(Path).FileName, String.Empty);
          Assert.AreEqual(Path.Empty.FileName, String.Empty);
@@ -561,15 +581,116 @@ namespace Core.Test.IO
          }
          finally { Path.Current = prev; }
          Assert.AreEqual(Path.Current, prev);
+         // Temp
+         Assert.IsFalse(Path.Temp.IsEmpty);
+         Assert.AreEqual(Path.Temp, Path.Temp);
       }
 
       [TestMethod]
       public void TestOperations ()
       {
-         // TODO: test enumeration
-         // TODO: test + operator
+         // path split
+         {
+            String[] baseSplit = Path.Current.Split();
+            Assert.IsTrue(baseSplit.Length > 0);
+            AssertEqual(Path.Empty.Split(), new String[0]);
+            AssertEqual(Path.Current.Split(), baseSplit);
+            AssertEqual(new Path("test").Split(), baseSplit.Concat(new[] { "test" }));
+            AssertEqual(new Path("testa", "testb").Split(), baseSplit.Concat(new[] { "testa", "testb" }));
+         }
+         // path push
+         {
+            Assert.AreEqual(Path.Empty.Push(null), Path.Empty);
+            Assert.AreEqual(Path.Empty.Push(""), Path.Empty);
+            Assert.AreEqual(Path.Empty.Push(" "), Path.Empty);
+            Assert.AreEqual(Path.Empty.Push(Path.Current.Root), Path.Current.Root);
+            Assert.AreEqual(Path.Current.Push("test"), new Path("test"));
+            Assert.AreEqual(new Path("testa").Push("testb"), new Path("testa", "testb"));
+            Assert.AreEqual(Path.Empty + null, Path.Empty);
+            Assert.AreEqual(Path.Empty + "", Path.Empty);
+            Assert.AreEqual(Path.Empty + " ", Path.Empty);
+            Assert.AreEqual(Path.Current + "test", new Path("test"));
+            Assert.AreEqual(new Path("testa") + "testb", new Path("testa", "testb"));
+         }
+         // path pop
+         {
+            Assert.AreEqual(Path.Empty.Pop(), Path.Empty);
+            Assert.AreEqual(Path.Empty.Push(Path.Current.Root).Pop(), Path.Empty);
+            Assert.AreEqual(new Path("test").Pop(), Path.Current);
+            Assert.AreEqual(new Path("testa", "testb").Pop(), new Path("testa"));
+            Path testPath = new Path("test");
+            Int32 count = testPath.Count();
+            for (Int32 i = 0; i < count; i++)
+            {
+               Assert.IsFalse(testPath.IsEmpty);
+               testPath = testPath.Pop();
+            }
+            Assert.IsTrue(testPath.IsEmpty);
+         }
+         // parent/child test
+         {
+            Assert.IsFalse(Path.Empty.IsParent(Path.Empty));
+            Assert.IsFalse(Path.Empty.IsParent(new Path("test")));
+            Assert.IsFalse(Path.Empty.IsParent(new Path("test").Root));
+            Assert.IsFalse(new Path("test").IsParent(Path.Empty));
+            Assert.IsFalse(new Path("test").Root.IsParent(Path.Empty));
+            Assert.IsFalse(new Path("testa").IsParent(new Path("testb")));
+            Assert.IsFalse(new Path("testa", "testb", "testc").IsParent(new Path("testa")));
+            Assert.IsFalse(new Path("test").IsParent(Path.Current));
+            Assert.IsTrue(Path.Current.IsParent(new Path("test")));
+            Assert.IsTrue(new Path("testa").IsParent(new Path("testa", "testb")));
+            Assert.IsFalse(Path.Empty.IsChild(Path.Empty));
+            Assert.IsFalse(Path.Empty.IsChild(new Path("test")));
+            Assert.IsFalse(Path.Empty.IsChild(new Path("test").Root));
+            Assert.IsFalse(new Path("test").IsChild(Path.Empty));
+            Assert.IsFalse(new Path("test").Root.IsChild(Path.Empty));
+            Assert.IsFalse(new Path("testa").IsChild(new Path("testb")));
+            Assert.IsFalse(new Path("testa").IsChild(new Path("testa", "testb", "testc")));
+            Assert.IsFalse(Path.Current.IsChild(new Path("test")));
+            Assert.IsTrue(new Path("test").IsChild(Path.Current));
+            Assert.IsTrue(new Path("testa", "testb").IsChild(new Path("testa")));
+         }
+         // ancestor/descendant test
+         {
+            Assert.IsFalse(Path.Empty.IsAncestor(Path.Empty));
+            Assert.IsFalse(Path.Empty.IsAncestor(new Path("test")));
+            Assert.IsFalse(Path.Empty.IsAncestor(new Path("test").Root));
+            Assert.IsFalse(new Path("test").IsAncestor(Path.Empty));
+            Assert.IsFalse(new Path("test").Root.IsAncestor(Path.Empty));
+            Assert.IsFalse(new Path("test").IsAncestor(Path.Current));
+            Assert.IsTrue(Path.Current.IsAncestor(new Path("test")));
+            Assert.IsTrue(Path.Current.Root.IsAncestor(new Path("test")));
+            Assert.IsFalse(new Path("testa").IsAncestor(new Path("testb")));
+            Assert.IsTrue(new Path("testa").IsAncestor(new Path("testa", "testb")));
+            Assert.IsTrue(new Path("testa").IsAncestor(new Path("testa", "testb", "testc")));
+            Assert.IsFalse(Path.Empty.IsDescendant(Path.Empty));
+            Assert.IsFalse(Path.Empty.IsDescendant(new Path("test")));
+            Assert.IsFalse(Path.Empty.IsDescendant(new Path("test").Root));
+            Assert.IsFalse(new Path("test").IsDescendant(Path.Empty));
+            Assert.IsFalse(new Path("test").Root.IsDescendant(Path.Empty));
+            Assert.IsFalse(new Path("testa").IsDescendant(new Path("testb")));
+            Assert.IsFalse(Path.Current.IsDescendant(new Path("test")));
+            Assert.IsFalse(Path.Current.Root.IsDescendant(new Path("test")));
+            Assert.IsTrue(new Path("test").IsDescendant(Path.Current));
+            Assert.IsTrue(new Path("testa", "testb").IsDescendant(new Path("testa")));
+            Assert.IsTrue(new Path("testa", "testb", "testc").IsDescendant(new Path("testa")));
+         }
+         // path enumeration
+         {
+            AssertEqual(Path.Empty.Split(), Path.Empty);
+            AssertEqual(new Path("test").Split(), new Path("test"));
+            AssertEqual(new Path("testa", "testb").Split(), new Path("testa", "testb"));
+            String[] testPath = new Path("test").Split();
+            Int32 pathIdx = 0;
+            foreach (Object e in (IEnumerable)new Path("test"))
+               Assert.AreEqual(e, testPath[pathIdx++]);
+         }
       }
 
+      private void AssertEqual<T> (IEnumerable<T> e1, IEnumerable<T> e2)
+      {
+         Assert.IsTrue(Enumerable.SequenceEqual(e1, e2));
+      }
       private void AssertException (Action a)
       {
          try

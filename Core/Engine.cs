@@ -216,11 +216,14 @@ namespace SkyFloe
 
       public void Execute (Tasks.Task task)
       {
-         if (this.OnProgress != null)
-            task.OnProgress = (o, a) => this.OnProgress(o, a);
-         if (this.OnError != null)
-            task.OnError = (o, a) => this.OnError(o, a);
-         task.Execute();
+         using (task)
+         {
+            if (this.OnProgress != null)
+               task.OnProgress = (o, a) => this.OnProgress(o, a);
+            if (this.OnError != null)
+               task.OnError = (o, a) => this.OnError(o, a);
+            task.Execute();
+         }
       }
 
       public enum ErrorResult

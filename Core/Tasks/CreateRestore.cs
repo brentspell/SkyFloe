@@ -64,7 +64,7 @@ namespace SkyFloe.Tasks
             foreach (Int32 backupEntryID in this.Request.Entries)
             {
                Backup.Entry backupEntry = this.Archive.BackupIndex.FetchEntry(backupEntryID);
-               if (!this.Request.Filter.Evaluate(backupEntry.Node.GetAbsolutePath()))
+               if (this.Request.Filter.Evaluate(backupEntry.Node.GetAbsolutePath()))
                {
                   Restore.Entry restoreEntry = null;
                   switch (backupEntry.State)

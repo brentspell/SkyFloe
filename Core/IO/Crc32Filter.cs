@@ -1,27 +1,62 @@
-﻿using System;
+﻿//===========================================================================
+// MODULE:  Crc32Filter.cs
+// PURPOSE: CRC calculating stream filter
+// 
+// Copyright © 2013
+// Brent M. Spell. All rights reserved.
+//
+// This library is free software; you can redistribute it and/or modify it 
+// under the terms of the GNU Lesser General Public License as published 
+// by the Free Software Foundation; either version 3 of the License, or 
+// (at your option) any later version. This library is distributed in the 
+// hope that it will be useful, but WITHOUT ANY WARRANTY; without even the 
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+// See the GNU Lesser General Public License for more details. You should 
+// have received a copy of the GNU Lesser General Public License along with 
+// this library; if not, write to 
+//    Free Software Foundation, Inc. 
+//    51 Franklin Street, Fifth Floor 
+//    Boston, MA 02110-1301 USA
+//===========================================================================
+// System References
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+// Project References
 
 namespace SkyFloe.IO
 {
+   /// <summary>
+   /// CRC stream filter
+   /// </summary>
+   /// <remarks>
+   /// This class calculates a 32-bit CRC value from an underlying stream as 
+   /// data is read from/written to it. It also provides static operations 
+   /// for calculating CRC values without filtering a stream. The CRC 
+   /// algorithm uses the  ANSI X3.66/ITU-T V.42/ethernet polynomial 
+   /// (0xEDB88320 in little endian).
+   /// </remarks>
    [CLSCompliant(false)]
    public class Crc32Filter : FilterStream
    {
       public const UInt32 InitialValue = 0xFFFFFFFF;
+      private const UInt32 Polynomial = 0xEDB88320;
       private static UInt32[] table = new UInt32[256];
       private UInt32 value;
 
+      /// <summary>
+      /// Initializes the CRC calculation tables
+      /// </summary>
       static Crc32Filter ()
       {
-         const UInt32 poly = 0xEDB88320;
-         for (UInt32 i = 0; i < table.Length; i++)
+         for (var i = 0u; i < table.Length; i++)
          {
-            UInt32 temp = i;
-            for (Int32 j = 8; j > 0; j--)
+            var temp = i;
+            for (var j = 8; j > 0; j--)
             {
                if ((temp & 1) == 1)
-                  temp = (temp >> 1) ^ poly;
+                  temp = (temp >> 1) ^ Polynomial;
                else
                   temp >>= 1;
             }
@@ -29,11 +64,20 @@ namespace SkyFloe.IO
          }
       }
 
-      public Crc32Filter (Stream stream) : base(stream)
+      /// <summary>
+      /// Initializes the CRC filter
+      /// </summary>
+      /// <param name="baseStream">
+      /// The base stream to attach
+      /// </param>
+      public Crc32Filter (Stream baseStream) : base(baseStream)
       {
          this.value = InitialValue;
       }
-
+      
+      /// <summary>
+      /// The current value calculated from the underlying stream
+      /// </summary>
       public UInt32 Value
       {
          get { return CalculateFinal(this.value); }
@@ -72,14 +116,14 @@ namespace SkyFloe.IO
       /// </returns>
       public static UInt32 Calculate (Stream stream)
       {
-         UInt32 crc = InitialValue;
-         Byte[] buffer = new Byte[8192];
+         var crc = InitialValue;
+         var buffer = new Byte[8192];
          for (; ; )
          {
-            Int32 actual = stream.Read(buffer, 0, buffer.Length);
-            if (actual == 0)
+            var read = stream.Read(buffer, 0, buffer.Length);
+            if (read == 0)
                break;
-            crc = CalculateIncremental(crc, buffer, 0, actual);
+            crc = CalculateIncremental(crc, buffer, 0, read);
          }
          return CalculateFinal(crc);
       }
@@ -94,7 +138,7 @@ namespace SkyFloe.IO
       /// </returns>
       public static UInt32 Calculate (String path)
       {
-         using (FileStream stream = new FileStream(
+         using (var stream = new FileStream(
                path,
                FileMode.Open,
                FileAccess.Read,
@@ -127,7 +171,7 @@ namespace SkyFloe.IO
          Int32 offset,
          Int32 length)
       {
-         for (Int32 i = offset; i < offset + length; i++)
+         for (var i = offset; i < offset + length; i++)
             crc = (crc >> 8) ^ table[(crc & 0xff) ^ buffer[i]];
          return crc;
       }
@@ -147,6 +191,19 @@ namespace SkyFloe.IO
       #endregion
 
       #region FilterStream Overrides
+      /// <summary>
+      /// Calculates an incremental CRC for a buffer read from/written to
+      /// the underlying stream
+      /// </summary>
+      /// <param name="buffer">
+      /// The buffer read/written
+      /// </param>
+      /// <param name="offset">
+      /// The read/write offset
+      /// </param>
+      /// <param name="count">
+      /// The number of bytes read/written
+      /// </param>
       protected override void Filter (Byte [] buffer, Int32 offset, Int32 count)
       {
          this.value = CalculateIncremental(this.value, buffer, offset, count);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Tpl = System.Threading.Tasks;
@@ -237,28 +238,11 @@ namespace SkyFloe.Backup
          }
          if (args.Action == "BeginBackupEntry")
          {
-            String[] units = { "KB", "MB", "GB", "TB" };
-            Int64 totalSize = args.BackupSession.ActualLength / 1024;
-            Int64 entrySize = args.BackupEntry.Length / 1024;
-            Int32 totalUnit = 0;
-            Int32 entryUnit = 0;
-            while (totalSize > 999)
-            {
-               totalSize /= 1024;
-               totalUnit++;
-            }
-            while (entrySize > 999)
-            {
-               entrySize /= 1024;
-               entryUnit++;
-            }
             Console.Write(
-               "   {0:MM/dd hh:mm}: Total: {1,3:#,0} {2}, Current: {3,3:#,0} {4} - {5}...",
+               "   {0:MM/dd hh:mm}: Total: {1}, Current: {2} - {3}...",
                DateTime.Now,
-               totalSize,
-               units[totalUnit],
-               entrySize,
-               units[entryUnit],
+               FormatLength(args.BackupSession.ActualLength),
+               FormatLength(args.BackupEntry.Length),
                args.BackupEntry.Node.GetAbsolutePath()
             );
          }
@@ -299,6 +283,28 @@ namespace SkyFloe.Backup
          }
          else
             args.Result = Engine.ErrorResult.Abort;
+      }
+
+      static String FormatLength (Int64 bytes)
+      {
+         String[] units = new[] { "B", "KB", "MB", "GB", "TB" };
+         Int32 unit = 0;
+         Double norm = bytes;
+         while (norm >= 1000 & unit < units.Length)
+         {
+            norm /= 1024;
+            unit++;
+         }
+         StringBuilder format = new StringBuilder();
+         format.Append("{0:#,0");
+         if (unit > 0 && norm < 10)
+            format.Append(".00");
+         else if (unit > 0 && norm < 100)
+            format.Append(".0");
+         format.Append(" ");
+         format.Append(units[unit]);
+         format.Append("}");
+         return String.Format(format.ToString(), norm);
       }
    }
 }
