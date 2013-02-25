@@ -30,11 +30,11 @@ namespace SkyFloe
 
       public static Dictionary<String, String> Parse (String connect)
       {
-         Dictionary<String, String> paramMap =
-            new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase);
-         foreach (String param in connect.Split(';'))
+         // TODO: use regex
+         var paramMap = new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase);
+         foreach (var param in connect.Split(';'))
          {
-            Int32 sepIdx = param.IndexOf('=');
+            var sepIdx = param.IndexOf('=');
             if (sepIdx != -1)
                paramMap[param.Substring(0, sepIdx).Trim()] =
                   param.Substring(sepIdx + 1).Trim();
@@ -44,11 +44,11 @@ namespace SkyFloe
 
       public static void Bind (Dictionary<String, String> paramMap, Object props)
       {
-         foreach (KeyValuePair<String, String> param in paramMap
+         foreach (var param in paramMap
             .Where(p => !StringComparer.OrdinalIgnoreCase.Equals(p.Key, "Store"))
          )
          {
-            PropertyDescriptor prop = TypeDescriptor.GetProperties(props)
+            var prop = TypeDescriptor.GetProperties(props)
                .Cast<PropertyDescriptor>()
                .FirstOrDefault(p => StringComparer.OrdinalIgnoreCase.Equals(p.Name, param.Key));
             if (prop == null)
@@ -67,7 +67,7 @@ namespace SkyFloe
       public static Object GetStoreProperties (String store)
       {
          // TODO: refactor
-         String knownStore = null;
+         var  knownStore = (String)null;
          if (knownStores.TryGetValue(store, out knownStore))
             store = knownStore;
          // load and create the store type
@@ -111,18 +111,18 @@ namespace SkyFloe
          if (this.store != null)
             throw new InvalidOperationException("TODO: already connected");
          // parse connection string parameters
-         Dictionary<String, String> paramMap = Parse(connect);
+         var  paramMap = Parse(connect);
          // determine the store name
-         String storeName = null;
+         var storeName = (String)null;
          if (!paramMap.TryGetValue("Store", out storeName))
             throw new InvalidOperationException("TODO: store not found");
          paramMap.Remove("Store");
-         String knownStore = null;
+         var knownStore = (String)null;
          if (knownStores.TryGetValue(storeName, out knownStore))
             storeName = knownStore;
          // attempt to load the store type
-         Type storeType = Type.GetType(storeName, true);
-         Store.IStore store = (Store.IStore)Activator.CreateInstance(storeType);
+         var storeType = Type.GetType(storeName, true);
+         var store = (Store.IStore)Activator.CreateInstance(storeType);
          // bind the store properties and connect
          Bind(paramMap, store);
          store.Open();
@@ -192,13 +192,13 @@ namespace SkyFloe
          }
          public Backup.Node LookupNode (IO.Path path)
          {
-            Backup.Node node = this.Roots.FirstOrDefault(
+            var node = this.Roots.FirstOrDefault(
                r => new IO.Path(r.Name).IsAncestor(path)
             );
             if (node != null)
             {
-               IO.Path rootPath = node.Name;
-               foreach (String pathElem in path.Skip(rootPath.Count()))
+               var rootPath = (IO.Path)node.Name;
+               foreach (var pathElem in path.Skip(rootPath.Count()))
                {
                   node = GetChildren(node).FirstOrDefault(
                      n => StringComparer.OrdinalIgnoreCase.Equals(n.Name, pathElem)

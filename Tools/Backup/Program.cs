@@ -17,7 +17,7 @@ namespace SkyFloe.Backup
       private static String password;
       private static Int32 maxRetries;
       private static Int32 maxFailures;
-      private static IList<String> sourcePaths;
+      private static IList<IO.Path> sourcePaths;
       private static IList<Regex> includeFilter;
       private static IList<Regex> excludeFilter;
       private static Boolean deleteArchive;
@@ -47,7 +47,7 @@ namespace SkyFloe.Backup
          // initialize options
          password = "";
          diffMethod = DiffMethod.Timestamp;
-         sourcePaths = new List<String>();
+         sourcePaths = new List<IO.Path>();
          includeFilter = new List<Regex>();
          excludeFilter = new List<Regex>();
          deleteArchive = false;
@@ -65,7 +65,7 @@ namespace SkyFloe.Backup
                { "p|password=", v => password = v },
                { "r|max-retry=", (Int32 v) => maxRetries = v },
                { "f|max-fail=", (Int32 v) => maxFailures = v },
-               { "s|source=", v => sourcePaths.Add(v) },
+               { "s|source=", v => sourcePaths.Add((IO.Path)v) },
                { "n|include=", v => includeFilter.Add(new Regex(v, RegexOptions.IgnoreCase)) },
                { "x|exclude=", v => excludeFilter.Add(new Regex(v, RegexOptions.IgnoreCase)) },
                { "k|delete", v => deleteArchive = (v != null) },
@@ -85,7 +85,7 @@ namespace SkyFloe.Backup
          if (maxFailures < 0)
             return false;
          if (!sourcePaths.Any())
-            sourcePaths.Add(Environment.CurrentDirectory);
+            sourcePaths.Add(IO.Path.Current);
          if (sourcePaths.Any(p => String.IsNullOrWhiteSpace(p)))
             return false;
          if (diffMethod == 0)
@@ -116,13 +116,13 @@ namespace SkyFloe.Backup
 
       static Boolean ExecuteBackup ()
       {
-         Boolean backupOk = false;
+         var backupOk = false;
          canceler = new CancellationTokenSource();
          if (Debugger.IsAttached)
             Console.SetBufferSize(1000, 1000);
          try
          {
-            Tpl.Task tasks = Tpl.Task.Factory.StartNew(
+            var tasks = Tpl.Task.Factory.StartNew(
                () =>
                {
                   Connect();
@@ -194,7 +194,7 @@ namespace SkyFloe.Backup
       static Backup.Session CreateSession ()
       {
          Console.WriteLine("   Starting the backup. Press escape to cancel/pause.");
-         Backup.Session session = engine.Archive.Sessions
+         var session = engine.Archive.Sessions
             .FirstOrDefault(s => s.State != SessionState.Completed);
          if (session != null)
          {
@@ -287,15 +287,15 @@ namespace SkyFloe.Backup
 
       static String FormatLength (Int64 bytes)
       {
-         String[] units = new[] { "B", "KB", "MB", "GB", "TB" };
-         Int32 unit = 0;
-         Double norm = bytes;
+         var units = new[] { "B", "KB", "MB", "GB", "TB" };
+         var unit = 0;
+         var norm = (Double)bytes;
          while (norm >= 1000 & unit < units.Length)
          {
             norm /= 1024;
             unit++;
          }
-         StringBuilder format = new StringBuilder();
+         var format = new StringBuilder();
          format.Append("{0:#,0");
          if (unit > 0 && norm < 10)
             format.Append(".00");

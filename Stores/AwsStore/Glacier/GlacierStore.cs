@@ -62,7 +62,7 @@ namespace SkyFloe.Aws
 
       public void Open ()
       {
-         BasicAWSCredentials credentials = new BasicAWSCredentials(
+         var credentials = new BasicAWSCredentials(
             this.AccessKey,
             this.SecretKey
          );
@@ -91,7 +91,7 @@ namespace SkyFloe.Aws
       }
       public IArchive CreateArchive (String name, Backup.Header header)
       {
-         GlacierArchive archive = new GlacierArchive(
+         var archive = new GlacierArchive(
             this.s3,
             this.glacier,
             this.VaultPrefix + name,
@@ -103,7 +103,7 @@ namespace SkyFloe.Aws
       }
       public IArchive OpenArchive (String name)
       {
-         GlacierArchive archive = new GlacierArchive(
+         var archive = new GlacierArchive(
             this.s3,
             this.glacier,
             this.VaultPrefix + name,
@@ -117,15 +117,15 @@ namespace SkyFloe.Aws
       {
          // TODO: consider not using archive implementation here
          // TODO: or consider moving all delete code into archive
-         String vault = this.VaultPrefix + name;
-         List<String> blobs = new List<String>();
+         var vault = this.VaultPrefix + name;
+         var blobs = new List<String>();
          try
          {
-            using (Store.IArchive archive = OpenArchive(name))
+            using (var archive = OpenArchive(name))
                blobs.AddRange(archive.BackupIndex.ListBlobs().Select(b => b.Name));
          }
          catch { }
-         foreach (String blob in blobs)
+         foreach (var blob in blobs)
             this.glacier.DeleteArchive(
                new DeleteArchiveRequest()
                {

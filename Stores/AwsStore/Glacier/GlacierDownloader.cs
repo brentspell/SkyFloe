@@ -50,7 +50,7 @@ namespace SkyFloe.Aws
       {
          if (this.jobStreams.ContainsKey(jobID))
             return true;
-         DescribeJobResult jobInfo = this.glacier.DescribeJob(
+         var jobInfo = this.glacier.DescribeJob(
             new DescribeJobRequest()
             {
                VaultName = this.vault,
@@ -59,10 +59,10 @@ namespace SkyFloe.Aws
          ).DescribeJobResult;
          if (jobInfo.Completed)
          {
-            String range = jobInfo.RetrievalByteRange;
-            String start = range.Substring(0, range.IndexOf('-'));
-            String stop = range.Substring(range.IndexOf('-') + 1);
-            Int64 length = Convert.ToInt64(stop) - Convert.ToInt64(start) + 1;
+            var range = jobInfo.RetrievalByteRange;
+            var start = range.Substring(0, range.IndexOf('-'));
+            var stop = range.Substring(range.IndexOf('-') + 1);
+            var length = Convert.ToInt64(stop) - Convert.ToInt64(start) + 1;
             this.jobStreams.Add(
                jobID, 
                new BufferedStream(
@@ -77,7 +77,7 @@ namespace SkyFloe.Aws
 
       public void DeleteJob (String jobID)
       {
-         Stream jobStream = null;
+         var jobStream = (Stream)null;
          if (this.jobStreams.TryGetValue(jobID, out jobStream))
          {
             this.jobStreams.Remove(jobID);
@@ -87,7 +87,7 @@ namespace SkyFloe.Aws
 
       public Stream GetJobStream (String jobID, Int64 offset, Int64 length)
       {
-         Stream stream = null;
+         var stream = (Stream)null;
          if (!this.jobStreams.TryGetValue(jobID, out stream))
             throw new InvalidOperationException("TODO: stream not found");
          try

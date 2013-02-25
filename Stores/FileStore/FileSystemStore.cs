@@ -28,17 +28,17 @@ namespace SkyFloe
       }
       public IEnumerable<String> ListArchives ()
       {
-         return IO.FileSystem.Children(this.Path).Select(p => p.Name);
+         return IO.FileSystem.Children((IO.Path)this.Path).Select(p => p.Name);
       }
       public Store.IArchive CreateArchive (String name, Backup.Header header)
       {
-         FileSystemArchive archive = new FileSystemArchive((IO.Path)this.Path + name);
+         var archive = new FileSystemArchive((IO.Path)this.Path + name);
          archive.Create(header);
          return archive;
       }
       public Store.IArchive OpenArchive (String name)
       {
-         FileSystemArchive archive = new FileSystemArchive((IO.Path)this.Path + name);
+         var archive = new FileSystemArchive((IO.Path)this.Path + name);
          archive.Open();
          return archive;
       }

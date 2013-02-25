@@ -41,14 +41,14 @@ namespace SkyFloe
       /// </summary>
       public BackupRequest ()
       {
-         this.Sources = Enumerable.Empty<String>();
+         this.Sources = Enumerable.Empty<IO.Path>();
          this.Filter = new RegexFilter();
       }
 
       /// <summary>
       /// List of source directory paths to include in the backup
       /// </summary>
-      public IEnumerable<String> Sources { get; set; }
+      public IEnumerable<IO.Path> Sources { get; set; }
       /// <summary>
       /// The backup source file filter
       /// </summary>

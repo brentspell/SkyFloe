@@ -76,9 +76,8 @@ namespace SkyFloe.IO
       /// </param>
       protected override void Dispose (bool disposing)
       {
+         // do not dispose the base stream - substreams only attach shared
          base.Dispose(disposing);
-         if (this.baseStream != null)
-            this.baseStream.Dispose();
          this.baseStream = null;
       }
       /// <summary>

@@ -50,12 +50,12 @@ namespace SkyFloe.Aws
 
       public Int64 Upload (Stream stream)
       {
-         Int64 streamLength = 0;
+         var streamLength = 0L;
          for (; ; )
          {
             if (this.partOffset == PartSize)
                Flush();
-            Int32 read = stream.Read(
+            var read = stream.Read(
                this.readBuffer,
                0,
                Math.Min(
@@ -74,13 +74,13 @@ namespace SkyFloe.Aws
 
       public void Flush ()
       {
-         Int32 partLength = this.partOffset;
+         var partLength = this.partOffset;
          if (partLength > 0)
          {
             // TODO: comment about not setting any state variables before upload is successful, for retry
             this.partStream.SetLength(partLength);
             this.partStream.Position = 0;
-            String checksum = TreeHashGenerator.CalculateTreeHash(this.partStream);
+            var checksum = TreeHashGenerator.CalculateTreeHash(this.partStream);
             this.partStream.Position = 0;
             this.glacier.UploadMultipartPart(
                new UploadMultipartPartRequest()
@@ -109,8 +109,8 @@ namespace SkyFloe.Aws
          this.partStream.Position = this.partOffset;
          if (commitLength < this.Length)
          {
-            Int32 commitPartLength = (Int32)(commitLength % PartSize);
-            Int64 commitPartOffset = commitLength - commitPartLength;
+            var commitPartLength = (Int32)(commitLength % PartSize);
+            var commitPartOffset = commitLength - commitPartLength;
             // if we haven't committed any parts since the failure,
             // simply reset the current part length and continue
             if (commitPartOffset == this.archiveOffset)
@@ -126,7 +126,7 @@ namespace SkyFloe.Aws
                   this.archiveOffset += PartSize;
                // remove any checksums already calculated for 
                // uncommitted parts
-               Int32 partIdx = (Int32)(this.archiveOffset / PartSize);
+               var partIdx = (Int32)(this.archiveOffset / PartSize);
                if (partIdx < this.partChecksums.Count)
                   this.partChecksums.RemoveRange(partIdx, this.partChecksums.Count - partIdx);
             }
@@ -138,7 +138,7 @@ namespace SkyFloe.Aws
       {
          if (this.partOffset > 0)
             Flush();
-         String archiveID = this.glacier.CompleteMultipartUpload(
+         var archiveID = this.glacier.CompleteMultipartUpload(
             new CompleteMultipartUploadRequest()
             {
                VaultName = this.vault,

@@ -16,7 +16,7 @@ namespace SkyFloe
       public FileSystemArchive (IO.Path path)
       {
          this.Path = path;
-         IO.Path restoreIndexPath = new IO.Path(
+         var restoreIndexPath = new IO.Path(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SkyFloe",
             "FileStore",
@@ -95,8 +95,8 @@ namespace SkyFloe
       }
       public void Save ()
       {
-         using (Stream indexStream = IO.FileSystem.Truncate(this.IndexPath))
-         using (Stream tempStream = this.backupIndex.Serialize())
+         using (var indexStream = IO.FileSystem.Truncate(this.IndexPath))
+         using (var tempStream = this.backupIndex.Serialize())
             tempStream.CopyTo(indexStream);
       }
       #endregion

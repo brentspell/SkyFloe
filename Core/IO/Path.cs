@@ -127,7 +127,7 @@ namespace SkyFloe.IO
       /// </summary>
       public Path Root
       {
-         get { return (!IsEmpty) ? SysPath.GetPathRoot(ToString()) : String.Empty; }
+         get { return (!IsEmpty) ? (Path)SysPath.GetPathRoot(ToString()) : Path.Empty; }
       }
       /// <summary>
       /// Retrieves the application's current working directory
@@ -136,7 +136,7 @@ namespace SkyFloe.IO
       {
          get
          {
-            return Environment.CurrentDirectory;
+            return (Path)Environment.CurrentDirectory;
          }
          set
          {
@@ -150,7 +150,7 @@ namespace SkyFloe.IO
       /// </summary>
       public static Path Temp
       {
-         get { return SysPath.GetTempPath(); }
+         get { return (Path)SysPath.GetTempPath(); }
       }
       #endregion
 
@@ -188,7 +188,7 @@ namespace SkyFloe.IO
       /// </returns>
       public Path Pop ()
       {
-         return (!IsEmpty) ? SysPath.GetDirectoryName(ToString()) : String.Empty;
+         return (!IsEmpty) ? (Path)SysPath.GetDirectoryName(ToString()) : Path.Empty;
       }
       /// <summary>
       /// Determines whether the current path is the parent of another
@@ -432,7 +432,7 @@ namespace SkyFloe.IO
       {
          return path.value ?? String.Empty;
       }
-      public static implicit operator Path (String str)
+      public static explicit operator Path (String str)
       {
          return new Path(str);
       }

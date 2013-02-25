@@ -15,7 +15,7 @@ namespace SkyFloe.App.Forms
       {
          InitializeComponent();
          BindingList<Exception> exceptions = new BindingList<Exception>();
-         for (Exception e = exception; e != null; e = e.InnerException)
+         for (var e = exception; e != null; e = e.InnerException)
             exceptions.Add(e);
          this.binding.DataSource = exceptions;
          this.txtSource.DataBindings.Add(new Binding("Text", this.binding, "Source"));

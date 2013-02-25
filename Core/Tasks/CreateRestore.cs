@@ -17,7 +17,7 @@ namespace SkyFloe.Tasks
       {
          if (this.Request == null)
             throw new ArgumentException("Request");
-         foreach (KeyValuePair<IO.Path, IO.Path> map in this.Request.RootPathMap)
+         foreach (var map in this.Request.RootPathMap)
          {
             if (map.Key.IsEmpty)
                throw new ArgumentException("Request.RootPathMap.Key");
@@ -31,9 +31,9 @@ namespace SkyFloe.Tasks
       }
       protected override void DoExecute ()
       {
-         using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
+         using (var txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
          {
-            Restore.Session session = this.Archive.RestoreIndex.InsertSession(
+            var session = this.Archive.RestoreIndex.InsertSession(
                new Restore.Session()
                {
                   State = Restore.SessionState.Pending,
@@ -45,12 +45,10 @@ namespace SkyFloe.Tasks
                   RateLimit = this.Request.RateLimit
                }
             );
-            IEnumerable<Backup.Node> roots = this.Archive.BackupIndex.ListNodes(null);
-            foreach (KeyValuePair<IO.Path, IO.Path> pathMap in this.Request.RootPathMap)
+            var roots = this.Archive.BackupIndex.ListNodes(null);
+            foreach (var pathMap in this.Request.RootPathMap)
             {
-               Backup.Node root = roots.FirstOrDefault(
-                  n => n.Name == pathMap.Key
-               );
+               var root = roots.FirstOrDefault(n => (IO.Path)n.Name == pathMap.Key);
                if (root != null)
                   this.Archive.RestoreIndex.InsertPathMap(
                      new Restore.PathMap()
@@ -61,16 +59,16 @@ namespace SkyFloe.Tasks
                      }
                   );
             }
-            foreach (Int32 backupEntryID in this.Request.Entries)
+            foreach (var backupEntryID in this.Request.Entries)
             {
-               Backup.Entry backupEntry = this.Archive.BackupIndex.FetchEntry(backupEntryID);
+               var backupEntry = this.Archive.BackupIndex.FetchEntry(backupEntryID);
                if (this.Request.Filter.Evaluate(backupEntry.Node.GetAbsolutePath()))
                {
-                  Restore.Entry restoreEntry = null;
+                  var restoreEntry = (Restore.Entry)null;
                   switch (backupEntry.State)
                   {
                      case Backup.EntryState.Completed:
-                        Restore.Retrieval retrieval =
+                        var retrieval =
                            this.Archive.RestoreIndex
                               .ListBlobRetrievals(session, backupEntry.Blob.Name)
                               .FirstOrDefault() ??

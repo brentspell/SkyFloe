@@ -52,7 +52,7 @@ namespace SkyFloe.Lab
       public void Stop ()
       {
          this.watch.Stop();
-         Int64 ticks = this.watch.ElapsedTicks;
+         var ticks = this.watch.ElapsedTicks;
          this.Runs++;
          if (ticks < this.MinTicks)
             this.MinTicks = ticks;

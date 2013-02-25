@@ -19,9 +19,9 @@ namespace SkyFloe.Tasks
             throw new ArgumentException("Request");
          if (!this.Request.Sources.Any())
             throw new ArgumentException("Request.Sources");
-         foreach (String source in this.Request.Sources)
+         foreach (var source in this.Request.Sources)
          {
-            IO.FileSystem.Metadata metadata = IO.FileSystem.GetMetadata(source);
+            var metadata = IO.FileSystem.GetMetadata(source);
             if (!metadata.Exists)
                throw new InvalidOperationException("TODO: source path not found");
             if (!metadata.IsDirectory)
@@ -46,9 +46,9 @@ namespace SkyFloe.Tasks
       }
       protected override void DoExecute ()
       {
-         using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
+         using (var txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
          {
-            Backup.Session session = this.Archive.BackupIndex.InsertSession(
+            var session = this.Archive.BackupIndex.InsertSession(
                new Backup.Session()
                {
                   State = Backup.SessionState.Pending,
@@ -56,7 +56,7 @@ namespace SkyFloe.Tasks
                   RateLimit = this.Request.RateLimit
                }
             );
-            Difference differenceTask = new Difference()
+            var differenceTask = new Difference()
             {
                Archive = this.Archive,
                Crypto = this.Crypto,
@@ -69,9 +69,9 @@ namespace SkyFloe.Tasks
                   Filter = this.Request.Filter
                }
             };
-            foreach (String source in this.Request.Sources)
+            foreach (var source in this.Request.Sources)
             {
-               Backup.Node root = 
+               var root = 
                   this.Archive.BackupIndex.ListNodes(null)
                      .FirstOrDefault(n => StringComparer.OrdinalIgnoreCase.Equals(n.Name, source)) ??
                   this.Archive.BackupIndex.InsertNode(
@@ -81,13 +81,13 @@ namespace SkyFloe.Tasks
                         Name = source
                      }
                   );
-               foreach (DiffResult diff in differenceTask.Enumerate(root))
+               foreach (var diff in differenceTask.Enumerate(root))
                {
                   if (diff.Node.ID == 0)
                      this.Archive.BackupIndex.InsertNode(diff.Node);
                   if (diff.Node.Type == Backup.NodeType.File)
                   {
-                     Backup.Entry entry = this.Archive.BackupIndex.InsertEntry(
+                     var entry = this.Archive.BackupIndex.InsertEntry(
                         new Backup.Entry()
                         {
                            Session = session,

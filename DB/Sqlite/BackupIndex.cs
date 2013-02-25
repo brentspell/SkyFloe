@@ -11,14 +11,15 @@ namespace SkyFloe.Sqlite
    {
       private const Int32 CurrentVersion = 1;
 
-      private BackupIndex (String path) : base(path)
+      private BackupIndex (IO.Path path)
+         : base(path)
       {
       }
 
-      public static BackupIndex Create (String path, Header header)
+      public static BackupIndex Create (IO.Path path, Header header)
       {
          Database.Create(path, "SkyFloe.Sqlite.Resources.BackupIndex.sql");
-         BackupIndex index = null;
+         var index = (BackupIndex)null;
          try
          {
             index = new BackupIndex(path);
@@ -46,7 +47,7 @@ namespace SkyFloe.Sqlite
             throw;
          }
       }
-      public static BackupIndex Open (String path)
+      public static BackupIndex Open (IO.Path path)
       {
          BackupIndex index = new BackupIndex(path);
          if (index.FetchHeader().Version != CurrentVersion)
@@ -57,58 +58,61 @@ namespace SkyFloe.Sqlite
       #region IIndex Implementation
       public Header FetchHeader ()
       {
-         using (IDataReader reader = ExecuteReader("SELECT Version, CryptoIterations, ArchiveSalt, PasswordHash, PasswordSalt FROM Header;"))
-            if (reader.Read())
-               return new Header()
-               {
-                  Version = Convert.ToInt32(reader[0]),
-                  CryptoIterations = Convert.ToInt32(reader[1]),
-                  ArchiveSalt = (Byte[])reader[2],
-                  PasswordHash = (Byte[])reader[3],
-                  PasswordSalt = (Byte[])reader[4]
-               };
-         return null;
+         return Fetch(
+            "SELECT Version, CryptoIterations, ArchiveSalt, PasswordHash, PasswordSalt FROM Header;",
+            reader => new Header()
+            {
+               Version = Convert.ToInt32(reader[0]),
+               CryptoIterations = Convert.ToInt32(reader[1]),
+               ArchiveSalt = (Byte[])reader[2],
+               PasswordHash = (Byte[])reader[3],
+               PasswordSalt = (Byte[])reader[4]
+            }
+         );
       }
       public IEnumerable<Blob> ListBlobs ()
       {
-         using (IDataReader reader = ExecuteReader("SELECT ID, Name, Length, Created, Updated FROM Blob;"))
-            while (reader.Read())
-               yield return new Blob()
-               {
-                  ID = Convert.ToInt32(reader[0]),
-                  Name = Convert.ToString(reader[1]),
-                  Length = Convert.ToInt64(reader[2]),
-                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[3]), DateTimeKind.Utc),
-                  Updated = DateTime.SpecifyKind(Convert.ToDateTime(reader[4]), DateTimeKind.Utc),
-               };
+         return Query(
+            "SELECT ID, Name, Length, Created, Updated FROM Blob;",
+            reader => new Blob()
+            {
+               ID = Convert.ToInt32(reader[0]),
+               Name = Convert.ToString(reader[1]),
+               Length = Convert.ToInt64(reader[2]),
+               Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[3]), DateTimeKind.Utc),
+               Updated = DateTime.SpecifyKind(Convert.ToDateTime(reader[4]), DateTimeKind.Utc),
+            }
+         );
       }
       public Blob LookupBlob (String name)
       {
-         using (IDataReader reader = ExecuteReader("SELECT ID, Length, Created, Updated FROM Blob WHERE Name = @p0;", name))
-            if (reader.Read())
-               return new Blob()
-               {
-                  ID = Convert.ToInt32(reader[0]),
-                  Name = name,
-                  Length = Convert.ToInt64(reader[1]),
-                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[2]), DateTimeKind.Utc),
-                  Updated = DateTime.SpecifyKind(Convert.ToDateTime(reader[3]), DateTimeKind.Utc),
-               };
-         return null;
+         return Fetch(
+            "SELECT ID, Length, Created, Updated FROM Blob WHERE Name = @p0;",
+            new Object[] { name },
+            reader => new Blob()
+            {
+               ID = Convert.ToInt32(reader[0]),
+               Name = name,
+               Length = Convert.ToInt64(reader[1]),
+               Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[2]), DateTimeKind.Utc),
+               Updated = DateTime.SpecifyKind(Convert.ToDateTime(reader[3]), DateTimeKind.Utc),
+            }
+         );
       }
       public Blob FetchBlob (Int32 id)
       {
-         using (IDataReader reader = ExecuteReader("SELECT Name, Length, Created, Updated FROM Blob WHERE ID = @p0;", id))
-            if (reader.Read())
-               return new Blob()
-               {
-                  ID = id,
-                  Name = Convert.ToString(reader[0]),
-                  Length = Convert.ToInt64(reader[1]),
-                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[2]), DateTimeKind.Utc),
-                  Updated = DateTime.SpecifyKind(Convert.ToDateTime(reader[3]), DateTimeKind.Utc),
-               };
-         return null;
+         return Fetch(
+            "SELECT Name, Length, Created, Updated FROM Blob WHERE ID = @p0;",
+            new Object[] { id },
+            reader => new Blob()
+            {
+               ID = id,
+               Name = Convert.ToString(reader[0]),
+               Length = Convert.ToInt64(reader[1]),
+               Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[2]), DateTimeKind.Utc),
+               Updated = DateTime.SpecifyKind(Convert.ToDateTime(reader[3]), DateTimeKind.Utc),
+            }
+         );
       }
       public Blob InsertBlob (Blob blob)
       {
@@ -118,7 +122,7 @@ namespace SkyFloe.Sqlite
             blob.Length,
             blob.Updated = blob.Created = DateTime.UtcNow
          );
-         blob.ID = QueryRowID();
+         blob.ID = GetLastRowID();
          return blob;
       }
       public Blob UpdateBlob (Blob blob)
@@ -144,34 +148,36 @@ namespace SkyFloe.Sqlite
       #region Session Operations
       public IEnumerable<Session> ListSessions ()
       {
-         using (IDataReader reader = ExecuteReader("SELECT ID, State, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created FROM Session;"))
-            while (reader.Read())
-               yield return new Session()
-               {
-                  ID = Convert.ToInt32(reader[0]),
-                  State = (SessionState)Convert.ToInt32(reader[1]),
-                  RateLimit = Convert.ToInt32(reader[2]),
-                  CheckpointLength = Convert.ToInt64(reader[3]),
-                  EstimatedLength = Convert.ToInt64(reader[4]),
-                  ActualLength = Convert.ToInt64(reader[5]),
-                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[6]), DateTimeKind.Utc)
-               };
+         return Query(
+            "SELECT ID, State, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created FROM Session;",
+            reader => new Session()
+            {
+               ID = Convert.ToInt32(reader[0]),
+               State = (SessionState)Convert.ToInt32(reader[1]),
+               RateLimit = Convert.ToInt32(reader[2]),
+               CheckpointLength = Convert.ToInt64(reader[3]),
+               EstimatedLength = Convert.ToInt64(reader[4]),
+               ActualLength = Convert.ToInt64(reader[5]),
+               Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[6]), DateTimeKind.Utc)
+            }
+         );
       }
       public Session FetchSession (Int32 id)
       {
-         using (IDataReader reader = ExecuteReader("SELECT State, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created FROM Session WHERE ID = @p0;", id))
-            if (reader.Read())
-               return new Session()
-               {
-                  ID = id,
-                  State = (SessionState)Convert.ToInt32(reader[0]),
-                  RateLimit = Convert.ToInt32(reader[1]),
-                  CheckpointLength = Convert.ToInt64(reader[2]),
-                  EstimatedLength = Convert.ToInt64(reader[3]),
-                  ActualLength = Convert.ToInt64(reader[4]),
-                  Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[5]), DateTimeKind.Utc)
-               };
-         return null;
+         return Fetch(
+            "SELECT State, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created FROM Session WHERE ID = @p0;",
+            new Object[] { id },
+            reader => new Session()
+            {
+               ID = id,
+               State = (SessionState)Convert.ToInt32(reader[0]),
+               RateLimit = Convert.ToInt32(reader[1]),
+               CheckpointLength = Convert.ToInt64(reader[2]),
+               EstimatedLength = Convert.ToInt64(reader[3]),
+               ActualLength = Convert.ToInt64(reader[4]),
+               Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[5]), DateTimeKind.Utc)
+            }
+         );
       }
       public Session InsertSession (Session session)
       {
@@ -184,7 +190,7 @@ namespace SkyFloe.Sqlite
             session.ActualLength,
             session.Created = DateTime.UtcNow
          );
-         session.ID = QueryRowID();
+         session.ID = GetLastRowID();
          return session;
       }
       public Session UpdateSession (Session session)
@@ -212,36 +218,33 @@ namespace SkyFloe.Sqlite
       #region Node Operations
       public IEnumerable<Node> ListNodes (Node parent = null)
       {
-         using (IDataReader reader = (parent == null) ?
-               ExecuteReader(
-                  "SELECT ID, Type, Name FROM Node WHERE ParentID IS NULL;"
-               ) :
-               ExecuteReader(
-                  "SELECT ID, Type, Name FROM Node WHERE ParentID = @p0;",
-                  parent.ID
-               )
-            )
-            while (reader.Read())
-               yield return new Node()
-               {
-                  ID = Convert.ToInt32(reader[0]),
-                  Parent = parent,
-                  Type = (NodeType)Convert.ToInt32(reader[1]),
-                  Name = Convert.ToString(reader[2])
-               };
+         return Query(
+            (parent == null) ?
+               "SELECT ID, Type, Name FROM Node WHERE ParentID IS NULL;" :
+               "SELECT ID, Type, Name FROM Node WHERE ParentID = @p0;",
+            new Object[] { (parent != null) ? (Object)parent.ID : null },
+            reader => new Node()
+            {
+               ID = Convert.ToInt32(reader[0]),
+               Parent = parent,
+               Type = (NodeType)Convert.ToInt32(reader[1]),
+               Name = Convert.ToString(reader[2])
+            }
+         );
       }
       public Node FetchNode (Int32 id)
       {
-         using (IDataReader reader = ExecuteReader("SELECT ParentID, Type, Name FROM Node WHERE ID = @p0;", id))
-            if (reader.Read())
-               return new Node()
-               {
-                  ID = id,
-                  Parent = (!reader.IsDBNull(0)) ? FetchNode(Convert.ToInt32(reader[0])) : null,
-                  Type = (NodeType)Convert.ToInt32(reader[1]),
-                  Name = Convert.ToString(reader[2])
-               };
-         return null;
+         return Fetch(
+            "SELECT ParentID, Type, Name FROM Node WHERE ID = @p0;",
+            new Object[] { id },
+            reader => new Node()
+            {
+               ID = id,
+               Parent = (!reader.IsDBNull(0)) ? FetchNode(Convert.ToInt32(reader[0])) : null,
+               Type = (NodeType)Convert.ToInt32(reader[1]),
+               Name = Convert.ToString(reader[2])
+            }
+         );
       }
       public Node InsertNode (Node node)
       {
@@ -251,7 +254,7 @@ namespace SkyFloe.Sqlite
             Convert.ToInt32(node.Type),
             node.Name
          );
-         node.ID = QueryRowID();
+         node.ID = GetLastRowID();
          return node;
       }
       public Node UpdateNode (Node node)
@@ -277,69 +280,57 @@ namespace SkyFloe.Sqlite
       #region Entry Operations
       public IEnumerable<Entry> ListNodeEntries (Node node)
       {
-         using (IDataReader reader =
-               ExecuteReader(
-                  "SELECT ID, SessionID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE NodeID = @p0;",
-                  node.ID
-               )
-            )
-            while (reader.Read())
-               yield return new Entry()
-               {
-                  ID = Convert.ToInt32(reader[0]),
-                  Session = FetchSession(Convert.ToInt32(reader[1])),
-                  Node = node,
-                  Blob = (!reader.IsDBNull(2)) ? FetchBlob(Convert.ToInt32(reader[2])) : null,
-                  State = (EntryState)Convert.ToInt32(reader[3]),
-                  Offset = Convert.ToInt64(reader[4]),
-                  Length = Convert.ToInt64(reader[5]),
-                  Crc32 = BitConverter.ToUInt32((Byte[])reader[6], 0)
-               };
+         return Query(
+            "SELECT ID, SessionID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE NodeID = @p0;",
+            new Object[] { node.ID },
+            reader => new Entry()
+            {
+               ID = Convert.ToInt32(reader[0]),
+               Session = FetchSession(Convert.ToInt32(reader[1])),
+               Node = node,
+               Blob = (!reader.IsDBNull(2)) ? FetchBlob(Convert.ToInt32(reader[2])) : null,
+               State = (EntryState)Convert.ToInt32(reader[3]),
+               Offset = Convert.ToInt64(reader[4]),
+               Length = Convert.ToInt64(reader[5]),
+               Crc32 = BitConverter.ToUInt32((Byte[])reader[6], 0)
+            }
+         );
       }
       public Entry LookupNextEntry (Session session)
       {
-         using (IDataReader reader =
-               ExecuteReader(
-                  "SELECT ID, NodeID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE SessionID = @p0 AND State = @p1 LIMIT 1;",
-                  session.ID,
-                  EntryState.Pending
-               )
-            )
-            if (reader.Read())
-               return new Entry()
-               {
-                  ID = Convert.ToInt32(reader[0]),
-                  Session = session,
-                  Node = FetchNode(Convert.ToInt32(reader[1])),
-                  Blob = (!reader.IsDBNull(2)) ? FetchBlob(Convert.ToInt32(reader[2])) : null,
-                  State = (EntryState)Convert.ToInt32(reader[3]),
-                  Offset = Convert.ToInt64(reader[4]),
-                  Length = Convert.ToInt64(reader[5]),
-                  Crc32 = BitConverter.ToUInt32((Byte[])reader[6], 0)
-               };
-         return null;
+         return Fetch(
+            "SELECT ID, NodeID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE SessionID = @p0 AND State = @p1 LIMIT 1;",
+            new Object[] { session.ID, EntryState.Pending },
+            reader => new Entry()
+            {
+               ID = Convert.ToInt32(reader[0]),
+               Session = session,
+               Node = FetchNode(Convert.ToInt32(reader[1])),
+               Blob = (!reader.IsDBNull(2)) ? FetchBlob(Convert.ToInt32(reader[2])) : null,
+               State = (EntryState)Convert.ToInt32(reader[3]),
+               Offset = Convert.ToInt64(reader[4]),
+               Length = Convert.ToInt64(reader[5]),
+               Crc32 = BitConverter.ToUInt32((Byte[])reader[6], 0)
+            }
+         );
       }
       public Entry FetchEntry (Int32 id)
       {
-         using (IDataReader reader = 
-               ExecuteReader(
-                  "SELECT SessionID, NodeID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE ID = @p0;", 
-                  id
-               )
-            )
-            if (reader.Read())
-               return new Entry()
-               {
-                  ID = id,
-                  Session = FetchSession(Convert.ToInt32(reader[0])),
-                  Node = FetchNode(Convert.ToInt32(reader[1])),
-                  Blob = (!reader.IsDBNull(2)) ? FetchBlob(Convert.ToInt32(reader[2])) : null,
-                  State = (EntryState)Convert.ToInt32(reader[3]),
-                  Offset = Convert.ToInt64(reader[4]),
-                  Length = Convert.ToInt64(reader[5]),
-                  Crc32 = BitConverter.ToUInt32((Byte[])reader[6], 0)
-               };
-         return null;
+         return Fetch(
+            "SELECT SessionID, NodeID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE ID = @p0;",
+            new Object[] { id },
+            reader => new Entry()
+            {
+               ID = id,
+               Session = FetchSession(Convert.ToInt32(reader[0])),
+               Node = FetchNode(Convert.ToInt32(reader[1])),
+               Blob = (!reader.IsDBNull(2)) ? FetchBlob(Convert.ToInt32(reader[2])) : null,
+               State = (EntryState)Convert.ToInt32(reader[3]),
+               Offset = Convert.ToInt64(reader[4]),
+               Length = Convert.ToInt64(reader[5]),
+               Crc32 = BitConverter.ToUInt32((Byte[])reader[6], 0)
+            }
+         );
       }
       public Entry InsertEntry (Entry entry)
       {
@@ -353,7 +344,7 @@ namespace SkyFloe.Sqlite
             entry.Length,
             BitConverter.GetBytes(entry.Crc32)
          );
-         entry.ID = QueryRowID();
+         entry.ID = GetLastRowID();
          return entry;
       }
       public Entry UpdateEntry (Entry entry)

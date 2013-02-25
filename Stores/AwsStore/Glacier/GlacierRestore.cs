@@ -19,13 +19,13 @@ namespace SkyFloe.Aws
          this.archive = archive;
          if (session.State == SkyFloe.Restore.SessionState.Pending)
          {
-            foreach (Restore.Retrieval oldRetrieval in this.archive.RestoreIndex.ListRetrievals(session))
+            foreach (var oldRetrieval in this.archive.RestoreIndex.ListRetrievals(session))
             {
-               Backup.Blob blob = this.archive.BackupIndex.LookupBlob(oldRetrieval.Blob);
-               Restore.Retrieval newRetrieval = this.archive.RestoreIndex.FetchRetrieval(oldRetrieval.ID);
+               var blob = this.archive.BackupIndex.LookupBlob(oldRetrieval.Blob);
+               var newRetrieval = this.archive.RestoreIndex.FetchRetrieval(oldRetrieval.ID);
                newRetrieval.Length = 0;
                this.archive.RestoreIndex.UpdateRetrieval(newRetrieval);
-               foreach (Restore.Entry entry in this.archive.RestoreIndex.ListRetrievalEntries(oldRetrieval))
+               foreach (var entry in this.archive.RestoreIndex.ListRetrievalEntries(oldRetrieval))
                {
                   if (entry.Offset < newRetrieval.Offset + newRetrieval.Length + MinRetrievalSize)
                   {
@@ -70,7 +70,7 @@ namespace SkyFloe.Aws
       #region IRestore Implementation
       public Stream Restore (Restore.Entry entry)
       {
-         Boolean ready = false;
+         var ready = false;
          while (!ready)
          {
             try
@@ -83,7 +83,7 @@ namespace SkyFloe.Aws
                entry.Retrieval.Name = null;
                this.archive.RestoreIndex.UpdateRetrieval(entry.Retrieval);
             }
-            foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex
+            foreach (var retrieval in this.archive.RestoreIndex
                .ListRetrievals(entry.Retrieval.Session)
                .SkipWhile(r => r.ID != entry.Retrieval.ID)
             )
@@ -104,7 +104,7 @@ namespace SkyFloe.Aws
                   this.retrievalLimiter.Register(retrieval.Length);
                }
             }
-            foreach (Restore.Retrieval retrieval in this.archive.RestoreIndex
+            foreach (var retrieval in this.archive.RestoreIndex
                .ListRetrievals(entry.Retrieval.Session)
                .TakeWhile(r => r.ID != entry.Retrieval.ID)
                .Where(r => r.Name != null)

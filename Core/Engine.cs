@@ -47,13 +47,13 @@ namespace SkyFloe
       #region Archive Management
       public void CreateArchive (String name, String password)
       {
-         Store.IStore store = this.Connection.Store;
+         var store = this.Connection.Store;
          try
          {
             if (store.ListArchives().Contains(name, StringComparer.OrdinalIgnoreCase))
                throw new InvalidOperationException("TODO: archive exists");
-            RandomNumberGenerator rng = RandomNumberGenerator.Create();
-            Backup.Header header = new Backup.Header()
+            var rng = RandomNumberGenerator.Create();
+            var header = new Backup.Header()
             {
                CryptoIterations = Engine.CryptoIterations,
                ArchiveSalt = new Byte[CryptoSaltLength],
@@ -61,7 +61,7 @@ namespace SkyFloe
             };
             rng.GetBytes(header.ArchiveSalt);
             rng.GetBytes(header.PasswordSalt);
-            using (Rfc2898DeriveBytes crypto =
+            using (var crypto =
                new Rfc2898DeriveBytes(
                   password,
                   header.PasswordSalt,
@@ -70,7 +70,7 @@ namespace SkyFloe
             )
                header.PasswordHash = crypto.GetBytes(CryptoHashLength);
             this.crypto = new AesCryptoServiceProvider();
-            using (Rfc2898DeriveBytes crypto =
+            using (var crypto =
                new Rfc2898DeriveBytes(
                   password,
                   header.ArchiveSalt,
@@ -96,14 +96,14 @@ namespace SkyFloe
       }
       public void OpenArchive (String name, String password)
       {
-         Store.IStore store = this.Connection.Store;
+         var store = this.Connection.Store;
          try
          {
             if (!store.ListArchives().Contains(name, StringComparer.OrdinalIgnoreCase))
                throw new InvalidOperationException("TODO: archive not found");
             this.archive = store.OpenArchive(name);
-            Backup.Header header = this.archive.BackupIndex.FetchHeader();
-            using (Rfc2898DeriveBytes crypto =
+            var header = this.archive.BackupIndex.FetchHeader();
+            using (var crypto =
                new Rfc2898DeriveBytes(
                   password,
                   header.PasswordSalt,
@@ -116,7 +116,7 @@ namespace SkyFloe
                   throw new InvalidOperationException("TODO: authentication failed");
             }
             this.crypto = new AesCryptoServiceProvider();
-            using (Rfc2898DeriveBytes crypto =
+            using (var crypto =
                new Rfc2898DeriveBytes(
                   password,
                   header.ArchiveSalt,
@@ -147,7 +147,7 @@ namespace SkyFloe
 
       public Backup.Session CreateBackup (BackupRequest request)
       {
-         Tasks.CreateBackup task = new Tasks.CreateBackup()
+         var task = new Tasks.CreateBackup()
          {
             Archive = this.archive,
             Crypto = this.crypto,
@@ -172,7 +172,7 @@ namespace SkyFloe
       }
       public Restore.Session CreateRestore (RestoreRequest request)
       {
-         Tasks.CreateRestore task = new Tasks.CreateRestore()
+         var task = new Tasks.CreateRestore()
          {
             Archive = this.archive,
             Crypto = this.crypto,

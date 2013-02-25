@@ -71,7 +71,7 @@ namespace SkyFloe.IO
                   SearchOption.AllDirectories
                )
             )
-               MakeWritable(child);
+               MakeWritable((Path)child);
          else
             info.Attributes &= ~FileAttributes.ReadOnly;
       }
@@ -95,7 +95,7 @@ namespace SkyFloe.IO
       {
          var info = new FileInfo(System.IO.Path.GetTempFileName());
          info.Attributes |= FileAttributes.Temporary;
-         return new TempStream(info.FullName);
+         return new TempStream((Path)info.FullName);
       }
       /// <summary>
       /// Opens an existing file for reading
@@ -204,7 +204,7 @@ namespace SkyFloe.IO
       /// <param name="target">
       /// The target file path
       /// </param>
-      public static void Copy (IO.Path source, IO.Path target)
+      public static void Copy (Path source, Path target)
       {
          File.Copy(source, target, true);
       }
@@ -217,11 +217,11 @@ namespace SkyFloe.IO
       /// <returns>
       /// The list of metadata for the children of the specified path
       /// </returns>
-      public static IEnumerable<Metadata> Children (IO.Path parent)
+      public static IEnumerable<Metadata> Children (Path parent)
       {
          return Directory
             .EnumerateFileSystemEntries(parent)
-            .Select(p => GetMetadata(p));
+            .Select(p => GetMetadata((Path)p));
       }
       /// <summary>
       /// Lists the descendant child files/directories in a path
@@ -232,11 +232,11 @@ namespace SkyFloe.IO
       /// <returns>
       /// The list of metadata for the descendants of the specified path
       /// </returns>
-      public static IEnumerable<Metadata> Descendants (IO.Path parent)
+      public static IEnumerable<Metadata> Descendants (Path parent)
       {
          return Directory
             .EnumerateFileSystemEntries(parent, "*", SearchOption.AllDirectories)
-            .Select(p => GetMetadata(p));
+            .Select(p => GetMetadata((Path)p));
       }
 
       /// <summary>
@@ -307,7 +307,7 @@ namespace SkyFloe.IO
          /// <param name="path">
          /// The file system path to attach
          /// </param>
-         public Metadata (IO.Path path)
+         public Metadata (Path path)
          {
             this.Path = path;
             this.Name = path.FileName;
@@ -321,7 +321,7 @@ namespace SkyFloe.IO
          /// </param>
          public Metadata (FileSystemInfo info)
          {
-            this.Path = info.FullName;
+            this.Path = (Path)info.FullName;
             this.Name = info.Name;
             this.Exists = info.Exists;
             this.IsDirectory = info.Attributes.HasFlag(FileAttributes.Directory);
@@ -344,7 +344,7 @@ namespace SkyFloe.IO
          /// <summary>
          /// The full path to the file/directory
          /// </summary>
-         public IO.Path Path { get; private set; }
+         public Path Path { get; private set; }
          /// <summary>
          /// The name of the file/directory
          /// </summary>

@@ -24,14 +24,25 @@ namespace SkyFloe.Lab
 
       public void Run ()
       {
+         Console.WriteLine("testing");
+         foreach (var prop in Builder
+            .Parse(@"Test1=val u e1 ;Test1=value2")
+            .GroupBy(p => p.Key)
+            .Select(g => new KeyValuePair<String, Object>(g.Key, g.Last()))
+         )
+            Console.WriteLine("|{0} = {1}|", prop.Key, prop.Value);
+         Console.WriteLine("done");
       }
    }
 
    public class Builder : IEnumerable<KeyValuePair<String, Object>>
    {
       public static readonly Regex PropertyStringRegex = new Regex(
-         @"(?<key>\w+) \s* = \s* (?<value>((\\;)|(\s*[^;\s]))*) \s* (;|$)", 
+         @"(?<key>\w+) \s* = \s* (?<value>(\s*(\\;|[^;\s]))*) \s* ;?", 
          RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace
+      );
+      public static readonly Regex PropertyEscapeRegex = new Regex(
+         @"\\(?<char>.)"
       );
       Type t;
       IDictionary<String, Object> properties;
@@ -62,8 +73,8 @@ namespace SkyFloe.Lab
       public void SetProperties (String properties)
       {
          this.properties.Clear();
-         foreach (var match in PropertyStringRegex.Matches(properties).Cast<Match>())
-            this.properties[match.Groups["key"].Value] = match.Groups["value"].Value;
+         foreach (var prop in Parse(properties))
+            this.properties[prop.Key] = prop.Value;
       }
 
       public void Add (String key, Object value)
@@ -77,6 +88,17 @@ namespace SkyFloe.Lab
       public void Clear ()
       {
          this.properties.Clear();
+      }
+      public static IEnumerable<KeyValuePair<String, String>> Parse (String properties)
+      {
+         return PropertyStringRegex.Matches(properties)
+            .Cast<Match>()
+            .Select(
+               m => new KeyValuePair<String, String>(
+                  m.Groups["key"].Value,
+                  PropertyEscapeRegex.Replace(m.Groups["value"].Value, @"${char}")
+               )
+            );
       }
 
       #region IEnumerable Implementation

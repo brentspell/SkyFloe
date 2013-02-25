@@ -40,7 +40,7 @@ namespace SkyFloe.Tasks
          try
          {
             this.limiter = new IO.RateLimiter(this.Session.RateLimit);
-            Int64 checkpointSize = 0;
+            var checkpointSize = 0L;
             for (; ; )
             {
                this.Canceler.ThrowIfCancellationRequested();
@@ -80,10 +80,10 @@ namespace SkyFloe.Tasks
          );
          try
          {
-            using (Stream fileStream = IO.FileSystem.Open(entry.Node.GetAbsolutePath()))
-            using (IO.Crc32Filter crcFilter = new IO.Crc32Filter(fileStream))
-            using (Stream cryptoFilter = new CryptoStream(crcFilter, this.Crypto.CreateEncryptor(), CryptoStreamMode.Read))
-            using (Stream limiterFilter = this.limiter.CreateStreamFilter(cryptoFilter))
+            using (var fileStream = IO.FileSystem.Open(entry.Node.GetAbsolutePath()))
+            using (var crcFilter = new IO.Crc32Filter(fileStream))
+            using (var cryptoFilter = new CryptoStream(crcFilter, this.Crypto.CreateEncryptor(), CryptoStreamMode.Read))
+            using (var limiterFilter = this.limiter.CreateStreamFilter(cryptoFilter))
             {
                this.backup.Backup(entry, limiterFilter);
                entry.Crc32 = crcFilter.Value;
@@ -91,7 +91,7 @@ namespace SkyFloe.Tasks
             entry.State = SkyFloe.Backup.EntryState.Completed;
             entry.Blob.Length += entry.Length;
             this.Session.ActualLength += entry.Length;
-            using (TransactionScope txn = new TransactionScope())
+            using (var txn = new TransactionScope())
             {
                this.Archive.BackupIndex.UpdateEntry(entry);
                this.Archive.BackupIndex.UpdateBlob(entry.Blob);

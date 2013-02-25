@@ -83,7 +83,7 @@ namespace SkyFloe.Aws
 
       public override Int64 Seek (Int64 offset, SeekOrigin origin)
       {
-         Int64 newOffset = 0;
+         var newOffset = 0L;
          switch (origin)
          {
             case SeekOrigin.Begin:
@@ -112,7 +112,7 @@ namespace SkyFloe.Aws
             {
                while (this.offset < newOffset)
                {
-                  Int32 read = this.stream.Read(
+                  var read = this.stream.Read(
                      this.seekBuffer,
                      0,
                      Math.Min((Int32)(newOffset - this.offset), this.seekBuffer.Length)
@@ -136,7 +136,7 @@ namespace SkyFloe.Aws
             OpenJob();
          try
          {
-            Int32 read = this.stream.Read(buffer, offset, count);
+            var read = this.stream.Read(buffer, offset, count);
             this.offset += read;
             return read;
          }

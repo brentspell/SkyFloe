@@ -36,9 +36,9 @@ namespace SkyFloe.Lab
                { "i|iterations=", (Int32 v) => iterationCount = v },
                { "p|param=", v => param = v }
             }.Parse(options);
+            return true;
          }
          catch { return false; }
-         return true;
       }
 
       static void ReportUsage ()
@@ -58,15 +58,15 @@ namespace SkyFloe.Lab
          );
          Console.WriteLine();
          realClock.Start();
-         List<Thread> threads = new List<Thread>();
-         for (Int32 i = 0; i < threadCount; i++)
+         var threads = new List<Thread>();
+         for (var i = 0; i < threadCount; i++)
          {
             threads.Add(new Thread(ExecuteThread));
             testClocks.Add(new Clock());
          }
-         for (Int32 i = 0; i < threadCount; i++)
+         for (var i = 0; i < threadCount; i++)
             threads[i].Start(i);
-         for (Int32 i = 0; i < threadCount; i++)
+         for (var i = 0; i < threadCount; i++)
             threads[i].Join();
          realClock.Stop();
          Console.WriteLine();
@@ -87,9 +87,9 @@ namespace SkyFloe.Lab
 
       static void ExecuteThread (Object param)
       {
-         Int32 t = (Int32)param;
-         Clock clock = testClocks[t];
-         Test test = new Test() { ThreadID = t };
+         var t = (Int32)param;
+         var clock = testClocks[t];
+         var test = new Test() { ThreadID = t };
          for (test.Iteration = 0; test.Iteration < iterationCount; test.Iteration++)
          {
             clock.Start();

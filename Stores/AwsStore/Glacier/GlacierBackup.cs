@@ -41,11 +41,11 @@ namespace SkyFloe.Aws
                }
             );
          }
-         Backup.Blob blob = this.archive.BackupIndex.LookupBlob(this.uploader.UploadID);
+         var blob = this.archive.BackupIndex.LookupBlob(this.uploader.UploadID);
          if (blob.Length != this.uploader.Length)
             blob.Length = this.uploader.Resync(blob.Length);
-         Int64 offset = this.uploader.Length;
-         Int64 length = this.uploader.Upload(stream);
+         var offset = this.uploader.Length;
+         var length = this.uploader.Upload(stream);
          entry.Blob = blob;
          entry.Offset = offset;
          entry.Length = length;
@@ -54,10 +54,10 @@ namespace SkyFloe.Aws
       {
          if (this.uploader != null)
          {
-            Backup.Blob blob = this.archive.BackupIndex.LookupBlob(this.uploader.UploadID);
+            var blob = this.archive.BackupIndex.LookupBlob(this.uploader.UploadID);
             this.uploader.Flush();
             blob.Length = this.uploader.Length;
-            String archiveID = this.uploader.Complete();
+            var archiveID = this.uploader.Complete();
             blob.Name = archiveID;
             this.archive.BackupIndex.UpdateBlob(blob);
             this.uploader.Dispose();

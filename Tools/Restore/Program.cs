@@ -22,7 +22,7 @@ namespace SkyFloe.Restore
       private static Boolean skipReadOnly;
       private static Boolean verifyResults;
       private static Boolean enableDeletes;
-      private static List<String> restoreFiles;
+      private static List<IO.Path> restoreFiles;
       private static Int32 maxRetries;
       private static Int32 maxFailures;
       private static Int32 rateLimit;
@@ -52,7 +52,7 @@ namespace SkyFloe.Restore
          excludeFilter = new List<Regex>();
          maxRetries = 5;
          maxFailures = 5;
-         restoreFiles = new List<String>();
+         restoreFiles = new List<IO.Path>();
          rateLimit = Int32.MaxValue / 1024;
          // parse options
          try
@@ -64,14 +64,14 @@ namespace SkyFloe.Restore
                { "p|password=", v => password = v },
                { "r|max-retry=", (Int32 v) => maxRetries = v },
                { "f|max-fail=", (Int32 v) => maxFailures = v },
-               { "m|map-path=", v => rootPathMap.Add(v.Split('=')[0], v.Split('=')[1]) },
+               { "m|map-path=", v => rootPathMap.Add((IO.Path)v.Split('=')[0], (IO.Path)v.Split('=')[1]) },
                { "n|include=", v => includeFilter.Add(new Regex(v, RegexOptions.IgnoreCase)) },
                { "x|exclude=", v => excludeFilter.Add(new Regex(v, RegexOptions.IgnoreCase)) },
                { "e|skip-existing", v => skipExisting = (v != null) },
                { "o|skip-readonly", v => skipReadOnly = (v != null) },
                { "v|verify", v => verifyResults = (v != null) },
                { "k|delete", v => enableDeletes = (v != null) },
-               { "i|file=", v => restoreFiles.Add(v) },
+               { "i|file=", v => restoreFiles.Add((IO.Path)v) },
                { "l|rate=", (Int32 v) => rateLimit = v },
             }.Parse(args);
          }
@@ -117,17 +117,17 @@ namespace SkyFloe.Restore
 
       static Boolean ExecuteRestore ()
       {
-         Boolean restoreOk = false;
+         var restoreOk = false;
          canceler = new CancellationTokenSource();
          if (Debugger.IsAttached)
             Console.SetBufferSize(1000, 1000);
          try
          {
             Console.Write("   Connecting to archive {0}...", archiveName);
-            using (Engine engine = Connect())
+            using (var engine = Connect())
             {
                Console.WriteLine("done.");
-               Restore.Session session = engine.Archive.Restores
+               var session = engine.Archive.Restores
                   .FirstOrDefault(s => s.State != SessionState.Completed);
                if (session != null)
                   Console.WriteLine(
@@ -137,22 +137,20 @@ namespace SkyFloe.Restore
                else
                {
                   Console.Write("   Creating a new restore session...");
-                  IEnumerable<Backup.Node> nodes;
+                  var nodes = new List<Backup.Node>();
                   if (!restoreFiles.Any())
-                     nodes = engine.Archive.Roots;
+                     nodes.AddRange(engine.Archive.Roots);
                   else
                   {
-                     List<Backup.Node> nodeList = new List<Backup.Node>();
-                     foreach (IO.Path file in restoreFiles)
+                     foreach (var path in restoreFiles)
                      {
-                        Backup.Node node = engine.Archive.LookupNode(file);
+                        var node = engine.Archive.LookupNode(path);
                         if (node == null)
-                           throw new InvalidOperationException(String.Format("Path not found in the archive: {0}.", file));
-                        nodeList.Add(node);
+                           throw new InvalidOperationException(String.Format("Path not found in the archive: {0}.", path));
+                        nodes.Add(node);
                      }
-                     nodes = nodeList;
                   }
-                  nodes = engine.Archive.GetSubtrees(nodes);
+                  var subtrees = engine.Archive.GetSubtrees(nodes);
                   session = engine.CreateRestore(
                      new RestoreRequest()
                      {
@@ -167,7 +165,7 @@ namespace SkyFloe.Restore
                         VerifyResults = verifyResults,
                         EnableDeletes = enableDeletes,
                         RateLimit = rateLimit * 1024,
-                        Entries = nodes.Select(
+                        Entries = subtrees.Select(
                            n => engine.Archive.GetEntries(n)
                               .OrderBy(e => e.Session.Created)
                               .Where(
@@ -181,10 +179,10 @@ namespace SkyFloe.Restore
                   );
                   Console.WriteLine("done.");
                }
-               Tpl.Task t = Tpl.Task.Factory.StartNew(
+               var tasks = Tpl.Task.Factory.StartNew(
                   () => engine.ExecuteRestore(session)
                );
-               while (!t.Wait(1000))
+               while (!tasks.Wait(1000))
                {
                   while (Console.KeyAvailable)
                   {
@@ -222,7 +220,7 @@ namespace SkyFloe.Restore
 
       static Engine Connect ()
       {
-         Engine engine = new Engine()
+         var engine = new Engine()
          {
             Connection = new Connection(connectionString),
             Canceler = canceler.Token
@@ -286,15 +284,15 @@ namespace SkyFloe.Restore
 
       static String FormatLength (Int64 bytes)
       {
-         String[] units = new[] { "B", "KB", "MB", "GB", "TB" };
-         Int32 unit = 0;
-         Double norm = bytes;
+         var units = new[] { "B", "KB", "MB", "GB", "TB" };
+         var unit = 0;
+         var norm = (Double)bytes;
          while (norm >= 1000 & unit < units.Length)
          {
             norm /= 1024;
             unit++;
          }
-         StringBuilder format = new StringBuilder();
+         var format = new StringBuilder();
          format.Append("{0:#,0");
          if (unit > 0 && norm < 10)
             format.Append(".00");

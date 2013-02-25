@@ -41,7 +41,7 @@ namespace SkyFloe.Tasks
       }
       protected Engine.ErrorResult ReportError (String action, Exception e)
       {
-         Engine.ErrorEventArgs args = new Engine.ErrorEventArgs()
+         var  args = new Engine.ErrorEventArgs()
          {
             Action = action,
             Exception = e,

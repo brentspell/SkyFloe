@@ -89,8 +89,8 @@ namespace Core.Test.IO
          }
          // path-path comparison (empty-empty)
          {
-            Path p1 = Path.Empty;
-            Path p2 = Path.Empty;
+            var p1 = Path.Empty;
+            var p2 = Path.Empty;
             Assert.IsTrue(p1.Equals((Object)p2));
             Assert.IsTrue(p1.Equals(p2));
             Assert.IsTrue(p1 == p2);
@@ -104,8 +104,8 @@ namespace Core.Test.IO
          }
          // path-path comparison (empty-valid)
          {
-            Path p1 = Path.Empty;
-            Path p2 = new Path("test");
+            var p1 = Path.Empty;
+            var p2 = new Path("test");
             Assert.IsFalse(p1.Equals((Object)p2));
             Assert.IsFalse(p1.Equals(p2));
             Assert.IsFalse(p1 == p2);
@@ -119,9 +119,9 @@ namespace Core.Test.IO
          }
          // path-path comparison (valid-valid)
          {
-            Path p1 = new Path("test", "testa");
-            Path p2 = new Path("test", "testa");
-            Path p3 = new Path("test", "testb");
+            var p1 = new Path("test", "testa");
+            var p2 = new Path("test", "testa");
+            var p3 = new Path("test", "testb");
             Assert.IsTrue(p1.Equals((Object)p2));
             Assert.IsFalse(p1.Equals((Object)p3));
             Assert.IsTrue(p1.Equals(p2));
@@ -145,9 +145,9 @@ namespace Core.Test.IO
          }
          // path-path comparison (case insensitivity)
          {
-            Path p1 = new Path("TEST", "TESTA");
-            Path p2 = new Path("test", "testa");
-            Path p3 = new Path("TeSt", "TeStB");
+            var p1 = new Path("TEST", "TESTA");
+            var p2 = new Path("test", "testa");
+            var p3 = new Path("TeSt", "TeStB");
             Assert.IsTrue(p1.Equals((Object)p2));
             Assert.IsFalse(p1.Equals((Object)p3));
             Assert.IsTrue(p1.Equals(p2));
@@ -171,8 +171,8 @@ namespace Core.Test.IO
          }
          // path-path comparison (valid-empty)
          {
-            Path p1 = new Path("test", "testa");
-            Path p2 = Path.Empty;
+            var p1 = new Path("test", "testa");
+            var p2 = Path.Empty;
             Assert.IsFalse(p1.Equals((Object)p2));
             Assert.IsFalse(p1.Equals(p2));
             Assert.IsFalse(p1 == p2);
@@ -186,8 +186,8 @@ namespace Core.Test.IO
          }
          // path-string comparison (empty-null)
          {
-            Path p1 = Path.Empty;
-            String p2 = null;
+            var p1 = Path.Empty;
+            var p2 = (String)null;
             Assert.IsTrue(p1.Equals((Object)p2));
             Assert.IsTrue(p1.Equals(p2));
             Assert.IsTrue(p1 == p2);
@@ -201,8 +201,8 @@ namespace Core.Test.IO
          }
          // path-string comparison (empty-empty)
          {
-            Path p1 = Path.Empty;
-            String p2 = String.Empty;
+            var p1 = Path.Empty;
+            var p2 = String.Empty;
             Assert.IsTrue(p1.Equals((Object)p2));
             Assert.IsTrue(p1.Equals(p2));
             Assert.IsTrue(p1 == p2);
@@ -216,8 +216,8 @@ namespace Core.Test.IO
          }
          // path-string comparison (empty-space)
          {
-            Path p1 = Path.Empty;
-            String p2 = " ";
+            var p1 = Path.Empty;
+            var p2 = " ";
             Assert.IsTrue(p1.Equals((Object)p2));
             Assert.IsTrue(p1.Equals(p2));
             Assert.IsTrue(p1 == p2);
@@ -231,8 +231,8 @@ namespace Core.Test.IO
          }
          // path-string comparison (empty-valid)
          {
-            Path p1 = Path.Empty;
-            String p2 = SysPath.GetFullPath("test");
+            var p1 = Path.Empty;
+            var p2 = SysPath.GetFullPath("test");
             Assert.IsFalse(p1.Equals((Object)p2));
             Assert.IsFalse(p1.Equals(p2));
             Assert.IsFalse(p1 == p2);
@@ -246,9 +246,9 @@ namespace Core.Test.IO
          }
          // path-string comparison (valid-valid)
          {
-            Path p1 = new Path("test", "testa");
-            String p2 = SysPath.GetFullPath(SysPath.Combine("test", "testa"));
-            String p3 = SysPath.GetFullPath(SysPath.Combine("test", "testb"));
+            var p1 = new Path("test", "testa");
+            var p2 = SysPath.GetFullPath(SysPath.Combine("test", "testa"));
+            var p3 = SysPath.GetFullPath(SysPath.Combine("test", "testb"));
             Assert.IsTrue(p1.Equals((Object)p2));
             Assert.IsFalse(p1.Equals((Object)p3));
             Assert.IsTrue(p1.Equals(p2));
@@ -272,9 +272,9 @@ namespace Core.Test.IO
          }
          // path-string comparison (case insensitivity)
          {
-            Path p1 = new Path("TEST", "TESTA");
-            String p2 = SysPath.GetFullPath(SysPath.Combine("test", "testa"));
-            String p3 = SysPath.GetFullPath(SysPath.Combine("TeSt", "TeStB"));
+            var p1 = new Path("TEST", "TESTA");
+            var p2 = SysPath.GetFullPath(SysPath.Combine("test", "testa"));
+            var p3 = SysPath.GetFullPath(SysPath.Combine("TeSt", "TeStB"));
             Assert.IsTrue(p1.Equals((Object)p2));
             Assert.IsFalse(p1.Equals((Object)p3));
             Assert.IsTrue(p1.Equals(p2));
@@ -298,8 +298,8 @@ namespace Core.Test.IO
          }
          // path-string comparison (valid-space)
          {
-            Path p1 = new Path("test", "testa");
-            String p2 = " ";
+            var p1 = new Path("test", "testa");
+            var p2 = " ";
             Assert.IsFalse(p1.Equals((Object)p2));
             Assert.IsFalse(p1.Equals(p2));
             Assert.IsFalse(p1 == p2);
@@ -313,8 +313,8 @@ namespace Core.Test.IO
          }
          // path-string comparison (valid-empty)
          {
-            Path p1 = new Path("test", "testa");
-            String p2 = String.Empty;
+            var p1 = new Path("test", "testa");
+            var p2 = String.Empty;
             Assert.IsFalse(p1.Equals((Object)p2));
             Assert.IsFalse(p1.Equals(p2));
             Assert.IsFalse(p1 == p2);
@@ -328,8 +328,8 @@ namespace Core.Test.IO
          }
          // path-string comparison (valid-null)
          {
-            Path p1 = new Path("test", "testa");
-            String p2 = null;
+            var p1 = new Path("test", "testa");
+            var p2 = (String)null;
             Assert.IsFalse(p1.Equals((Object)p2));
             Assert.IsFalse(p1.Equals(p2));
             Assert.IsFalse(p1 == p2);
@@ -343,8 +343,8 @@ namespace Core.Test.IO
          }
          // string-path comparison (null-empty)
          {
-            String p1 = null;
-            Path p2 = Path.Empty;
+            var p1 = (String)null;
+            var p2 = Path.Empty;
             Assert.IsTrue(p1 == p2);
             Assert.IsFalse(p1 != p2);
             Assert.IsFalse(p1 < p2);
@@ -354,8 +354,8 @@ namespace Core.Test.IO
          }
          // string-path comparison (empty-empty)
          {
-            String p1 = String.Empty;
-            Path p2 = Path.Empty;
+            var p1 = String.Empty;
+            var p2 = Path.Empty;
             Assert.IsTrue(p1 == p2);
             Assert.IsFalse(p1 != p2);
             Assert.IsFalse(p1 < p2);
@@ -365,8 +365,8 @@ namespace Core.Test.IO
          }
          // string-path comparison (space-empty)
          {
-            String p1 = " ";
-            Path p2 = Path.Empty;
+            var p1 = " ";
+            var p2 = Path.Empty;
             Assert.IsTrue(p1 == p2);
             Assert.IsFalse(p1 != p2);
             Assert.IsFalse(p1 < p2);
@@ -376,8 +376,8 @@ namespace Core.Test.IO
          }
          // string-path comparison (null-valid)
          {
-            String p1 = null;
-            Path p2 = new Path("test");
+            var p1 = (String)null;
+            var p2 = new Path("test");
             Assert.IsFalse(p1 == p2);
             Assert.IsTrue(p1 != p2);
             Assert.IsTrue(p1 < p2);
@@ -387,8 +387,8 @@ namespace Core.Test.IO
          }
          // string-path comparison (empty-valid)
          {
-            String p1 = String.Empty;
-            Path p2 = new Path("test");
+            var p1 = String.Empty;
+            var p2 = new Path("test");
             Assert.IsFalse(p1 == p2);
             Assert.IsTrue(p1 != p2);
             Assert.IsTrue(p1 < p2);
@@ -398,8 +398,8 @@ namespace Core.Test.IO
          }
          // string-path comparison (space-valid)
          {
-            String p1 = " ";
-            Path p2 = new Path("test");
+            var p1 = " ";
+            var p2 = new Path("test");
             Assert.IsFalse(p1 == p2);
             Assert.IsTrue(p1 != p2);
             Assert.IsTrue(p1 < p2);
@@ -409,9 +409,9 @@ namespace Core.Test.IO
          }
          // string-path comparison (valid-valid)
          {
-            String p1 = SysPath.GetFullPath(SysPath.Combine("test", "testa"));
-            Path p2 = new Path("test", "testa");
-            Path p3 = new Path("test", "testb");
+            var p1 = SysPath.GetFullPath(SysPath.Combine("test", "testa"));
+            var p2 = new Path("test", "testa");
+            var p3 = new Path("test", "testb");
             Assert.IsTrue(p1 == p2);
             Assert.IsFalse(p1 != p2);
             Assert.IsFalse(p1 == p3);
@@ -427,9 +427,9 @@ namespace Core.Test.IO
          }
          // string-path comparison (case insensitivity)
          {
-            String p1 = SysPath.GetFullPath(SysPath.Combine("TEST", "TESTA"));
-            Path p2 = new Path("test", "testa");
-            Path p3 = new Path("TeSt", "TeStB");
+            var p1 = SysPath.GetFullPath(SysPath.Combine("TEST", "TESTA"));
+            var p2 = new Path("test", "testa");
+            var p3 = new Path("TeSt", "TeStB");
             Assert.IsTrue(p1 == p2);
             Assert.IsFalse(p1 != p2);
             Assert.IsFalse(p1 == p3);
@@ -445,8 +445,8 @@ namespace Core.Test.IO
          }
          // string-path comparison (valid-empty)
          {
-            String p1 = SysPath.GetFullPath(SysPath.Combine("test", "testa"));
-            Path p2 = Path.Empty;
+            var p1 = SysPath.GetFullPath(SysPath.Combine("test", "testa"));
+            var p2 = Path.Empty;
             Assert.IsFalse(p1 == p2);
             Assert.IsTrue(p1 != p2);
             Assert.IsFalse(p1 < p2);
@@ -471,44 +471,44 @@ namespace Core.Test.IO
       {
          // path-string conversion
          {
-            Path p = Path.Empty;
-            String s = p.ToString();
+            var p = Path.Empty;
+            var s = p.ToString();
             Assert.IsTrue(s == p);
          }
          {
-            Path p = Path.Empty;
+            var p = Path.Empty;
             String s = p;
             Assert.IsTrue(s == p);
          }
          {
-            Path p = new Path("test", "testa");
-            String s = p.ToString();
+            var p = new Path("test", "testa");
+            var s = p.ToString();
             Assert.IsTrue(s == p);
          }
          {
-            Path p = new Path("test", "testa");
+            var p = new Path("test", "testa");
             String s = p;
             Assert.IsTrue(s == p);
          }
          // string-path conversion
          {
-            String s = null;
-            Path p = s;
+            var s = (String)null;
+            var p = (Path)s;
             Assert.IsTrue(p == s);
          }
          {
-            String s = String.Empty;
-            Path p = s;
+            var s = String.Empty;
+            var p = (Path)s;
             Assert.IsTrue(p == s);
          }
          {
-            String s = " ";
-            Path p = s;
+            var s = " ";
+            var p = (Path)s;
             Assert.IsTrue(p == s);
          }
          {
-            String s = SysPath.GetFullPath(SysPath.Combine("test", "testa"));
-            Path p = s;
+            var s = SysPath.GetFullPath(SysPath.Combine("test", "testa"));
+            var p = (Path)s;
             Assert.IsTrue(p == s);
          }
       }
@@ -572,7 +572,7 @@ namespace Core.Test.IO
          Assert.IsFalse(Path.Current.IsEmpty);
          Assert.AreEqual(new Path(Path.Current, "test"), new Path("test"));
          AssertException(() => Path.Current = Path.Empty);
-         Path prev = Path.Current;
+         var prev = Path.Current;
          Path.Current = prev.Parent;
          try
          {
@@ -591,7 +591,7 @@ namespace Core.Test.IO
       {
          // path split
          {
-            String[] baseSplit = Path.Current.Split();
+            var baseSplit = Path.Current.Split();
             Assert.IsTrue(baseSplit.Length > 0);
             AssertEqual(Path.Empty.Split(), new String[0]);
             AssertEqual(Path.Current.Split(), baseSplit);
@@ -618,9 +618,9 @@ namespace Core.Test.IO
             Assert.AreEqual(Path.Empty.Push(Path.Current.Root).Pop(), Path.Empty);
             Assert.AreEqual(new Path("test").Pop(), Path.Current);
             Assert.AreEqual(new Path("testa", "testb").Pop(), new Path("testa"));
-            Path testPath = new Path("test");
-            Int32 count = testPath.Count();
-            for (Int32 i = 0; i < count; i++)
+            var testPath = new Path("test");
+            var count = testPath.Count();
+            for (var i = 0; i < count; i++)
             {
                Assert.IsFalse(testPath.IsEmpty);
                testPath = testPath.Pop();
@@ -680,8 +680,8 @@ namespace Core.Test.IO
             AssertEqual(Path.Empty.Split(), Path.Empty);
             AssertEqual(new Path("test").Split(), new Path("test"));
             AssertEqual(new Path("testa", "testb").Split(), new Path("testa", "testb"));
-            String[] testPath = new Path("test").Split();
-            Int32 pathIdx = 0;
+            var testPath = new Path("test").Split();
+            var pathIdx = 0;
             foreach (Object e in (IEnumerable)new Path("test"))
                Assert.AreEqual(e, testPath[pathIdx++]);
          }

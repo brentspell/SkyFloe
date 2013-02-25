@@ -12,11 +12,11 @@ namespace SkyFloe.Sqlite
 {
    public class Database : IDisposable
    {
-      private String path;
+      private IO.Path path;
       private DbConnection connection;
       private Transaction transaction;
 
-      public Database (String path)
+      public Database (IO.Path path)
       {
          this.path = path;
          this.connection = new SqliteConnection();
@@ -32,19 +32,19 @@ namespace SkyFloe.Sqlite
          this.connection = null;
       }
 
-      protected static void Create (String path, String resource)
+      protected static void Create (IO.Path path, String resource)
       {
          try
          {
             // load the SQL script
-            Assembly asm = Assembly.GetExecutingAssembly();
-            String ddl = null;
-            using (Stream stream = asm.GetManifestResourceStream(resource))
-            using (StreamReader reader = new StreamReader(stream))
+            var asm = Assembly.GetExecutingAssembly();
+            var ddl = (String)null;
+            using (var stream = asm.GetManifestResourceStream(resource))
+            using (var reader = new StreamReader(stream))
                ddl = reader.ReadToEnd();
             // execute the statements in the script
-            using (Database db = new Database(path))
-               foreach (String stmt in ddl.Split(';'))
+            using (var db = new Database(path))
+               foreach (var stmt in ddl.Split(';'))
                   db.Execute(stmt);
          }
          catch
@@ -54,10 +54,10 @@ namespace SkyFloe.Sqlite
             throw;
          }
       }
-      public static void Delete (String path)
+      public static void Delete (IO.Path path)
       {
          IO.FileSystem.Delete(path);
-         IO.FileSystem.Delete(String.Format("{0}-journal", path));
+         IO.FileSystem.Delete((IO.Path)String.Format("{0}-journal", path));
       }
       public Stream Serialize ()
       {
@@ -74,12 +74,12 @@ namespace SkyFloe.Sqlite
             if (this.transaction != null)
                ((DbConnection)this.connection).EnlistTransaction(this.transaction);
          }
-         IDbCommand dbcmd = this.connection.CreateCommand();
+         var dbcmd = this.connection.CreateCommand();
          dbcmd.CommandText = command;
-         Int32 paramIdx = 0;
-         foreach (Object param in parameters)
+         var paramIdx = 0;
+         foreach (var param in parameters)
          {
-            IDbDataParameter dbparam = dbcmd.CreateParameter();
+            var dbparam = dbcmd.CreateParameter();
             dbparam.ParameterName = String.Format("@p{0}", paramIdx++);
             dbparam.Value = param ?? DBNull.Value;
             dbcmd.Parameters.Add(dbparam);
@@ -88,20 +88,46 @@ namespace SkyFloe.Sqlite
       }
       protected void Execute (String command, params Object[] parameters)
       {
-         using (IDbCommand dbcmd = CreateCommand(command, parameters))
+         using (var dbcmd = CreateCommand(command, parameters))
             dbcmd.ExecuteNonQuery();
       }
       protected Object ExecuteScalar (String command, params Object[] parameters)
       {
-         using (IDbCommand dbcmd = CreateCommand(command, parameters))
+         using (var dbcmd = CreateCommand(command, parameters))
             return dbcmd.ExecuteScalar();
       }
       protected IDataReader ExecuteReader (String command, params Object[] parameters)
       {
-         using (IDbCommand dbcmd = CreateCommand(command, parameters))
+         using (var dbcmd = CreateCommand(command, parameters))
             return dbcmd.ExecuteReader();
       }
-      protected Int32 QueryRowID ()
+      protected T Fetch<T> (String command, Func<IDataReader, T> factory)
+      {
+         using (var reader = ExecuteReader(command))
+            if (reader.Read())
+               return factory(reader);
+         return default(T);
+      }
+      protected T Fetch<T> (String command, Object[] parameters, Func<IDataReader, T> factory)
+      {
+         using (var reader = ExecuteReader(command, parameters))
+            if (reader.Read())
+               return factory(reader);
+         return default(T);
+      }
+      protected IEnumerable<T> Query<T> (String command, Func<IDataReader, T> factory)
+      {
+         using (var reader = ExecuteReader(command))
+            while (reader.Read())
+               yield return factory(reader);
+      }
+      protected IEnumerable<T> Query<T> (String command, Object[] parameters, Func<IDataReader, T> factory)
+      {
+         using (var reader = ExecuteReader(command, parameters))
+            while (reader.Read())
+               yield return factory(reader);
+      }
+      protected Int32 GetLastRowID ()
       {
          return Convert.ToInt32(ExecuteScalar("SELECT last_insert_rowid();"));
       }

@@ -12,7 +12,7 @@ namespace SkyFloe.Tasks
       {
          if (this.Request == null)
             throw new ArgumentException("Request");
-         foreach (KeyValuePair<IO.Path, IO.Path> map in this.Request.RootPathMap)
+         foreach (var map in this.Request.RootPathMap)
          {
             if (map.Key.IsEmpty)
                throw new ArgumentException("Request.RootPathMap.Key");
@@ -31,8 +31,8 @@ namespace SkyFloe.Tasks
       }
       protected override void DoExecute ()
       {
-         foreach (Backup.Node root in this.Archive.BackupIndex.ListNodes(null))
-            foreach (DiffResult entry in Enumerate(root))
+         foreach (var root in this.Archive.BackupIndex.ListNodes(null))
+            foreach (var entry in Enumerate(root))
                ReportProgress(
                   new Engine.ProgressEventArgs()
                   {
@@ -42,31 +42,30 @@ namespace SkyFloe.Tasks
       }
       public IEnumerable<DiffResult> Enumerate (Backup.Node root)
       {
-         IO.Path path = root.Name;
-         IO.Path mapPath = null;
+         var path = (IO.Path)root.Name;
+         var mapPath = IO.Path.Empty;
          if (this.Request.RootPathMap.TryGetValue(path, out mapPath))
             path = mapPath;
-         return DiffPathIndex(root, path)
-            .Concat(DiffIndexPath(root, path));
+         return DiffPathIndex(root, path).Concat(DiffIndexPath(root, path));
       }
 
       private IEnumerable<DiffResult> DiffPathIndex (Backup.Node parentNode, IO.Path parentPath)
       {
-         IList<Backup.Node> nodes = this.Archive.BackupIndex.ListNodes(parentNode).ToList();
-         IList<IO.FileSystem.Metadata> files = TryExecute(
+         var nodes = this.Archive.BackupIndex.ListNodes(parentNode).ToList();
+         var files = TryExecute(
             "DiffPathIndex", 
             () => IO.FileSystem.Children(parentPath).ToList()
          );
          if (files != null)
          {
-            foreach (IO.FileSystem.Metadata metadata in files)
+            foreach (var metadata in files)
             {
                this.Canceler.ThrowIfCancellationRequested();
                if (!metadata.IsSystem)
                {
                   if (metadata.IsDirectory || this.Request.Filter.Evaluate(metadata.Path))
                   {
-                     Backup.Node node = nodes.FirstOrDefault(
+                     var node = nodes.FirstOrDefault(
                         n => StringComparer.OrdinalIgnoreCase.Equals(n.Name, metadata.Name)
                      );
                      if (node == null)
@@ -83,7 +82,7 @@ namespace SkyFloe.Tasks
                            }
                         };
                      if (metadata.IsDirectory)
-                        foreach (DiffResult diff in DiffPathIndex(node, metadata.Path))
+                        foreach (var diff in DiffPathIndex(node, metadata.Path))
                            yield return diff;
                   }
                }
@@ -93,23 +92,21 @@ namespace SkyFloe.Tasks
 
       private IEnumerable<DiffResult> DiffIndexPath (Backup.Node parentNode, IO.Path parentPath)
       {
-         foreach (Backup.Node node in this.Archive.BackupIndex.ListNodes(parentNode))
+         foreach (var node in this.Archive.BackupIndex.ListNodes(parentNode))
          {
             this.Canceler.ThrowIfCancellationRequested();
-            IO.Path path = parentPath + node.Name;
+            var path = parentPath + node.Name;
             if (node.Type == Backup.NodeType.Directory)
-            {
-               foreach (DiffResult diff in DiffIndexPath(node, path))
+               foreach (var diff in DiffIndexPath(node, path))
                   yield return diff;
-            }
             else
             {
-               IO.FileSystem.Metadata metadata = TryExecute(
+               var metadata = TryExecute(
                   "DiffIndexPath",
                   () => IO.FileSystem.GetMetadata(path),
                   IO.FileSystem.Metadata.Empty
                );
-               Backup.Entry entry = this.Archive.BackupIndex
+               var entry = this.Archive.BackupIndex
                   .ListNodeEntries(node)
                   .OrderBy(e => e.Session.Created)
                   .LastOrDefault();
@@ -132,7 +129,7 @@ namespace SkyFloe.Tasks
                }
                else if (entry != null && entry.State != Backup.EntryState.Pending)
                {
-                  Boolean isChanged = false;
+                  var isChanged = false;
                   switch (this.Request.Method)
                   {
                      case DiffMethod.Timestamp:

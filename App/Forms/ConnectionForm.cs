@@ -33,12 +33,12 @@ namespace SkyFloe.App.Forms
       public ConnectionForm ()
       {
          InitializeComponent();
-         Control tabNextCtrl = new Control()
+         var tabNextCtrl = new Control()
          {
             TabIndex = this.cboStoreType.TabIndex + 1,
             TabStop = true
          };
-         Control tabPrevCtrl = new Control()
+         var tabPrevCtrl = new Control()
          {
             TabIndex = this.pnlProperties.TabIndex - 1,
             TabStop = true
@@ -58,13 +58,12 @@ namespace SkyFloe.App.Forms
          if (Program.Settings.ConnectionStrings == null)
             Program.Settings.ConnectionStrings = new Data.ConnectionStringList();
          // bind the store types
-         BindingList<KeyValuePair<String, String>> stores =
-            new BindingList<KeyValuePair<String, String>>();
-         foreach (KeyValuePair<String, String> known in knownStores)
+         var stores = new BindingList<KeyValuePair<String, String>>();
+         foreach (var known in knownStores)
             stores.Add(known);
-         foreach (Data.ConnectionString connect in Program.Settings.ConnectionStrings.Items)
+         foreach (var connect in Program.Settings.ConnectionStrings.Items)
          {
-            String store = null;
+            var store = (String)null;
             if (Connection.Parse(connect.Value).TryGetValue("Store", out store))
                if (!String.IsNullOrWhiteSpace(store))
                   if (!knownStores.ContainsKey(store))
@@ -94,8 +93,8 @@ namespace SkyFloe.App.Forms
             {
                try
                {
-                  String storeType = this.SelectedStoreType;
-                  Object storeProps = this.StoreProperties;
+                  var storeType = this.SelectedStoreType;
+                  var storeProps = this.StoreProperties;
                   new WaitForm(
                      () => this.Connection = new Connection(
                         Connection.GetConnectionString(storeType, storeProps)
@@ -134,9 +133,7 @@ namespace SkyFloe.App.Forms
          this.cboStoreType.SelectedItem = null;
          if (this.cboRecent.SelectedValue != null)
          {
-            Dictionary<String, String> paramMap = Connection.Parse(
-               (String)this.cboRecent.SelectedValue
-            );
+            var paramMap = Connection.Parse((String)this.cboRecent.SelectedValue);
             this.cboStoreType.SelectedValue = paramMap["Store"];
             Connection.Bind(paramMap, this.StoreProperties);
          }
@@ -144,12 +141,12 @@ namespace SkyFloe.App.Forms
       }
       private void cboStoreType_SelectedIndexChanged (Object o, EventArgs a)
       {
-         Boolean focusProps = this.pnlProperties.Contains(this.ActiveControl);
+         var focusProps = this.pnlProperties.Contains(this.ActiveControl);
          this.pnlProperties.Controls.Clear();
          if (this.cboStoreType.SelectedValue != null)
          {
             // TODO: custom panel + default panel
-            Stores.IBaseStorePage page = null;
+            var page = (Stores.IBaseStorePage)null;
             if (this.SelectedStoreType == "FileSystem")
                page = new Stores.FileStorePage();
             else if (this.SelectedStoreType == "AwsGlacier")
@@ -168,12 +165,12 @@ namespace SkyFloe.App.Forms
 
       private void cboStoreType_Validating (Object sender, CancelEventArgs a)
       {
-         Boolean focusProps = this.pnlProperties.Contains(this.ActiveControl);
+         var focusProps = this.pnlProperties.Contains(this.ActiveControl);
          if (this.cboStoreType.SelectedValue == null)
          {
             if (!String.IsNullOrWhiteSpace(this.cboStoreType.Text))
             {
-               String connect = this.cboStoreType.Text;
+               var connect = this.cboStoreType.Text;
                try
                {
                   // TODO: refactor
@@ -193,12 +190,12 @@ namespace SkyFloe.App.Forms
       }
       private void HandleConnectionValueChanged (Object o, EventArgs a)
       {
-         Boolean isValid = true;
+         var isValid = true;
          if (this.cboStoreType.SelectedItem == null)
             isValid = false;
          else
          {
-            List<ValidationResult> results = new List<ValidationResult>();
+            var results = new List<ValidationResult>();
             isValid = Validator.TryValidateObject(
                this.StoreProperties,
                new ValidationContext(this.StoreProperties, null, null),

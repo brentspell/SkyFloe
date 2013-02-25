@@ -34,7 +34,7 @@ namespace SkyFloe.Aws
          this.vault = vault;
          this.bucket = bucket;
          this.name = name;
-         IO.Path restoreIndexPath = new IO.Path(
+         var restoreIndexPath = new IO.Path(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SkyFloe",
             "AwsGlacier",
@@ -99,24 +99,24 @@ namespace SkyFloe.Aws
       public void Open ()
       {
          this.backupIndexFile = IO.FileSystem.Temp();
-         Stream s3Stream = this.s3.GetObject(
-            new Amazon.S3.Model.GetObjectRequest()
-            {
-               BucketName = this.bucket,
-               Key = this.IndexS3Key
-            }
-         ).ResponseStream;
-         using (s3Stream)
-         using (GZipStream gzip = new GZipStream(s3Stream, CompressionMode.Decompress))
+         using (var s3Stream = this.s3.GetObject(
+               new Amazon.S3.Model.GetObjectRequest()
+               {
+                  BucketName = this.bucket,
+                  Key = this.IndexS3Key
+               }
+            ).ResponseStream
+         )
+         using (var gzip = new GZipStream(s3Stream, CompressionMode.Decompress))
             gzip.CopyTo(this.backupIndexFile);
          this.backupIndex = Sqlite.BackupIndex.Open(this.backupIndexFile.Path);
       }
       public void Save ()
       {
-         using (Stream checkpointStream = IO.FileSystem.Temp())
+         using (var checkpointStream = IO.FileSystem.Temp())
          {
-            using (GZipStream gzipStream = new GZipStream(checkpointStream, CompressionMode.Compress, true))
-            using (Stream indexStream = this.BackupIndex.Serialize())
+            using (var gzipStream = new GZipStream(checkpointStream, CompressionMode.Compress, true))
+            using (var indexStream = this.BackupIndex.Serialize())
                indexStream.CopyTo(gzipStream);
             checkpointStream.Position = 0;
             this.s3.PutObject(

@@ -51,7 +51,7 @@ namespace SkyFloe.App.Forms
       {
          // set up a continuation task to close the form
          // when the attached task completes
-         SynchronizationContext sync = SynchronizationContext.Current;
+         var sync = SynchronizationContext.Current;
          if (this.task != null)
             this.task.ContinueWith(
                t => sync.Post(

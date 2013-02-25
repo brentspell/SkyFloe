@@ -29,7 +29,7 @@ namespace SkyFloe.Tasks
       }
       protected override void DoExecute ()
       {
-         using (TransactionScope txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
+         using (var txn = new TransactionScope(TransactionScopeOption.Required, TimeSpan.MaxValue))
          {
             this.restore = this.Archive.PrepareRestore(this.Session);
             if (this.Session.State == SkyFloe.Restore.SessionState.Pending)
@@ -43,7 +43,7 @@ namespace SkyFloe.Tasks
          for (; ; )
          {
             this.Canceler.ThrowIfCancellationRequested();
-            SkyFloe.Restore.Entry entry = this.Archive.RestoreIndex.LookupNextEntry(this.Session);
+            var entry = this.Archive.RestoreIndex.LookupNextEntry(this.Session);
             if (entry == null)
                break;
             RestoreEntry(entry);
@@ -56,7 +56,7 @@ namespace SkyFloe.Tasks
       }
       void RestoreEntry (SkyFloe.Restore.Entry restoreEntry)
       {
-         SkyFloe.Backup.Entry backupEntry = this.Archive.BackupIndex.FetchEntry(restoreEntry.BackupEntryID);
+         var backupEntry = this.Archive.BackupIndex.FetchEntry(restoreEntry.BackupEntryID);
          ReportProgress(
             new Engine.ProgressEventArgs()
             {
@@ -67,14 +67,14 @@ namespace SkyFloe.Tasks
                RestoreEntry = restoreEntry
             }
          );
-         SkyFloe.Backup.Node rootNode = backupEntry.Node.GetRoot();
-         SkyFloe.Restore.PathMap rootMap = this.Archive.RestoreIndex.LookupPathMap(this.Session, rootNode.ID);
-         IO.Path rootPath = (rootMap != null) ? rootMap.Path : rootNode.Name;
-         IO.Path path = rootPath + backupEntry.Node.GetRelativePath();
+         var rootNode = backupEntry.Node.GetRoot();
+         var rootMap = this.Archive.RestoreIndex.LookupPathMap(this.Session, rootNode.ID);
+         var rootPath = (IO.Path)(rootMap != null ? rootMap.Path : rootNode.Name);
+         var path = rootPath + backupEntry.Node.GetRelativePath();
          IO.FileSystem.CreateDirectory(path.Parent);
-         IO.FileSystem.Metadata metadata = IO.FileSystem.GetMetadata(path);
+         var metadata = IO.FileSystem.GetMetadata(path);
          // TODO: cleanup restore/delete logic
-         Boolean restoreFile = true;
+         var restoreFile = true;
          if (metadata.Exists)
          {
             if (this.Session.SkipExisting && metadata.Length > 0)
@@ -93,11 +93,11 @@ namespace SkyFloe.Tasks
             {
                if (backupEntry.State != SkyFloe.Backup.EntryState.Deleted)
                {
-                  using (Stream fileStream = IO.FileSystem.Truncate(path))
-                  using (IO.Crc32Filter crcFilter = new IO.Crc32Filter(fileStream))
-                  using (Stream limiterFilter = this.limiter.CreateStreamFilter(crcFilter))
-                  using (Stream archiveFilter = this.restore.Restore(restoreEntry))
-                  using (Stream cryptoFilter = new CryptoStream(archiveFilter, this.Crypto.CreateDecryptor(), CryptoStreamMode.Read))
+                  using (var fileStream = IO.FileSystem.Truncate(path))
+                  using (var crcFilter = new IO.Crc32Filter(fileStream))
+                  using (var limiterFilter = this.limiter.CreateStreamFilter(crcFilter))
+                  using (var archiveFilter = this.restore.Restore(restoreEntry))
+                  using (var cryptoFilter = new CryptoStream(archiveFilter, this.Crypto.CreateDecryptor(), CryptoStreamMode.Read))
                   {
                      cryptoFilter.CopyTo(limiterFilter);
                      limiterFilter.Flush();
@@ -111,7 +111,7 @@ namespace SkyFloe.Tasks
                }
                restoreEntry.State = SkyFloe.Restore.EntryState.Completed;
                this.Session.RestoreLength += restoreEntry.Length;
-               using (TransactionScope txn = new TransactionScope())
+               using (var txn = new TransactionScope())
                {
                   this.Archive.RestoreIndex.UpdateEntry(restoreEntry);
                   this.Archive.RestoreIndex.UpdateSession(this.Session);
