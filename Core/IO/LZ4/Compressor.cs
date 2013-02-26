@@ -399,11 +399,6 @@ namespace SkyFloe.IO.LZ4
             }
         }
 
-        /// <summary>
-        /// TODO: test if this is faster or slower than Array.Clear.
-        /// </summary>
-        /// <param name="array"></param>
-        /// <param name="count"></param>
         static void Clear(byte* ptr, int count)
         {
             long* p = (long*)ptr;
