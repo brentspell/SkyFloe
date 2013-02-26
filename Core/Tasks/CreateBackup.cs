@@ -53,7 +53,8 @@ namespace SkyFloe.Tasks
                {
                   State = Backup.SessionState.Pending,
                   CheckpointLength = this.Request.CheckpointLength,
-                  RateLimit = this.Request.RateLimit
+                  RateLimit = this.Request.RateLimit,
+                  Flags = (this.Request.Compress ? Backup.SessionFlags.Compress : 0)
                }
             );
             var differenceTask = new Difference()

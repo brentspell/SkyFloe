@@ -98,8 +98,9 @@ namespace SkyFloe.Tasks
                   using (var limiterFilter = this.limiter.CreateStreamFilter(crcFilter))
                   using (var archiveFilter = this.restore.Restore(restoreEntry))
                   using (var cryptoFilter = new CryptoStream(archiveFilter, this.Crypto.CreateDecryptor(), CryptoStreamMode.Read))
+                  using (var compressor = backupEntry.Session.Compress ? new IO.CompressionStream(cryptoFilter, IO.CompressionMode.Decompress) : (Stream)cryptoFilter)
                   {
-                     cryptoFilter.CopyTo(limiterFilter);
+                     compressor.CopyTo(limiterFilter);
                      limiterFilter.Flush();
                      if (this.Session.VerifyResults && crcFilter.Value != backupEntry.Crc32)
                         throw new InvalidOperationException("TODO: CRC does not match");

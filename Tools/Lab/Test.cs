@@ -24,93 +24,23 @@ namespace SkyFloe.Lab
 
       public void Run ()
       {
-         Console.WriteLine("testing");
-         foreach (var prop in Builder
-            .Parse(@"Test1=val u e1 ;Test1=value2")
-            .GroupBy(p => p.Key)
-            .Select(g => new KeyValuePair<String, Object>(g.Key, g.Last()))
-         )
-            Console.WriteLine("|{0} = {1}|", prop.Key, prop.Value);
-         Console.WriteLine("done");
+         var x = ((Byte)1 << 24);
+         Boolean b = false;
+         using (var input = IO.FileSystem.Open((IO.Path)@"c:\save\keeper.xml"))
+         using (var encoder = new IO.CompressionStream(input, IO.CompressionMode.Compress, IO.CompressionLevel.High))
+         using (var output = IO.FileSystem.Truncate((IO.Path)@"c:\encoded.dat"))
+            encoder.CopyTo(output);
+         using (var input = IO.FileSystem.Open((IO.Path)@"c:\encoded.dat"))
+         using (var decoder = new IO.CompressionStream(input, IO.CompressionMode.Decompress, IO.CompressionLevel.High))
+         using (var output = IO.FileSystem.Truncate((IO.Path)@"c:\decoded.dat"))
+            decoder.CopyTo(output);
+         b = new FileInfo(@"c:\decoded.dat").Length == new FileInfo(@"c:\save\keeper.xml").Length;
+         b = Enumerable.SequenceEqual(File.ReadAllBytes(@"c:\decoded.dat"), File.ReadAllBytes(@"c:\save\keeper.xml"));
+         /*
+         using (var connect = new Connection("Store=AwsGlacier;AccessKey=AKIAJCSD57AVPC5OL4BQ;SecretKey=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"))
+         using (var engine = new Engine() { Connection = connect })
+            engine.DeleteArchive("Test");
+         */
       }
-   }
-
-   public class Builder : IEnumerable<KeyValuePair<String, Object>>
-   {
-      public static readonly Regex PropertyStringRegex = new Regex(
-         @"(?<key>\w+) \s* = \s* (?<value>(\s*(\\;|[^;\s]))*) \s* ;?", 
-         RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace
-      );
-      public static readonly Regex PropertyEscapeRegex = new Regex(
-         @"\\(?<char>.)"
-      );
-      Type t;
-      IDictionary<String, Object> properties;
-
-      public Builder (Type t)
-      {
-         this.t = t;
-         this.properties = new Dictionary<String, Object>(
-            StringComparer.OrdinalIgnoreCase
-         );
-      }
-      public Builder (Type t, IDictionary<String, Object> properties) :
-         this(t)
-      {
-         SetProperties(properties);
-      }
-      public Builder (Type t, String properties) : 
-         this(t)
-      {
-         SetProperties(properties);
-      }
-      public void SetProperties (IDictionary<String, Object> properties)
-      {
-         this.properties.Clear();
-         foreach (var prop in properties)
-            this.properties.Add(prop);
-      }
-      public void SetProperties (String properties)
-      {
-         this.properties.Clear();
-         foreach (var prop in Parse(properties))
-            this.properties[prop.Key] = prop.Value;
-      }
-
-      public void Add (String key, Object value)
-      {
-         this.properties[key] = value;
-      }
-      public void Remove (String key)
-      {
-         this.properties.Remove(key);
-      }
-      public void Clear ()
-      {
-         this.properties.Clear();
-      }
-      public static IEnumerable<KeyValuePair<String, String>> Parse (String properties)
-      {
-         return PropertyStringRegex.Matches(properties)
-            .Cast<Match>()
-            .Select(
-               m => new KeyValuePair<String, String>(
-                  m.Groups["key"].Value,
-                  PropertyEscapeRegex.Replace(m.Groups["value"].Value, @"${char}")
-               )
-            );
-      }
-
-      #region IEnumerable Implementation
-      public IEnumerator<KeyValuePair<String, Object>> GetEnumerator ()
-      {
-         return this.properties.GetEnumerator();
-      }
-
-      System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator ()
-      {
-         return this.properties.GetEnumerator();
-      }
-      #endregion
    }
 }

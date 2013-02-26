@@ -37,6 +37,16 @@ namespace SkyFloe.Backup
    }
 
    /// <summary>
+   /// Backup session flags
+   /// </summary>
+   [Flags]
+   public enum SessionFlags
+   {
+      None = 0,            // for initialization
+      Compress = 1         // enable backup compression
+   }
+
+   /// <summary>
    /// The backup session record type
    /// </summary>
    /// <remarks>
@@ -58,6 +68,10 @@ namespace SkyFloe.Backup
       /// </summary>
       public SessionState State { get; set; }
       /// <summary>
+      /// Session request flags
+      /// </summary>
+      public SessionFlags Flags { get; set; }
+      /// <summary>
       /// Requested rate limit for the session, in bytes/second
       /// </summary>
       public Int32 RateLimit { get; set; }
@@ -77,5 +91,12 @@ namespace SkyFloe.Backup
       /// Record creation stamp
       /// </summary>
       public DateTime Created { get; set; }
+      /// <summary>
+      /// Retrieves the flag for enabling backup compression
+      /// </summary>
+      public Boolean Compress
+      {
+         get { return this.Flags.HasFlag(SessionFlags.Compress); }
+      }
    }
 }

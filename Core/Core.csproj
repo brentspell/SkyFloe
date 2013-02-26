@@ -13,9 +13,9 @@
   <PropertyGroup>
     <OutputPath>..\Bin\</OutputPath>
     <WarningLevel>4</WarningLevel>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DefineConstants>TRACE</DefineConstants>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks> <!-- Required for LZ4 -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Required for LZ4 -->
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <DebugSymbols>true</DebugSymbols>
@@ -26,6 +26,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -36,11 +37,12 @@
       <Link>Properties\Version.cs</Link>
     </Compile>
     <Compile Include="Backup\Header.cs" />
+    <Compile Include="IO\CompressionStream.cs" />
     <Compile Include="IO\FileSystem.cs" />
     <Compile Include="IO\FilterStream.cs" />
-    <Compile Include="IO\LZ4\LZ4Compressor32.cs" />
-    <Compile Include="IO\LZ4\LZ4Decompressor32.cs" />
-    <Compile Include="IO\LZ4\LZ4Util.cs" />
+    <Compile Include="IO\LZ4\Compressor.cs" />
+    <Compile Include="IO\LZ4\Decompressor.cs" />
+    <Compile Include="IO\LZ4\Utility.cs" />
     <Compile Include="IO\Path.cs" />
     <Compile Include="IO\RateLimiter.cs" />
     <Compile Include="Options\Options.cs" />

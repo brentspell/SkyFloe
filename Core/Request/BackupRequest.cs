@@ -58,6 +58,10 @@ namespace SkyFloe
       /// </summary>
       public DiffMethod DiffMethod { get; set; }
       /// <summary>
+      /// Specifies whether to enable backup compression
+      /// </summary>
+      public Boolean Compress { get; set; }
+      /// <summary>
       /// The backup rate limit, in bytes/second
       /// </summary>
       public Int32 RateLimit { get; set; }

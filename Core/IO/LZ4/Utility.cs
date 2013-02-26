@@ -1,14 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿//===========================================================================
+// LZ4Sharp
+// Copyright (C) 2011, Clayton Stangeland
+// http://github.com/stangelandcl/LZ4Sharp
+// BSD License
+//===========================================================================
 
 namespace SkyFloe.IO.LZ4
 {
     /// <summary>
     /// Constants and methods shared by LZ4Compressor and LZ4Decompressor
     /// </summary>
-    internal class LZ4Util
+    internal class Utility
     {
         //**************************************
         // Constants

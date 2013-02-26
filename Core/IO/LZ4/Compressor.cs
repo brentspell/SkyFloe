@@ -1,7 +1,11 @@
+//===========================================================================
+// LZ4Sharp
+// Copyright (C) 2011, Clayton Stangeland
+// http://github.com/stangelandcl/LZ4Sharp
+// BSD License
+//===========================================================================
+   
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Diagnostics;
 
 namespace SkyFloe.IO.LZ4
@@ -9,7 +13,8 @@ namespace SkyFloe.IO.LZ4
     /// <summary>
     /// Class for compressing a byte array into an LZ4 byte array.
     /// </summary>
-    internal unsafe class LZ4Compressor32
+   [CLSCompliant(false)]
+   public unsafe class Compressor
     {
         //**************************************
         // Tuning parameters
@@ -19,7 +24,7 @@ namespace SkyFloe.IO.LZ4
         // Lowering this value reduces memory usage
         // Reduced memory usage typically improves speed, due to cache effect (ex : L1 32KB for Intel, L1 64KB for AMD)
         // Memory usage formula : N->2^(N+2) Bytes (examples : 12 -> 16KB ; 17 -> 512KB)
-        const int COMPRESSIONLEVEL = 12;
+        const int COMPRESSIONLEVEL = 14;
 
         // NOTCOMPRESSIBLE_CONFIRMATION :
         // Decreasing this value will make the algorithm skip faster data segments considered "incompressible"
@@ -37,7 +42,7 @@ namespace SkyFloe.IO.LZ4
         const int MAXD_LOG = 16;
         const int MAX_DISTANCE = ((1 << MAXD_LOG) - 1);
         const int MINMATCH = 4;
-        const int MFLIMIT = (LZ4Util.COPYLENGTH + MINMATCH);
+        const int MFLIMIT = (Utility.COPYLENGTH + MINMATCH);
         const int MINLENGTH = (MFLIMIT + 1);
         const uint LZ4_64KLIMIT = ((1U << 16) + (MFLIMIT - 1));
         const int HASHLOG64K = (HASH_LOG + 1);
@@ -53,7 +58,7 @@ namespace SkyFloe.IO.LZ4
         //**************************************
         byte[] m_HashTable;
 
-        public LZ4Compressor32()
+        public Compressor()
         {
             m_HashTable = new byte[HASHTABLESIZE * IntPtr.Size];
             if (m_HashTable.Length % 16 != 0)
@@ -63,7 +68,7 @@ namespace SkyFloe.IO.LZ4
 
         public byte[] Compress(byte[] source)
         {
-            int maxCompressedSize = CalculateMaxCompressedLength(source.Length);
+            int maxCompressedSize = GetMaxCompressedLength(source.Length);
             byte[] dst = new byte[maxCompressedSize];
             int length = Compress(source, dst);
             byte[] dest = new byte[length];
@@ -76,7 +81,7 @@ namespace SkyFloe.IO.LZ4
         /// </summary>
         /// <param name="uncompressedLength">Length of the uncompressed data</param>
         /// <returns>The maximum required size in bytes of the compressed data</returns>
-        public int CalculateMaxCompressedLength(int uncompressedLength)
+        public int GetMaxCompressedLength(int uncompressedLength)
         {
             return uncompressedLength + (uncompressedLength / 255) + 16;
         }
@@ -181,8 +186,8 @@ namespace SkyFloe.IO.LZ4
                     // Encode Literal Length
                     length = (int)(ip - anchor);
                     token = op++;
-                    if (length >= (int)LZ4Util.RUN_MASK) { *token = (byte)(LZ4Util.RUN_MASK << LZ4Util.ML_BITS); len = (int)(length - LZ4Util.RUN_MASK); for (; len > 254; len -= 255) *op++ = 255; *op++ = (byte)len; }
-                    else *token = (byte)(length << LZ4Util.ML_BITS);
+                    if (length >= (int)Utility.RUN_MASK) { *token = (byte)(Utility.RUN_MASK << Utility.ML_BITS); len = (int)(length - Utility.RUN_MASK); for (; len > 254; len -= 255) *op++ = 255; *op++ = (byte)len; }
+                    else *token = (byte)(length << Utility.ML_BITS);
 
                     //Copy Literals
                     { byte* e = (op) + length; do { *(uint*)op = *(uint*)anchor; op += 4; anchor += 4; ; *(uint*)op = *(uint*)anchor; op += 4; anchor += 4; ; } while (op < e);; op = e; };
@@ -220,7 +225,7 @@ namespace SkyFloe.IO.LZ4
                     len = (int)(ip - anchor);
                     if (op + (1 + LASTLITERALS) + (len >> 8) >= oend) return 0; // Check output limit
                     // Encode MatchLength
-                    if (len >= (int)LZ4Util.ML_MASK) { *token += (byte)LZ4Util.ML_MASK; len -= (byte)LZ4Util.ML_MASK; for (; len > 509; len -= 510) { *op++ = 255; *op++ = 255; } if (len > 254) { len -= 255; *op++ = 255; } *op++ = (byte)len; }
+                    if (len >= (int)Utility.ML_MASK) { *token += (byte)Utility.ML_MASK; len -= (byte)Utility.ML_MASK; for (; len > 509; len -= 510) { *op++ = 255; *op++ = 255; } if (len > 254) { len -= 255; *op++ = 255; } *op++ = (byte)len; }
                     else *token += (byte)len;
 
                     // Test end of chunk
@@ -244,9 +249,9 @@ namespace SkyFloe.IO.LZ4
                 {
                     int lastRun = (int)(iend - anchor);
                     if (((byte*)op - dest) + lastRun + 1 + ((lastRun - 15) / 255) >= maxOutputSize) return 0;
-                    if (lastRun >= (int)LZ4Util.RUN_MASK) { *op++ = (byte)(LZ4Util.RUN_MASK << LZ4Util.ML_BITS); lastRun -= (byte)LZ4Util.RUN_MASK; for (; lastRun > 254; lastRun -= 255) *op++ = 255; *op++ = (byte)lastRun; }
-                    else *op++ = (byte)(lastRun << LZ4Util.ML_BITS);
-                    LZ4Util.CopyMemory(op, anchor, iend - anchor);
+                    if (lastRun >= (int)Utility.RUN_MASK) { *op++ = (byte)(Utility.RUN_MASK << Utility.ML_BITS); lastRun -= (byte)Utility.RUN_MASK; for (; lastRun > 254; lastRun -= 255) *op++ = 255; *op++ = (byte)lastRun; }
+                    else *op++ = (byte)(lastRun << Utility.ML_BITS);
+                    Utility.CopyMemory(op, anchor, iend - anchor);
                     op += iend - anchor;
                 }
 
@@ -324,8 +329,8 @@ namespace SkyFloe.IO.LZ4
                     length = (int)(ip - anchor);
                     token = op++;
                     if (op + length + (2 + 1 + LASTLITERALS) + (length >> 8) >= oend) return 0; // Check output limit
-                    if (length >= (int)LZ4Util.RUN_MASK) { *token = (byte)(LZ4Util.RUN_MASK << LZ4Util.ML_BITS); len = (int)(length - LZ4Util.RUN_MASK); for (; len > 254; len -= 255) *op++ = 255; *op++ = (byte)len; }
-                    else *token = (byte)(length << LZ4Util.ML_BITS);
+                    if (length >= (int)Utility.RUN_MASK) { *token = (byte)(Utility.RUN_MASK << Utility.ML_BITS); len = (int)(length - Utility.RUN_MASK); for (; len > 254; len -= 255) *op++ = 255; *op++ = (byte)len; }
+                    else *token = (byte)(length << Utility.ML_BITS);
 
                     // Copy Literals
                     { byte* e = (op) + length; do { *(uint*)op = *(uint*)anchor; op += 4; anchor += 4; ; *(uint*)op = *(uint*)anchor; op += 4; anchor += 4; ; } while (op < e);; op = e; };
@@ -360,7 +365,7 @@ namespace SkyFloe.IO.LZ4
                     len = (int)(ip - anchor);
 
                     //Encode MatchLength
-                    if (len >= (int)LZ4Util.ML_MASK) { *token = (byte)(*token + LZ4Util.ML_MASK); len = (int)(len - LZ4Util.ML_MASK); for (; len > 509; len -= 510) { *op++ = 255; *op++ = 255; } if (len > 254) { len -= 255; *op++ = 255; } *op++ = (byte)len; }
+                    if (len >= (int)Utility.ML_MASK) { *token = (byte)(*token + Utility.ML_MASK); len = (int)(len - Utility.ML_MASK); for (; len > 509; len -= 510) { *op++ = 255; *op++ = 255; } if (len > 254) { len -= 255; *op++ = 255; } *op++ = (byte)len; }
                     else *token = (byte)(*token + len);
 
                     // Test end of chunk
@@ -383,9 +388,9 @@ namespace SkyFloe.IO.LZ4
                 {
                     int lastRun = (int)(iend - anchor);
                     if (((byte*)op - dest) + lastRun + 1 + ((lastRun) >> 8) >= maxOutputSize) return 0;
-                    if (lastRun >= (int)LZ4Util.RUN_MASK) { *op++ = (byte)(LZ4Util.RUN_MASK << LZ4Util.ML_BITS); lastRun -= (byte)LZ4Util.RUN_MASK; for (; lastRun > 254; lastRun -= 255) *op++ = 255; *op++ = (byte)lastRun; }
-                    else *op++ = (byte)(lastRun << LZ4Util.ML_BITS);
-                    LZ4Util.CopyMemory(op, anchor, iend - anchor);
+                    if (lastRun >= (int)Utility.RUN_MASK) { *op++ = (byte)(Utility.RUN_MASK << Utility.ML_BITS); lastRun -= (byte)Utility.RUN_MASK; for (; lastRun > 254; lastRun -= 255) *op++ = 255; *op++ = (byte)lastRun; }
+                    else *op++ = (byte)(lastRun << Utility.ML_BITS);
+                    Utility.CopyMemory(op, anchor, iend - anchor);
                     op += iend - anchor;
                 }
 

@@ -15,7 +15,6 @@
     <OutputPath>..\..\Bin\</OutputPath>
     <WarningLevel>4</WarningLevel>
     <ProjectConfigFileName>App.config</ProjectConfigFileName>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
@@ -27,6 +26,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>..\..\SkyFloe.ico</ApplicationIcon>

@@ -1,7 +1,11 @@
+//===========================================================================
+// LZ4Sharp
+// Copyright (C) 2011, Clayton Stangeland
+// http://github.com/stangelandcl/LZ4Sharp
+// BSD License
+//===========================================================================
+
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Diagnostics;
 
 namespace SkyFloe.IO.LZ4
@@ -9,7 +13,8 @@ namespace SkyFloe.IO.LZ4
     /// <summary>
     /// Class for decompressing an LZ4 compressed byte array.
     /// </summary>
-   internal unsafe class LZ4Decompressor32
+   [CLSCompliant(false)]
+   public unsafe class Decompressor
     {
         const int STEPSIZE = 4;
 
@@ -60,14 +65,14 @@ namespace SkyFloe.IO.LZ4
                 {
                     // get runLength
                     token = *ip++;
-                    if ((length = (token >> LZ4Util.ML_BITS)) == LZ4Util.RUN_MASK) { for (; (len = *ip++) == 255; length += 255) { } length += len; }
+                    if ((length = (token >> Utility.ML_BITS)) == Utility.RUN_MASK) { for (; (len = *ip++) == 255; length += 255) { } length += len; }
 
 
                     cpy = op + length;
-                    if (cpy > oend - LZ4Util.COPYLENGTH)
+                    if (cpy > oend - Utility.COPYLENGTH)
                     {
                         if (cpy > oend) goto _output_error;
-                        LZ4Util.CopyMemory(op, ip, length);
+                        Utility.CopyMemory(op, ip, length);
                         ip += length;
                         break;
                     }
@@ -80,7 +85,7 @@ namespace SkyFloe.IO.LZ4
                     if (r < decompressedBuffer) goto _output_error;
 
                     // get matchLength
-                    if ((length = (int)(token & LZ4Util.ML_MASK)) == LZ4Util.ML_MASK) { for (; *ip == 255; length += 255) { ip++; } length += *ip++; }
+                    if ((length = (int)(token & Utility.ML_MASK)) == Utility.ML_MASK) { for (; *ip == 255; length += 255) { ip++; } length += *ip++; }
 
                     // copy repeated sequence
                     if (op - r < STEPSIZE)
@@ -102,11 +107,11 @@ namespace SkyFloe.IO.LZ4
                     }
                     else { *(uint*)op = *(uint*)r; op += 4; r += 4; ; }
                     cpy = op + length - (STEPSIZE - 4);
-                    if (cpy > oend - LZ4Util.COPYLENGTH)
+                    if (cpy > oend - Utility.COPYLENGTH)
                     {
                         if (cpy > oend) goto _output_error;
 
-                        do { *(uint*)op = *(uint*)r; op += 4; r += 4; ; *(uint*)op = *(uint*)r; op += 4; r += 4; ; } while (op < (oend - LZ4Util.COPYLENGTH)); ;
+                        do { *(uint*)op = *(uint*)r; op += 4; r += 4; ; *(uint*)op = *(uint*)r; op += 4; r += 4; ; } while (op < (oend - Utility.COPYLENGTH)); ;
                         while (op < cpy) *op++ = *r++;
                         op = cpy;
                         if (op == oend) break;
@@ -190,15 +195,15 @@ namespace SkyFloe.IO.LZ4
                 {
                     // get runLength
                     token = *ip++;
-                    if ((length = (token >> LZ4Util.ML_BITS)) == LZ4Util.RUN_MASK) { int s = 255; while ((ip < iend) && (s == 255)) { s = *ip++; length += s; } }
+                    if ((length = (token >> Utility.ML_BITS)) == Utility.RUN_MASK) { int s = 255; while ((ip < iend) && (s == 255)) { s = *ip++; length += s; } }
 
                     // copy literals
                     cpy = op + length;
-                    if ((cpy > oend - LZ4Util.COPYLENGTH) || (ip + length > iend - LZ4Util.COPYLENGTH))
+                    if ((cpy > oend - Utility.COPYLENGTH) || (ip + length > iend - Utility.COPYLENGTH))
                     {
                         if (cpy > oend) goto _output_error; // Error : request to write beyond destination buffer
                         if (ip + length > iend) goto _output_error; // Error : request to read beyond source buffer
-                        LZ4Util.CopyMemory(op, ip, length);
+                        Utility.CopyMemory(op, ip, length);
                         op += length;
                         ip += length;
                         if (ip < iend) goto _output_error; // Error : LZ4 format violation
@@ -212,7 +217,7 @@ namespace SkyFloe.IO.LZ4
                     if (r < decompressedBuffer) goto _output_error;
 
                     // get matchlength
-                    if ((length = (int)(token & LZ4Util.ML_MASK)) == LZ4Util.ML_MASK) { while (ip < iend) { int s = *ip++; length += s; if (s == 255) continue; break; } }
+                    if ((length = (int)(token & Utility.ML_MASK)) == Utility.ML_MASK) { while (ip < iend) { int s = *ip++; length += s; if (s == 255) continue; break; } }
 
                     // copy repeated sequence
                     if (op - r < STEPSIZE)
@@ -233,11 +238,11 @@ namespace SkyFloe.IO.LZ4
                     }
                     else { *(uint*)op = *(uint*)r; op += 4; r += 4; ; }
                     cpy = op + length - (STEPSIZE - 4);
-                    if (cpy > oend - LZ4Util.COPYLENGTH)
+                    if (cpy > oend - Utility.COPYLENGTH)
                     {
                         if (cpy > oend) goto _output_error;
 
-                        do { *(uint*)op = *(uint*)r; op += 4; r += 4; ; *(uint*)op = *(uint*)r; op += 4; r += 4; ; } while (op < (oend - LZ4Util.COPYLENGTH)); ;
+                        do { *(uint*)op = *(uint*)r; op += 4; r += 4; ; *(uint*)op = *(uint*)r; op += 4; r += 4; ; } while (op < (oend - Utility.COPYLENGTH)); ;
                         while (op < cpy) *op++ = *r++;
                         op = cpy;
                         if (op == oend) goto _output_error; // Check EOF (should never happen, since last 5 bytes are supposed to be literals)

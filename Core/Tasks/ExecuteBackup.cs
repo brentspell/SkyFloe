@@ -82,7 +82,8 @@ namespace SkyFloe.Tasks
          {
             using (var fileStream = IO.FileSystem.Open(entry.Node.GetAbsolutePath()))
             using (var crcFilter = new IO.Crc32Filter(fileStream))
-            using (var cryptoFilter = new CryptoStream(crcFilter, this.Crypto.CreateEncryptor(), CryptoStreamMode.Read))
+            using (var compressor = this.Session.Compress ? new IO.CompressionStream(crcFilter, IO.CompressionMode.Compress) : (Stream)crcFilter)
+            using (var cryptoFilter = new CryptoStream(compressor, this.Crypto.CreateEncryptor(), CryptoStreamMode.Read))
             using (var limiterFilter = this.limiter.CreateStreamFilter(cryptoFilter))
             {
                this.backup.Backup(entry, limiterFilter);

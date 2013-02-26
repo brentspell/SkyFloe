@@ -24,6 +24,7 @@ namespace SkyFloe.Backup
       private static DiffMethod diffMethod;
       private static Int32 checkpointLength;
       private static Int32 rateLimit;
+      private static Boolean compress;
       private static Int32 retries;
       private static Int32 failures;
       private static Engine engine;
@@ -55,6 +56,7 @@ namespace SkyFloe.Backup
          maxFailures = 5;
          checkpointLength = 1024;
          rateLimit = Int32.MaxValue / 1024;
+         compress = false;
          // parse options
          try
          {
@@ -72,6 +74,7 @@ namespace SkyFloe.Backup
                { "d|diff=", (DiffMethod v) => diffMethod = v },
                { "t|checkpoint=", (Int32 v) => checkpointLength = v },
                { "l|rate=", (Int32 v) => rateLimit = v },
+               { "z|compress", v => compress = (v != null) },
             }.Parse(args);
          }
          catch { return false; }
@@ -108,10 +111,11 @@ namespace SkyFloe.Backup
          Console.WriteLine("      -s|-source {source}        backup source directory (zero or more, default: current)");
          Console.WriteLine("      -n|-include {regex}        source path inclusion filter regular expression");
          Console.WriteLine("      -x|-exclude {regex}        source path exclusion filter regular expression");
-         Console.WriteLine("      -k|-delete[+/-]            delete the archive before backing up");
+         Console.WriteLine("      -k|-delete[+/-]            delete the archive before backing up (default: false)");
          Console.WriteLine("      -d|-diff {diff}            file diff method (Timestamp or Digest) default: Timestamp");
          Console.WriteLine("      -t|-checkpoint {size}      backup checkpoint interval, in megabytes, default: 1024");
          Console.WriteLine("      -l|-rate {limit}           backup rate limit, in KB/sec, default: unlimited");
+         Console.WriteLine("      -z|-compress[+/-]          enable backup compression (default: false)");
       }
 
       static Boolean ExecuteBackup ()
@@ -218,7 +222,8 @@ namespace SkyFloe.Backup
                      Exclude = excludeFilter
                   },
                   CheckpointLength = checkpointLength * 1048576,
-                  RateLimit = rateLimit * 1024
+                  RateLimit = rateLimit * 1024,
+                  Compress = compress
                }
             );
          }

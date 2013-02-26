@@ -5,6 +5,16 @@
    PasswordHash Binary(256) NOT NULL,
    PasswordSalt Binary(128) NOT NULL
 );
+CREATE TABLE Session (
+   ID Integer PRIMARY KEY NOT NULL,
+   State SmallInt NOT NULL CHECK (State IN (1, 2, 3)),
+   Flags Integer NOT NULL,
+   RateLimit Integer NOT NULL,
+   EstimatedLength BigInt NOT NULL,
+   ActualLength BigInt NOT NULL,
+   CheckpointLength BigInt NOT NULL,
+   Created DateTime DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
 CREATE TABLE Blob (
    ID Integer PRIMARY KEY NOT NULL,
    Name VarChar(512) NOT NULL,
@@ -14,15 +24,6 @@ CREATE TABLE Blob (
 );
 CREATE UNIQUE INDEX AK_Blob_Name
    ON Blob (Name);
-CREATE TABLE Session (
-   ID Integer PRIMARY KEY NOT NULL,
-   State SmallInt NOT NULL CHECK (State IN (1, 2, 3)),
-   RateLimit Integer NOT NULL,
-   EstimatedLength BigInt NOT NULL,
-   ActualLength BigInt NOT NULL,
-   CheckpointLength BigInt NOT NULL,
-   Created DateTime DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
 CREATE TABLE Node (
    ID Integer PRIMARY KEY NOT NULL,
    ParentID Integer NULL REFERENCES Node (ID),

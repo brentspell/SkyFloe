@@ -149,11 +149,30 @@ namespace SkyFloe.Sqlite
       public IEnumerable<Session> ListSessions ()
       {
          return Query(
-            "SELECT ID, State, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created FROM Session;",
+            "SELECT ID, State, Flags, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created FROM Session;",
             reader => new Session()
             {
                ID = Convert.ToInt32(reader[0]),
                State = (SessionState)Convert.ToInt32(reader[1]),
+               Flags = (SessionFlags)Convert.ToInt32(reader[2]),
+               RateLimit = Convert.ToInt32(reader[3]),
+               CheckpointLength = Convert.ToInt64(reader[4]),
+               EstimatedLength = Convert.ToInt64(reader[5]),
+               ActualLength = Convert.ToInt64(reader[6]),
+               Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[7]), DateTimeKind.Utc)
+            }
+         );
+      }
+      public Session FetchSession (Int32 id)
+      {
+         return Fetch(
+            "SELECT State, Flags, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created FROM Session WHERE ID = @p0;",
+            new Object[] { id },
+            reader => new Session()
+            {
+               ID = id,
+               State = (SessionState)Convert.ToInt32(reader[0]),
+               Flags = (SessionFlags)Convert.ToInt32(reader[1]),
                RateLimit = Convert.ToInt32(reader[2]),
                CheckpointLength = Convert.ToInt64(reader[3]),
                EstimatedLength = Convert.ToInt64(reader[4]),
@@ -162,28 +181,12 @@ namespace SkyFloe.Sqlite
             }
          );
       }
-      public Session FetchSession (Int32 id)
-      {
-         return Fetch(
-            "SELECT State, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created FROM Session WHERE ID = @p0;",
-            new Object[] { id },
-            reader => new Session()
-            {
-               ID = id,
-               State = (SessionState)Convert.ToInt32(reader[0]),
-               RateLimit = Convert.ToInt32(reader[1]),
-               CheckpointLength = Convert.ToInt64(reader[2]),
-               EstimatedLength = Convert.ToInt64(reader[3]),
-               ActualLength = Convert.ToInt64(reader[4]),
-               Created = DateTime.SpecifyKind(Convert.ToDateTime(reader[5]), DateTimeKind.Utc)
-            }
-         );
-      }
       public Session InsertSession (Session session)
       {
          Execute(
-            "INSERT INTO Session (State, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created) VALUES (@p0, @p1, @p2, @p3, @p4, @p5);",
+            "INSERT INTO Session (State, Flags, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created) VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);",
             session.State,
+            session.Flags,
             session.RateLimit,
             session.CheckpointLength,
             session.EstimatedLength,
@@ -196,9 +199,10 @@ namespace SkyFloe.Sqlite
       public Session UpdateSession (Session session)
       {
          Execute(
-            "UPDATE Session SET State = @p1, RateLimit = @p2, CheckpointLength = @p3, EstimatedLength = @p4, ActualLength = @p5 WHERE ID = @p0;",
+            "UPDATE Session SET State = @p1, Flags = @p2, RateLimit = @p3, CheckpointLength = @p4, EstimatedLength = @p5, ActualLength = @p6 WHERE ID = @p0;",
             session.ID,
             session.State,
+            session.Flags,
             session.RateLimit,
             session.CheckpointLength,
             session.EstimatedLength,
