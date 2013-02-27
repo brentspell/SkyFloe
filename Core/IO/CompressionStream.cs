@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 // Project References
 
 namespace SkyFloe.IO
@@ -80,14 +81,10 @@ namespace SkyFloe.IO
          switch (compressMode)
          {
             case CompressionMode.Compress:
-               this.encoder = new LZ4.Compressor();
-               this.streamBuffer = new Byte[
-                  this.encoder.GetMaxCompressedLength(this.readBuffer.Length)
-               ];
+               InitEncode();
                break;
             case CompressionMode.Decompress:
-               this.decoder = new LZ4.Decompressor();
-               this.streamBuffer = new Byte[DefaultBlockSize];
+               InitDecode();
                break;
             default:
                throw new ArgumentException("mode");
@@ -106,6 +103,29 @@ namespace SkyFloe.IO
          if (this.baseStream != null)
             this.baseStream.Dispose();
          this.baseStream = null;
+      }
+      /// <summary>
+      /// Initializes the stream for compression
+      /// </summary>
+      private void InitEncode ()
+      {
+         this.encoder = new LZ4.Compressor();
+         this.streamBuffer = new Byte[
+            BlockHeader.Size +
+            this.encoder.GetMaxCompressedLength(this.readBuffer.Length)
+         ];
+         this.streamLength = StreamHeader.Current.Encode(this.streamBuffer);
+      }
+      /// <summary>
+      /// Initializes the stream for decompression
+      /// </summary>
+      private void InitDecode ()
+      {
+         this.decoder = new LZ4.Decompressor();
+         this.streamBuffer = new Byte[DefaultBlockSize];
+         var header = StreamHeader.Read(this.baseStream);
+         if (!header.IsValid)
+            throw new InvalidOperationException("TODO: invalid compression stream header");
       }
       #endregion
 
@@ -271,28 +291,27 @@ namespace SkyFloe.IO
       private Boolean ReadAndCompress ()
       {
          this.streamOffset = this.streamLength = 0;
-         // attempt to fill a complete block of uncompressed data
-         var blockRead = ReadBlock(this.readBuffer, this.readBuffer.Length);
-         if (blockRead > 0)
+         // read the uncompressed block into the read buffer
+         var decoded = ReadBlock(this.readBuffer, this.readBuffer.Length);
+         if (decoded > 0)
          {
-            // compress the block, leaving room for the length header
+            // compress the block into the stream buffer,
+            // leaving room for the header
             var encoded = Encode(
                this.readBuffer,
                0,
-               blockRead,
+               decoded,
                this.streamBuffer,
-               sizeof(Int32)
+               BlockHeader.Size
             );
             // copy the length header into the stream buffer
-            var lengthData = EncodeBlockLength(encoded);
-            Buffer.BlockCopy(
-               lengthData,
-               0,
-               this.streamBuffer,
-               0,
-               lengthData.Length
-            );
-            this.streamLength += lengthData.Length + encoded;
+            var header = new BlockHeader()
+            {
+               EncodedLength = encoded,
+               DecodedLength = decoded
+            };
+            this.streamLength += header.Encode(this.streamBuffer);
+            this.streamLength += encoded;
             return true;
          }
          return false;
@@ -308,37 +327,66 @@ namespace SkyFloe.IO
       {
          this.streamOffset = this.streamLength = 0;
          // read the encoded block length
-         var blockLength = 0;
-         if (ReadBlockLength(out blockLength))
+         var header = BlockHeader.Read(this.baseStream);
+         if (!header.IsEmpty)
          {
-            // read the whole compressed block
-            if (blockLength > this.readBuffer.Length)
-               Array.Resize(ref this.readBuffer, blockLength);
-            var blockRead = ReadBlock(this.readBuffer, blockLength);
-            if (blockRead != blockLength)
+            // read the compressed block into the read buffer
+            if (header.EncodedLength > this.readBuffer.Length)
+               Array.Resize(ref this.readBuffer, header.EncodedLength);
+            var encoded = ReadBlock(this.readBuffer, header.EncodedLength);
+            if (encoded != header.EncodedLength)
                throw new InvalidOperationException("TODO: invalid block");
             // decompress the block into the stream buffer
-            // . the decoder will return -1 to indicate an overrun,
-            //   so resize the stream buffer when this happens
-            // . repeat until the decoder returns success
-            var decoded = 0;
-            for (; ; )
-            {
-               decoded = Decode(
-                  this.readBuffer,
-                  0,
-                  blockLength,
-                  this.streamBuffer,
-                  0
-               );
-               if (decoded >= 0)
-                  break;
-               Array.Resize(ref this.streamBuffer, this.streamBuffer.Length * 2);
-            }
-            this.streamLength = decoded;
+            if (header.DecodedLength > this.streamBuffer.Length)
+               Array.Resize(ref this.streamBuffer, header.DecodedLength);
+            var decoded = Decode(
+               this.readBuffer,
+               0,
+               header.EncodedLength,
+               this.streamBuffer,
+               0
+            );
+            if (decoded != header.DecodedLength)
+               throw new InvalidOperationException("TODO: invalid block");
+            this.streamLength = header.DecodedLength;
             return true;
          }
          return false;
+      }
+      /// <summary>
+      /// Reads a data block from the underlying stream
+      /// </summary>
+      /// <remarks>
+      /// Some streams (network, etc.) return any data that is available 
+      /// without blocking if there is data to be read. The compression
+      /// stream needs full blocks, so this method repeatedly reads from
+      /// the underlying stream until the buffer is filled or the end
+      /// of the stream is reached.
+      /// </remarks>
+      /// <param name="buffer">
+      /// The read buffer
+      /// </param>
+      /// <param name="maxRead">
+      /// The maximum number of bytes to read
+      /// </param>
+      /// <returns>
+      /// The number of bytes read from the stream
+      /// </returns>
+      private Int32 ReadBlock (Byte[] buffer, Int32 maxRead)
+      {
+         var blockRead = 0;
+         do
+         {
+            var read = this.baseStream.Read(
+               buffer,
+               blockRead,
+               maxRead - blockRead
+            );
+            if (read == 0)
+               break;
+            blockRead += read;
+         } while (blockRead < maxRead);
+         return blockRead;
       }
       #endregion
 
@@ -417,103 +465,269 @@ namespace SkyFloe.IO
       }
       #endregion
 
-      #region Encoding Utilities
       /// <summary>
-      /// Attempts to read a 32-bit big endian block length value
-      /// from the underlying stream
-      /// </summary>
-      /// <param name="value">
-      /// Return the block length via here
-      /// </param>
-      /// <returns>
-      /// True if the value was read
-      /// False if the end of the underlying stream has been read
-      /// </returns>
-      private Boolean ReadBlockLength (out Int32 value)
-      {
-         Byte[] bytes = new Byte[4];
-         Int32 read = this.baseStream.Read(bytes, 0, bytes.Length);
-         if (read != 0)
-         {
-            if (read != bytes.Length)
-               throw new InvalidOperationException("TODO: data truncation");
-            value = DecodeBlockLength(bytes);
-            return true;
-         }
-         value = 0;
-         return false;
-      }
-      /// <summary>
-      /// Reads a data block from the underlying stream
+      /// Compression stream header
       /// </summary>
       /// <remarks>
-      /// Some streams (network, etc.) return any data that is available 
-      /// without blocking if there is data to be read. The compression
-      /// stream needs full blocks, so this method repeatedly reads from
-      /// the underlying stream until the buffer is filled or the end
-      /// of the stream is reached.
+      /// This structure contains information for an entire
+      /// compressed stream, including versioning.
       /// </remarks>
-      /// <param name="buffer">
-      /// The read buffer
-      /// </param>
-      /// <param name="maxRead">
-      /// The maximum number of bytes to read
-      /// </param>
-      /// <returns>
-      /// The number of bytes read from the stream
-      /// </returns>
-      private Int32 ReadBlock (Byte[] buffer, Int32 maxRead)
+      public struct StreamHeader
       {
-         var blockRead = 0;
-         do
+         public const Int32 Size = 4;
+         public const Byte CurrentVersion = 1;
+         public static readonly Byte[] CurrentSignature = Encoding.ASCII.GetBytes("LZ4");
+         public static readonly StreamHeader Empty = new StreamHeader();
+         public static readonly StreamHeader Current = new StreamHeader()
          {
-            var read = this.baseStream.Read(
-               buffer,
-               blockRead,
-               maxRead - blockRead
-            );
-            if (read == 0)
-               break;
-            blockRead += read;
-         } while (blockRead < maxRead);
-         return blockRead;
-      }
-      /// <summary>
-      /// Converts a block length value to storage format (big endian)
-      /// </summary>
-      /// <param name="value">
-      /// The block length
-      /// </param>
-      /// <returns>
-      /// The encoded block length
-      /// </returns>
-      private Byte[] EncodeBlockLength (Int32 value)
-      {
-         return new[]
-         {
-            (Byte)(value >> 24),
-            (Byte)(value >> 16),
-            (Byte)(value >> 8),
-            (Byte)(value >> 0)
+            Signature = CurrentSignature,
+            Version = CurrentVersion
          };
+
+         /// <summary>
+         /// The stream signature
+         /// </summary>
+         public Byte[] Signature { get; set; }
+         /// <summary>
+         /// The current stream version
+         /// </summary>
+         public Byte Version { get; set; }
+         /// <summary>
+         /// Indicates whether the header is empty
+         /// </summary>
+         public Boolean IsEmpty
+         {
+            get { return this.Signature == null; }
+         }
+         /// <summary>
+         /// Validate the header
+         /// </summary>
+         public Boolean IsValid
+         {
+            get
+            {
+               if (this.Signature == null)
+                  return false;
+               if (!Enumerable.SequenceEqual(this.Signature, CurrentSignature))
+                  return false;
+               if (this.Version != CurrentVersion)
+                  return false;
+               return true;
+            }
+         }
+
+         /// <summary>
+         /// Serializes the stream header to a buffer
+         /// </summary>
+         /// <returns>
+         /// The serialized stream header
+         /// </returns>
+         public Byte[] Encode ()
+         {
+            Byte[] buffer = new Byte[Size];
+            Encode(buffer);
+            return buffer;
+         }
+         /// <summary>
+         /// Serializes the stream header to a buffer
+         /// </summary>
+         /// <param name="buffer">
+         /// The buffer to write
+         /// </param>
+         /// <returns>
+         /// The number of bytes written
+         /// </returns>
+         public Int32 Encode (Byte[] buffer)
+         {
+            if (buffer.Length < Size)
+               throw new ArgumentException("buffer");
+            buffer[0] = this.Signature[0];
+            buffer[1] = this.Signature[1];
+            buffer[2] = this.Signature[2];
+            buffer[3] = this.Version;
+            return Size;
+         }
+         /// <summary>
+         /// Deserializes a stream header from a buffer
+         /// </summary>
+         /// <param name="buffer">
+         /// The serialized stream header
+         /// </param>
+         /// <returns>
+         /// The deserialized stream header
+         /// </returns>
+         public static StreamHeader Decode (Byte[] buffer)
+         {
+            if (buffer.Length < Size)
+               throw new ArgumentException("buffer");
+            return new StreamHeader()
+            {
+               Signature = new [] { buffer[0], buffer[1], buffer[2] },
+               Version = buffer[3]
+            };
+         }
+         /// <summary>
+         /// Deserializes a stream header from a stream
+         /// </summary>
+         /// <param name="stream">
+         /// The stream to read
+         /// </param>
+         /// <returns>
+         /// A valid stream header if successful
+         /// An empty header if the end of stream was reached
+         /// </returns>
+         public static StreamHeader Read (Stream stream)
+         {
+            var buffer = new Byte[Size];
+            var read = stream.Read(buffer, 0, buffer.Length);
+            if (read > 0)
+            {
+               if (read != Size)
+                  throw new InvalidOperationException("TODO: invalid stream");
+               return Decode(buffer);
+            }
+            return StreamHeader.Empty;
+         }
+         /// <summary>
+         /// Serializes the stream header to a stream
+         /// </summary>
+         /// <param name="stream">
+         /// The stream to write
+         /// </param>
+         public void Write (Stream stream)
+         {
+            if (this.IsEmpty)
+               throw new InvalidOperationException("TODO: invalid header");
+            stream.Write(Encode(), 0, Size);
+         }
       }
+
       /// <summary>
-      /// Converts a block length from storage format to runtime format
+      /// Compression stream block header
       /// </summary>
-      /// <param name="bytes">
-      /// The encoded block length
-      /// </param>
-      /// <returns>
-      /// The block length value
-      /// </returns>
-      private Int32 DecodeBlockLength (Byte[] bytes)
+      /// <remarks>
+      /// This structure contains length information for each compressed 
+      /// block within an encoded stream. It also provides for 
+      /// platform-independent serialization of the lengths in big-endian
+      /// format.
+      /// </remarks>
+      private struct BlockHeader
       {
-         return
-            ((Int32)bytes[0] << 24) |
-            ((Int32)bytes[1] << 16) |
-            ((Int32)bytes[2] << 8) |
-            ((Int32)bytes[3] << 0);
+         public const Int32 Size = 8;
+         public static readonly BlockHeader Empty = new BlockHeader();
+
+         /// <summary>
+         /// The size of the compressed data block
+         /// </summary>
+         public Int32 EncodedLength { get; set; }
+         /// <summary>
+         /// The size of the original data block
+         /// </summary>
+         public Int32 DecodedLength { get; set; }
+         /// <summary>
+         /// Indicates whether the header is empty
+         /// </summary>
+         public Boolean IsEmpty
+         { 
+            get { return this.EncodedLength == 0 && this.DecodedLength == 0; }
+         }
+
+         /// <summary>
+         /// Serializes the block header to a buffer
+         /// </summary>
+         /// <returns>
+         /// The serialized block header
+         /// </returns>
+         public Byte[] Encode ()
+         {
+            Byte[] buffer = new Byte[Size];
+            Encode(buffer);
+            return buffer;
+         }
+         /// <summary>
+         /// Serializes the block header to a buffer
+         /// </summary>
+         /// <param name="buffer">
+         /// The buffer to write
+         /// </param>
+         /// <returns>
+         /// The number of bytes written
+         /// </returns>
+         public Int32 Encode (Byte[] buffer)
+         {
+            if (buffer.Length < Size)
+               throw new ArgumentException("buffer");
+            buffer[0] = (Byte)(this.EncodedLength >> 24);
+            buffer[1] = (Byte)(this.EncodedLength >> 16);
+            buffer[2] = (Byte)(this.EncodedLength >> 8);
+            buffer[3] = (Byte)(this.EncodedLength >> 0);
+            buffer[4] = (Byte)(this.DecodedLength >> 24);
+            buffer[5] = (Byte)(this.DecodedLength >> 16);
+            buffer[6] = (Byte)(this.DecodedLength >> 8);
+            buffer[7] = (Byte)(this.DecodedLength >> 0);
+            return Size;
+         }
+         /// <summary>
+         /// Deserializes a block header from a buffer
+         /// </summary>
+         /// <param name="buffer">
+         /// The serialized block header
+         /// </param>
+         /// <returns>
+         /// The deserialized block header
+         /// </returns>
+         public static BlockHeader Decode (Byte[] buffer)
+         {
+            if (buffer.Length < Size)
+               throw new ArgumentException("buffer");
+            return new BlockHeader()
+            {
+               EncodedLength =
+                  ((Int32)buffer[0] << 24) |
+                  ((Int32)buffer[1] << 16) |
+                  ((Int32)buffer[2] << 8) |
+                  ((Int32)buffer[3] << 0),
+               DecodedLength =
+                  ((Int32)buffer[4] << 24) |
+                  ((Int32)buffer[5] << 16) |
+                  ((Int32)buffer[6] << 8) |
+                  ((Int32)buffer[7] << 0)
+            };
+         }
+         /// <summary>
+         /// Deserializes a block header from a stream
+         /// </summary>
+         /// <param name="stream">
+         /// The stream to read
+         /// </param>
+         /// <returns>
+         /// A valid block header if successful
+         /// An empty header if the end of stream was reached
+         /// </returns>
+         public static BlockHeader Read (Stream stream)
+         {
+            var buffer = new Byte[Size];
+            var read = stream.Read(buffer, 0, buffer.Length);
+            if (read > 0)
+            {
+               if (read != Size)
+                  throw new InvalidOperationException("TODO: invalid stream");
+               return Decode(buffer);
+            }
+            return BlockHeader.Empty;
+         }
+         /// <summary>
+         /// Serializes the block header to a stream
+         /// </summary>
+         /// <param name="stream">
+         /// The stream to write
+         /// </param>
+         public void Write (Stream stream)
+         {
+            if (this.IsEmpty)
+               throw new InvalidOperationException("TODO: invalid header");
+            stream.Write(Encode(), 0, Size);
+         }
       }
-      #endregion
    }
 }
