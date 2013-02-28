@@ -48,6 +48,8 @@ namespace SkyFloe.IO
       /// </param>
       public FilterStream (Stream baseStream)
       {
+         if (baseStream == null)
+            throw new ArgumentException("baseStream");
          this.baseStream = baseStream;
       }
       /// <summary>

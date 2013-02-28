@@ -239,7 +239,7 @@ namespace SkyFloe.Backup
       {
          if (args.Action == "CreateBackupEntry")
          {
-            Console.WriteLine("   Registering {0}.", args.BackupEntry.Node.GetAbsolutePath());
+            Console.WriteLine("   Adding {0}.", args.BackupEntry.Node.GetAbsolutePath());
          }
          if (args.Action == "BeginBackupEntry")
          {

@@ -76,6 +76,8 @@ namespace SkyFloe.IO
       /// </param>
       public CompressionStream (Stream baseStream, CompressionMode compressMode)
       {
+         if (baseStream == null)
+            throw new ArgumentNullException("baseStream");
          this.baseStream = baseStream;
          this.readBuffer = new Byte[DefaultBlockSize];
          switch (compressMode)
@@ -125,7 +127,7 @@ namespace SkyFloe.IO
          this.streamBuffer = new Byte[DefaultBlockSize];
          var header = StreamHeader.Read(this.baseStream);
          if (!header.IsValid)
-            throw new InvalidOperationException("TODO: invalid compression stream header");
+            throw new DataException();
       }
       #endregion
 
@@ -335,7 +337,7 @@ namespace SkyFloe.IO
                Array.Resize(ref this.readBuffer, header.EncodedLength);
             var encoded = ReadBlock(this.readBuffer, header.EncodedLength);
             if (encoded != header.EncodedLength)
-               throw new InvalidOperationException("TODO: invalid block");
+               throw new DataException();
             // decompress the block into the stream buffer
             if (header.DecodedLength > this.streamBuffer.Length)
                Array.Resize(ref this.streamBuffer, header.DecodedLength);
@@ -347,7 +349,7 @@ namespace SkyFloe.IO
                0
             );
             if (decoded != header.DecodedLength)
-               throw new InvalidOperationException("TODO: invalid block");
+               throw new DataException();
             this.streamLength = header.DecodedLength;
             return true;
          }
@@ -583,7 +585,7 @@ namespace SkyFloe.IO
             if (read > 0)
             {
                if (read != Size)
-                  throw new InvalidOperationException("TODO: invalid stream");
+                  throw new DataException();
                return Decode(buffer);
             }
             return StreamHeader.Empty;
@@ -597,7 +599,7 @@ namespace SkyFloe.IO
          public void Write (Stream stream)
          {
             if (this.IsEmpty)
-               throw new InvalidOperationException("TODO: invalid header");
+               throw new DataException();
             stream.Write(Encode(), 0, Size);
          }
       }
@@ -711,7 +713,7 @@ namespace SkyFloe.IO
             if (read > 0)
             {
                if (read != Size)
-                  throw new InvalidOperationException("TODO: invalid stream");
+                  throw new DataException();
                return Decode(buffer);
             }
             return BlockHeader.Empty;
@@ -725,8 +727,60 @@ namespace SkyFloe.IO
          public void Write (Stream stream)
          {
             if (this.IsEmpty)
-               throw new InvalidOperationException("TODO: invalid header");
+               throw new DataException();
             stream.Write(Encode(), 0, Size);
+         }
+      }
+
+      /// <summary>
+      /// Invalid compressed data exception
+      /// </summary>
+      [Serializable]
+      public class DataException : Exception
+      {
+         /// <summary>
+         /// Initializes a new exception instance
+         /// </summary>
+         public DataException () : base("TODO: invalid data exception")
+         {
+         }
+         /// <summary>
+         /// Initializes a new exception instance
+         /// </summary>
+         /// <param name="message">
+         /// Custom exception message
+         /// </param>
+         public DataException (String message)
+            : base(message)
+         {
+         }
+         /// <summary>
+         /// Initializes a new exception instance
+         /// </summary>
+         /// <param name="message">
+         /// Custom exception message
+         /// </param>
+         /// <param name="inner">
+         /// Inner exception instance
+         /// </param>
+         public DataException (String message, Exception inner)
+            : base(message, inner)
+         {
+         }
+         /// <summary>
+         /// Initializes a new exception instance
+         /// </summary>
+         /// <param name="info">
+         /// Serialization properties
+         /// </param>
+         /// <param name="context">
+         /// Serialization context
+         /// </param>
+         protected DataException (
+            System.Runtime.Serialization.SerializationInfo info,
+            System.Runtime.Serialization.StreamingContext context)
+            : base(info, context)
+         {
          }
       }
    }

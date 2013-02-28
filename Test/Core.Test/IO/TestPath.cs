@@ -693,12 +693,9 @@ namespace Core.Test.IO
       }
       private void AssertException (Action a)
       {
-         try
-         { 
-            a();
-            Assert.Fail("Expected: exception");
-         }
-         catch { }
+         try { a(); }
+         catch { return; }
+         Assert.Fail("Expected: exception");
       }
    }
 }

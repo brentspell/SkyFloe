@@ -45,6 +45,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="IO\TestPath.cs" />
+    <Compile Include="IO\TestCompressionStream.cs" />
+    <Compile Include="IO\TestFilterStream.cs" />
+    <Compile Include="IO\TestSubstream.cs" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>

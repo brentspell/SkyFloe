@@ -26,7 +26,7 @@ namespace SkyFloe
       #region IRestore Implementation
       public Stream Restore (Restore.Entry entry)
       {
-         return new IO.SubStream(this.blobFile, entry.Offset, entry.Length);
+         return new IO.Substream(this.blobFile, entry.Offset, entry.Length);
       }
       #endregion
    }

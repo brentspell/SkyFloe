@@ -92,7 +92,7 @@ namespace SkyFloe.Aws
             throw new InvalidOperationException("TODO: stream not found");
          try
          {
-            return new IO.SubStream(stream, offset, length);
+            return new IO.Substream(stream, offset, length);
          }
          catch
          {

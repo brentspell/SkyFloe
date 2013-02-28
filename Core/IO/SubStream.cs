@@ -35,7 +35,7 @@ namespace SkyFloe.IO
    /// exposing a contiguous sub-region of the stream's bytes as a new 
    /// stream.
    /// </remarks>
-   public class SubStream : Stream
+   public class Substream : Stream
    {
       private Stream baseStream;
       private Int64 offset;
@@ -49,8 +49,10 @@ namespace SkyFloe.IO
       /// </param>
       /// <param name="offset"></param>
       /// <param name="length"></param>
-      public SubStream (Stream baseStream, Int64 offset, Int64 length)
+      public Substream (Stream baseStream, Int64 offset, Int64 length)
       {
+         if (baseStream == null)
+            throw new ArgumentNullException("baseStream");
          if (!baseStream.CanRead || !baseStream.CanSeek)
             throw new ArgumentException("stream");
          if (offset < 0)
@@ -74,7 +76,7 @@ namespace SkyFloe.IO
       /// True to release both managed and unmanaged resources
       /// False to release only unmanaged resources
       /// </param>
-      protected override void Dispose (bool disposing)
+      protected override void Dispose (Boolean disposing)
       {
          // do not dispose the base stream - substreams only attach shared
          base.Dispose(disposing);
@@ -145,7 +147,7 @@ namespace SkyFloe.IO
             case SeekOrigin.Begin:
                return this.baseStream.Seek(this.offset + offset, origin) - this.offset;
             case SeekOrigin.End:
-               return this.baseStream.Seek(this.offset + this.length + offset, origin) - this.offset;
+               return this.baseStream.Seek(this.length + this.offset + offset, SeekOrigin.Begin) - this.offset;
             case SeekOrigin.Current:
                return this.baseStream.Seek(offset, origin) - this.offset;
             default:
@@ -169,14 +171,11 @@ namespace SkyFloe.IO
       /// </returns>
       public override Int32 Read (Byte[] buffer, Int32 offset, Int32 count)
       {
-         return this.baseStream.Read(
-            buffer, 
-            offset,
-            (Int32)Math.Min(
-               count,
-               this.length - (this.baseStream.Position - this.offset)
-            )
+         var read = (Int32)Math.Min(
+            count,
+            this.length - (this.baseStream.Position - this.offset)
          );
+         return read > 0 ? this.baseStream.Read(buffer, offset, read) : 0;
       }
       /// <summary>
       /// Writes to the underlying stream
