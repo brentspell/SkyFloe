@@ -48,6 +48,9 @@
     <Compile Include="IO\TestCompressionStream.cs" />
     <Compile Include="IO\TestFilterStream.cs" />
     <Compile Include="IO\TestSubstream.cs" />
+    <Compile Include="IO\TestCrcFilter.cs" />
+    <Compile Include="IO\TestStreamStack.cs" />
+    <Compile Include="IO\TestRateLimiter.cs" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>

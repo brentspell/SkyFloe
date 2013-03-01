@@ -1,5 +1,5 @@
 ﻿//===========================================================================
-// MODULE:  Crc32Filter.cs
+// MODULE:  CrcFilter.cs
 // PURPOSE: CRC calculating stream filter
 // 
 // Copyright © 2013
@@ -38,7 +38,7 @@ namespace SkyFloe.IO
    /// (0xEDB88320 in little endian).
    /// </remarks>
    [CLSCompliant(false)]
-   public class Crc32Filter : FilterStream
+   public class CrcFilter : FilterStream
    {
       public const UInt32 InitialValue = 0xFFFFFFFF;
       private const UInt32 Polynomial = 0xEDB88320;
@@ -48,7 +48,7 @@ namespace SkyFloe.IO
       /// <summary>
       /// Initializes the CRC calculation tables
       /// </summary>
-      static Crc32Filter ()
+      static CrcFilter ()
       {
          for (var i = 0u; i < table.Length; i++)
          {
@@ -70,7 +70,7 @@ namespace SkyFloe.IO
       /// <param name="baseStream">
       /// The base stream to attach
       /// </param>
-      public Crc32Filter (Stream baseStream) : base(baseStream)
+      public CrcFilter (Stream baseStream) : base(baseStream)
       {
          this.value = InitialValue;
       }

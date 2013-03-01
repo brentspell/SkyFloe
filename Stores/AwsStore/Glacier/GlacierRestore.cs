@@ -101,7 +101,7 @@ namespace SkyFloe.Aws
                   this.archive.RestoreIndex.UpdateRetrieval(retrieval);
                   if (retrieval.ID == entry.Retrieval.ID)
                      entry.Retrieval = retrieval;
-                  this.retrievalLimiter.Register(retrieval.Length);
+                  this.retrievalLimiter.Process(retrieval.Length);
                }
             }
             foreach (var retrieval in this.archive.RestoreIndex

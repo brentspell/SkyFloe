@@ -93,18 +93,19 @@ namespace SkyFloe.Tasks
             {
                if (backupEntry.State != SkyFloe.Backup.EntryState.Deleted)
                {
-                  using (var fileStream = IO.FileSystem.Truncate(path))
-                  using (var crcFilter = new IO.Crc32Filter(fileStream))
-                  using (var limiterFilter = this.limiter.CreateStreamFilter(crcFilter))
-                  using (var archiveFilter = this.restore.Restore(restoreEntry))
-                  using (var cryptoFilter = new CryptoStream(archiveFilter, this.Crypto.CreateDecryptor(), CryptoStreamMode.Read))
-                  using (var compressor = backupEntry.Session.Compress ? new IO.CompressionStream(cryptoFilter, IO.CompressionMode.Decompress) : (Stream)cryptoFilter)
+                  using (var input = new IO.StreamStack())
+                  using (var output = IO.FileSystem.Truncate(path))
                   {
-                     compressor.CopyTo(limiterFilter);
-                     limiterFilter.Flush();
-                     if (this.Session.VerifyResults && crcFilter.Value != backupEntry.Crc32)
-                        throw new InvalidOperationException("TODO: CRC does not match");
+                     input.Push(this.restore.Restore(restoreEntry));
+                     input.Push(this.limiter.CreateStreamFilter(input.Top));
+                     input.Push(new CryptoStream(input.Top, this.Crypto.CreateDecryptor(), CryptoStreamMode.Read));
+                     if (backupEntry.Session.Compress)
+                        input.Push(new IO.CompressionStream(input.Top, IO.CompressionMode.Decompress));
+                     input.CopyTo(output);
                   }
+                  if (this.Session.VerifyResults)
+                     if (IO.CrcFilter.Calculate(path) != backupEntry.Crc32)
+                        throw new InvalidOperationException("TODO: CRC does not match");
                }
                else if (this.Session.EnableDeletes)
                {
@@ -118,10 +119,6 @@ namespace SkyFloe.Tasks
                   this.Archive.RestoreIndex.UpdateSession(this.Session);
                   txn.Complete();
                }
-            }
-            catch (OperationCanceledException)
-            {
-               throw;
             }
             catch (Exception e)
             {

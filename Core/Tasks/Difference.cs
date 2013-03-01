@@ -139,7 +139,7 @@ namespace SkyFloe.Tasks
                      case DiffMethod.Digest:
                         isChanged = TryExecute(
                            "CalculateCrc",
-                           () => IO.Crc32Filter.Calculate(path.ToString()) != entry.Crc32
+                           () => IO.CrcFilter.Calculate(path.ToString()) != entry.Crc32
                         );
                         break;
                   }

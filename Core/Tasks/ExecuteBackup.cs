@@ -80,14 +80,16 @@ namespace SkyFloe.Tasks
          );
          try
          {
-            using (var fileStream = IO.FileSystem.Open(entry.Node.GetAbsolutePath()))
-            using (var crcFilter = new IO.Crc32Filter(fileStream))
-            using (var compressor = this.Session.Compress ? new IO.CompressionStream(crcFilter, IO.CompressionMode.Compress) : (Stream)crcFilter)
-            using (var cryptoFilter = new CryptoStream(compressor, this.Crypto.CreateEncryptor(), CryptoStreamMode.Read))
-            using (var limiterFilter = this.limiter.CreateStreamFilter(cryptoFilter))
+            using (var input = new IO.StreamStack())
             {
-               this.backup.Backup(entry, limiterFilter);
-               entry.Crc32 = crcFilter.Value;
+               input.Push(IO.FileSystem.Open(entry.Node.GetAbsolutePath()));
+               input.Push(new IO.CrcFilter(input.Top));
+               if (this.Session.Compress)
+                  input.Push(new IO.CompressionStream(input.Top, IO.CompressionMode.Compress));
+               input.Push(new CryptoStream(input.Top, this.Crypto.CreateEncryptor(), CryptoStreamMode.Read));
+               input.Push(this.limiter.CreateStreamFilter(input.Top));
+               this.backup.Backup(entry, input);
+               entry.Crc32 = input.GetStream<IO.CrcFilter>().Value;
             }
             entry.State = SkyFloe.Backup.EntryState.Completed;
             entry.Blob.Length += entry.Length;
@@ -99,10 +101,6 @@ namespace SkyFloe.Tasks
                this.Archive.BackupIndex.UpdateSession(this.Session);
                txn.Complete();
             }
-         }
-         catch (OperationCanceledException)
-         {
-            throw;
          }
          catch (Exception e)
          {

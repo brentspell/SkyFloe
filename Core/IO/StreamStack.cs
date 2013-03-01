@@ -1,6 +1,6 @@
 ﻿//===========================================================================
-// MODULE:  Substream.cs
-// PURPOSE: stream subset wrapper
+// MODULE:  StreamStack.cs
+// PURPOSE: composite stream stack
 // 
 // Copyright © 2013
 // Brent M. Spell. All rights reserved.
@@ -28,49 +28,59 @@ using System.Linq;
 namespace SkyFloe.IO
 {
    /// <summary>
-   /// Stream byte subset stream
+   /// composite stream stack stream
    /// </summary>
    /// <remarks>
-   /// This stream encapsulates a read-only random access base stream, 
-   /// exposing a contiguous sub-region of the stream's bytes as a new 
-   /// stream.
+   /// This class encapsulates a stack of stream instances used to provide 
+   /// sequential layered stream processing (compression, encryption, etc.). 
+   /// It simplfies composite stream usage (avoiding long lists of usings) 
+   /// and ensures consistent disposal semantics.
+   /// The stack can be either read-only or write-only, dependening on the
+   /// semantics of the stream on top of the stack.
    /// </remarks>
-   public class Substream : Stream
+   public class StreamStack : Stream
    {
-      private Stream baseStream;
-      private Int64 offset;
-      private Int64 length;
+      private Stack<Stream> streams = new Stack<Stream>();
 
+      #region Stack Operations
       /// <summary>
-      /// Initializes a new stream instance
+      /// Retrieves the last element added to the stream stack
       /// </summary>
-      /// <param name="baseStream">
-      /// The underlying stream to attach
-      /// </param>
-      /// <param name="offset"></param>
-      /// <param name="length"></param>
-      public Substream (Stream baseStream, Int64 offset, Int64 length)
+      public Stream Top
       {
-         if (baseStream == null)
-            throw new ArgumentNullException("baseStream");
-         if (!baseStream.CanRead || !baseStream.CanSeek)
-            throw new ArgumentException("stream");
-         if (offset < 0)
-            throw new ArgumentOutOfRangeException("offset");
-         if (length < 0)
-            throw new ArgumentOutOfRangeException("length");
-         var streamLen = baseStream.Length;
-         if (offset > streamLen)
-            throw new ArgumentOutOfRangeException("offset");
-         if (offset + length > streamLen)
-            throw new ArgumentOutOfRangeException("length");
-         this.baseStream = baseStream;
-         this.offset = offset;
-         this.length = length;
-         this.baseStream.Position = this.offset;
+         get { return this.streams.Any() ? this.streams.Peek() : null; }
       }
       /// <summary>
-      /// Disposes the underlying stream
+      /// Retrieves a stream in the stack by type
+      /// </summary>
+      /// <typeparam name="T">
+      /// The type of stream to retrieve
+      /// </typeparam>
+      /// <returns>
+      /// The requested stream, if found
+      /// Null otherwise
+      /// </returns>
+      public T GetStream<T> () where T : Stream
+      {
+         return this.streams.OfType<T>().FirstOrDefault();
+      }
+      /// <summary>
+      /// Adds a stream to the stack
+      /// </summary>
+      /// <param name="stream">
+      /// The stream to add
+      /// </param>
+      public void Push (Stream stream)
+      {
+         if (stream == null)
+            throw new ArgumentNullException("stream");
+         this.streams.Push(stream);
+      }
+      #endregion
+
+      #region Stream Overrides
+      /// <summary>
+      /// Disposes the underlying streams
       /// </summary>
       /// <param name="disposing">
       /// True to release both managed and unmanaged resources
@@ -78,45 +88,45 @@ namespace SkyFloe.IO
       /// </param>
       protected override void Dispose (Boolean disposing)
       {
-         // do not dispose the base stream - substreams only attach shared
          base.Dispose(disposing);
-         this.baseStream = null;
+         while (this.streams.Any())
+            this.streams.Pop().Dispose();
       }
       /// <summary>
       /// Indicates whether the stream supports random access
       /// </summary>
       public override Boolean CanSeek
       {
-         get { return true; }
+         get { return false; }
       }
       /// <summary>
       /// Indicates whether the stream is open for reading
       /// </summary>
       public override Boolean CanRead
       {
-         get { return true; }
+         get { return this.streams.Any() ? this.streams.Peek().CanRead : false; }
       }
       /// <summary>
       /// Indicates whether the stream is open for writing
       /// </summary>
       public override Boolean CanWrite
       {
-         get { return false; }
+         get { return this.streams.Any() ? this.streams.Peek().CanWrite : false; }
       }
       /// <summary>
       /// Gets/sets the current stream absolute position
       /// </summary>
       public override Int64 Position
       {
-         get { return this.baseStream.Position - this.offset; }
-         set { Seek(value, SeekOrigin.Begin); }
+         get { throw new NotSupportedException(); }
+         set { throw new NotSupportedException(); }
       }
       /// <summary>
       /// Gets the length of the stream
       /// </summary>
       public override Int64 Length
       {
-         get { return this.length; }
+         get { throw new NotSupportedException(); }
       }
       /// <summary>
       /// Sets the length of the stream
@@ -142,17 +152,7 @@ namespace SkyFloe.IO
       /// </returns>
       public override Int64 Seek (Int64 offset, SeekOrigin origin)
       {
-         switch (origin)
-         {
-            case SeekOrigin.Begin:
-               return this.baseStream.Seek(this.offset + offset, origin) - this.offset;
-            case SeekOrigin.End:
-               return this.baseStream.Seek(this.length + this.offset + offset, SeekOrigin.Begin) - this.offset;
-            case SeekOrigin.Current:
-               return this.baseStream.Seek(offset, origin) - this.offset;
-            default:
-               throw new ArgumentException("origin");
-         }
+         throw new NotSupportedException();
       }
       /// <summary>
       /// Reads from the underlying stream sub-region
@@ -171,11 +171,9 @@ namespace SkyFloe.IO
       /// </returns>
       public override Int32 Read (Byte[] buffer, Int32 offset, Int32 count)
       {
-         var read = (Int32)Math.Min(
-            count,
-            this.length - (this.baseStream.Position - this.offset)
-         );
-         return read > 0 ? this.baseStream.Read(buffer, offset, read) : 0;
+         if (!this.streams.Any())
+            throw new InvalidOperationException("TODO: no streams attached");
+         return this.streams.Peek().Read(buffer, offset, count);
       }
       /// <summary>
       /// Writes to the underlying stream
@@ -191,13 +189,18 @@ namespace SkyFloe.IO
       /// </param>
       public override void Write (Byte[] buffer, Int32 offset, Int32 count)
       {
-         throw new NotSupportedException();
+         if (!this.streams.Any())
+            throw new InvalidOperationException("TODO: no streams attached");
+         this.streams.Peek().Write(buffer, offset, count);
       }
       /// <summary>
       /// Flushes any outstanding changes to the underlying stream
       /// </summary>
       public override void Flush ()
       {
+         if (this.streams.Any())
+            this.streams.Peek().Flush();
       }
+      #endregion
    }
 }

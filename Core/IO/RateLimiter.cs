@@ -21,6 +21,7 @@
 // System References
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -41,8 +42,9 @@ namespace SkyFloe.IO
    /// </remarks>
    public class RateLimiter
    {
+      private static ITimer limiterTimer = new RealTimer();
       private Int32 rateLimit;
-      private DateTime started;
+      private Int32 startTime;
       private Int64 currentBytes;
       private Int64 totalBytes;
 
@@ -57,10 +59,17 @@ namespace SkyFloe.IO
          if (rateLimit < 1)
             throw new ArgumentOutOfRangeException("rateLimit");
          this.rateLimit = rateLimit;
-         this.started = DateTime.UtcNow;
+         this.startTime = limiterTimer.Seconds;
          this.totalBytes = 0;
       }
 
+      /// <summary>
+      /// Assigns the global timer implementation, for mocking
+      /// </summary>
+      public static ITimer Timer
+      {
+         set { limiterTimer = value; }
+      }
       /// <summary>
       /// Indicates whether the current rate is within the limit
       /// </summary>
@@ -76,7 +85,7 @@ namespace SkyFloe.IO
       /// <param name="bytes">
       /// The number of bytes processed
       /// </param>
-      public void Register (Int64 bytes)
+      public void Process (Int64 bytes)
       {
          this.currentBytes += bytes;
       }
@@ -87,7 +96,7 @@ namespace SkyFloe.IO
       {
          var delay = GetDelay();
          if (delay > 0)
-            Thread.Sleep(delay * 1000);
+            limiterTimer.Sleep(delay);
       }
       /// <summary>
       /// Records a processing event and throttles if necessary
@@ -95,9 +104,9 @@ namespace SkyFloe.IO
       /// <param name="bytes">
       /// The number of bytes processed
       /// </param>
-      public void RegisterAndThrottle (Int64 bytes)
+      public void ProcessAndThrottle (Int64 bytes)
       {
-         Register(bytes);
+         Process(bytes);
          Throttle();
       }
       /// <summary>
@@ -126,13 +135,13 @@ namespace SkyFloe.IO
          // in order to avoid thrashing the kernel for fine-grained calls, 
          // only retrieve the current time once we have processed at
          // least one second's bytes (or if no throttling has been done yet)
-         if (this.currentBytes == 0 || this.currentBytes > this.rateLimit)
+         if (this.currentBytes == 0 || this.currentBytes >= this.rateLimit)
          {
             this.totalBytes += this.currentBytes;
             this.currentBytes = 0;
             // calculate the expected number of bytes and
             // return a delay if the actual number is greater
-            var duration = (Int32)(DateTime.UtcNow - this.started).TotalSeconds;
+            var duration = limiterTimer.Seconds - this.startTime;
             var limitBytes = (Int64)this.rateLimit * duration;
             if (this.totalBytes > limitBytes)
                return (Int32)(this.totalBytes - limitBytes) / this.rateLimit;
@@ -179,7 +188,51 @@ namespace SkyFloe.IO
          /// </param>
          protected override void Filter (Byte [] buffer, Int32 offset, Int32 count)
          {
-            this.limiter.RegisterAndThrottle(count);
+            this.limiter.ProcessAndThrottle(count);
+         }
+      }
+
+      /// <summary>
+      /// Rate limiter time interface
+      /// </summary>
+      public interface ITimer
+      {
+         /// <summary>
+         /// Samples the current number of seconds since startup
+         /// </summary>
+         Int32 Seconds { get; }
+         /// <summary>
+         /// Delays processing for a number of seconds
+         /// </summary>
+         void Sleep (Int32 seconds);
+      }
+
+      /// <summary>
+      /// The default runtime timer implementation
+      /// </summary>
+      private class RealTimer : ITimer
+      {
+         private Int64 epoch = Stopwatch.GetTimestamp();
+
+         /// <summary>
+         /// The current sample time, in seconds since startup
+         /// </summary>
+         public Int32 Seconds
+         {
+            get
+            {
+               // calculate the offset from startup
+               // account for 64-bit rollover in the stopwatch
+               var stamp = Stopwatch.GetTimestamp();
+               var diff = (stamp > epoch) ?
+                  stamp - epoch :
+                  Int64.MaxValue - epoch + stamp;
+               return (Int32)(diff / Stopwatch.Frequency);
+            }
+         }
+         public void Sleep (Int32 seconds)
+         {
+            Thread.Sleep(TimeSpan.FromSeconds(seconds));
          }
       }
    }

@@ -98,7 +98,7 @@ namespace SkyFloe.Tasks
                               Backup.EntryState.Deleted,
                            Offset = -1,
                            Length = IO.FileSystem.GetMetadata(diff.Node.GetAbsolutePath()).Length,
-                           Crc32 = IO.Crc32Filter.InitialValue
+                           Crc32 = IO.CrcFilter.InitialValue
                         }
                      );
                      ReportProgress(

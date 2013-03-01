@@ -38,7 +38,7 @@ namespace SkyFloe.IO
    /// </remarks>
    public class FilterStream : Stream
    {
-      Stream baseStream;
+      private Stream baseStream;
 
       /// <summary>
       /// Initializes a new stream instance

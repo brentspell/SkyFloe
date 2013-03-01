@@ -45,11 +45,12 @@
     <Compile Include="IO\LZ4\Utility.cs" />
     <Compile Include="IO\Path.cs" />
     <Compile Include="IO\RateLimiter.cs" />
+    <Compile Include="IO\StreamStack.cs" />
     <Compile Include="Options\Options.cs" />
     <Compile Include="Request\BackupRequest.cs" />
     <Compile Include="Connection.cs" />
     <Compile Include="Engine.cs" />
-    <Compile Include="IO\Crc32Filter.cs" />
+    <Compile Include="IO\CrcFilter.cs" />
     <Compile Include="IO\Substream.cs" />
     <Compile Include="Backup\Blob.cs" />
     <Compile Include="Backup\Entry.cs" />
