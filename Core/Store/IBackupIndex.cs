@@ -21,8 +21,8 @@
 // System References
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
+using Stream = System.IO.Stream;
 // Project References
 using SkyFloe.Backup;
 

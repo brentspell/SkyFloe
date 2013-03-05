@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Threading;
 using System.Transactions;
 
 namespace SkyFloe.Tasks
@@ -104,7 +101,7 @@ namespace SkyFloe.Tasks
                      ReportProgress(
                         new Engine.ProgressEventArgs()
                         {
-                           Action = "CreateBackupEntry",
+                           Operation = "CreateBackupEntry",
                            BackupSession = session,
                            BackupEntry = entry
                         }

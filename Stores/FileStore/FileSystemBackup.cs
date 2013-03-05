@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
+using Stream = System.IO.Stream;
 
 using SkyFloe.Store;
 
@@ -30,7 +30,7 @@ namespace SkyFloe
       public void Backup (Backup.Entry entry, Stream stream)
       {
          var blob = this.archive.BackupIndex.FetchBlob(1);
-         this.blobFile.Seek(blob.Length, SeekOrigin.Begin);
+         this.blobFile.Position = blob.Length;
          stream.CopyTo(this.blobFile);
          entry.Blob = blob;
          entry.Offset = blob.Length;

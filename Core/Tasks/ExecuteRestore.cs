@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Transactions;
@@ -60,7 +59,7 @@ namespace SkyFloe.Tasks
          ReportProgress(
             new Engine.ProgressEventArgs()
             {
-               Action = "BeginRestoreEntry",
+               Operation = "BeginRestoreEntry",
                BackupSession = backupEntry.Session,
                BackupEntry = backupEntry,
                RestoreSession = this.Session,
@@ -141,7 +140,7 @@ namespace SkyFloe.Tasks
             ReportProgress(
                new Engine.ProgressEventArgs()
                {
-                  Action = "EndRestoreEntry",
+                  Operation = "EndRestoreEntry",
                   BackupSession = backupEntry.Session,
                   BackupEntry = backupEntry,
                   RestoreSession = this.Session,

@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Threading;
 using System.Transactions;
 
 namespace SkyFloe.Tasks
@@ -73,7 +71,7 @@ namespace SkyFloe.Tasks
          ReportProgress(
             new Engine.ProgressEventArgs()
             {
-               Action = "BeginBackupEntry",
+               Operation = "BeginBackupEntry",
                BackupSession = this.Session,
                BackupEntry = entry
             }
@@ -121,7 +119,7 @@ namespace SkyFloe.Tasks
             ReportProgress(
                new Engine.ProgressEventArgs()
                {
-                  Action = "EndBackupEntry",
+                  Operation = "EndBackupEntry",
                   BackupSession = this.Session,
                   BackupEntry = entry
                }
@@ -132,18 +130,18 @@ namespace SkyFloe.Tasks
          ReportProgress(
             new Engine.ProgressEventArgs()
             {
-               Action = "BeginCheckpoint",
+               Operation = "BeginCheckpoint",
                BackupSession = this.Session
             }
          );
-         Execute(
+         WithRetry(
             "Checkpoint",
             () => this.backup.Checkpoint()
          );
          ReportProgress(
             new Engine.ProgressEventArgs()
             {
-               Action = "EndCheckpoint",
+               Operation = "EndCheckpoint",
                BackupSession = this.Session
             }
          );

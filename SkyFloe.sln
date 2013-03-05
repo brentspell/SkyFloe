@@ -39,6 +39,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DB", "DB", "{5185F558-63E2-
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Restore", "Tools\Restore\Restore.csproj", "{CF7A9909-6953-486E-B7B5-A9078A5F5DC1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyFloe", "App\SkyFloe.csproj", "{6CF7ABC9-36E8-48E2-966F-028EC7EE6915}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -77,6 +79,10 @@ Global
 		{CF7A9909-6953-486E-B7B5-A9078A5F5DC1}.Debug|x86.Build.0 = Debug|x86
 		{CF7A9909-6953-486E-B7B5-A9078A5F5DC1}.Release|x86.ActiveCfg = Release|x86
 		{CF7A9909-6953-486E-B7B5-A9078A5F5DC1}.Release|x86.Build.0 = Release|x86
+		{6CF7ABC9-36E8-48E2-966F-028EC7EE6915}.Debug|x86.ActiveCfg = Debug|x86
+		{6CF7ABC9-36E8-48E2-966F-028EC7EE6915}.Debug|x86.Build.0 = Debug|x86
+		{6CF7ABC9-36E8-48E2-966F-028EC7EE6915}.Release|x86.ActiveCfg = Release|x86
+		{6CF7ABC9-36E8-48E2-966F-028EC7EE6915}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

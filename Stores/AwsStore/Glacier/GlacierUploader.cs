@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Amazon.Glacier;
 using Amazon.Glacier.Model;
+using Stream = System.IO.Stream;
 
 namespace SkyFloe.Aws
 {

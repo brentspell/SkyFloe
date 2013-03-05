@@ -1,18 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Transactions;
+using Stream = System.IO.Stream;
 
 namespace SkyFloe
 {
    public class Engine : IDisposable
    {
-      private const Int32 CryptoHashLength = 256;
-      private const Int32 CryptoSaltLength = 128;
-      private const Int32 CryptoIterations = 1000;
+      private const Int32 DefaultCryptoHashLength = 256;
+      private const Int32 DefaultCryptoSaltLength = 128;
+      private const Int32 DefaultCryptoIterations = 1000;
       private Store.IArchive archive;
       private SymmetricAlgorithm crypto;
 
@@ -55,32 +55,15 @@ namespace SkyFloe
             var rng = RandomNumberGenerator.Create();
             var header = new Backup.Header()
             {
-               CryptoIterations = Engine.CryptoIterations,
-               ArchiveSalt = new Byte[CryptoSaltLength],
-               PasswordSalt = new Byte[CryptoSaltLength]
+               CryptoIterations = DefaultCryptoIterations,
+               ArchiveSalt = new Byte[DefaultCryptoSaltLength],
+               PasswordSalt = new Byte[DefaultCryptoSaltLength]
             };
             rng.GetBytes(header.ArchiveSalt);
             rng.GetBytes(header.PasswordSalt);
-            using (var crypto =
-               new Rfc2898DeriveBytes(
-                  password,
-                  header.PasswordSalt,
-                  header.CryptoIterations
-               )
-            )
-               header.PasswordHash = crypto.GetBytes(CryptoHashLength);
-            this.crypto = new AesCryptoServiceProvider();
-            using (var crypto =
-               new Rfc2898DeriveBytes(
-                  password,
-                  header.ArchiveSalt,
-                  header.CryptoIterations
-               )
-            )
-            {
-               this.crypto.Key = crypto.GetBytes(this.crypto.KeySize / 8);
-               this.crypto.IV = header.ArchiveSalt.Take(this.crypto.BlockSize / 8).ToArray();
-            }
+            using (var hash = CreateHasher(password, header))
+               header.PasswordHash = hash.GetBytes(DefaultCryptoHashLength);
+            this.crypto = CreateCrypto(password, header);
             this.archive = store.CreateArchive(name, header);
          }
          catch
@@ -103,30 +86,10 @@ namespace SkyFloe
                throw new InvalidOperationException("TODO: archive not found");
             this.archive = store.OpenArchive(name);
             var header = this.archive.BackupIndex.FetchHeader();
-            using (var crypto =
-               new Rfc2898DeriveBytes(
-                  password,
-                  header.PasswordSalt,
-                  header.CryptoIterations
-               )
-            )
-            {
-               Byte[] hash = crypto.GetBytes(header.PasswordHash.Length);
-               if (!hash.SequenceEqual(header.PasswordHash))
+            using (var hash = CreateHasher(password, header))
+               if (!hash.GetBytes(header.PasswordHash.Length).SequenceEqual(header.PasswordHash))
                   throw new InvalidOperationException("TODO: authentication failed");
-            }
-            this.crypto = new AesCryptoServiceProvider();
-            using (var crypto =
-               new Rfc2898DeriveBytes(
-                  password,
-                  header.ArchiveSalt,
-                  header.CryptoIterations
-               )
-            )
-            {
-               this.crypto.Key = crypto.GetBytes(this.crypto.KeySize / 8);
-               this.crypto.IV = header.ArchiveSalt.Take(this.crypto.BlockSize / 8).ToArray();
-            }
+            this.crypto = CreateCrypto(password, header);
          }
          catch
          {
@@ -142,6 +105,37 @@ namespace SkyFloe
       public void DeleteArchive (String name)
       {
          this.Connection.Store.DeleteArchive(name);
+      }
+      private DeriveBytes CreateHasher (String password, Backup.Header header)
+      {
+         return new Rfc2898DeriveBytes(
+            password,
+            header.PasswordSalt,
+            header.CryptoIterations
+         );
+      }
+      private SymmetricAlgorithm CreateCrypto (String password, Backup.Header header)
+      {
+         var aes = new AesCryptoServiceProvider();
+         try
+         {
+            var keygen = new Rfc2898DeriveBytes(
+               password, 
+               header.ArchiveSalt, 
+               header.CryptoIterations
+            );
+            using (keygen)
+            {
+               aes.Key = keygen.GetBytes(aes.KeySize / 8);
+               aes.IV = header.ArchiveSalt.Take(aes.BlockSize / 8).ToArray();
+            }
+         }
+         catch
+         {
+            aes.Dispose();
+            throw;
+         }
+         return aes;
       }
       #endregion
 
@@ -240,7 +234,7 @@ namespace SkyFloe
       }
       public class ProgressEventArgs : EventArgs
       {
-         public String Action { get; set; }
+         public String Operation { get; set; }
          public Backup.Session BackupSession { get; set; }
          public Backup.Entry BackupEntry { get; set; }
          public Restore.Session RestoreSession { get; set; }

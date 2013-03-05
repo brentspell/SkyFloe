@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
 using Amazon.IdentityManagement;
 using Amazon.Glacier;
 using Amazon.Glacier.Model;

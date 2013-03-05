@@ -52,6 +52,7 @@
     <Compile Include="IO\TestStreamStack.cs" />
     <Compile Include="IO\TestRateLimiter.cs" />
     <Compile Include="IO\TestFileSystem.cs" />
+    <Compile Include="Tasks\TestTask.cs" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>

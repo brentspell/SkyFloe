@@ -237,11 +237,11 @@ namespace SkyFloe.Backup
 
       static void HandleProgress (Object sender, Engine.ProgressEventArgs args)
       {
-         if (args.Action == "CreateBackupEntry")
+         if (args.Operation == "CreateBackupEntry")
          {
             Console.WriteLine("   Adding {0}.", args.BackupEntry.Node.GetAbsolutePath());
          }
-         if (args.Action == "BeginBackupEntry")
+         if (args.Operation == "BeginBackupEntry")
          {
             Console.Write(
                "   {0:MM/dd hh:mm}: Total: {1}, Current: {2} - {3}...",
@@ -251,15 +251,15 @@ namespace SkyFloe.Backup
                args.BackupEntry.Node.GetAbsolutePath()
             );
          }
-         else if (args.Action == "EndBackupEntry")
+         else if (args.Operation == "EndBackupEntry")
          {
             Console.WriteLine("done.");
          }
-         else if (args.Action == "BeginCheckpoint")
+         else if (args.Operation == "BeginCheckpoint")
          {
             Console.Write("   Checkpointing...");
          }
-         else if (args.Action == "EndCheckpoint")
+         else if (args.Operation == "EndCheckpoint")
          {
             Console.WriteLine("done.");
          }

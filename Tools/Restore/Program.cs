@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -241,7 +240,7 @@ namespace SkyFloe.Restore
 
       static void HandleProgress (Object sender, Engine.ProgressEventArgs args)
       {
-         if (args.Action == "BeginRestoreEntry")
+         if (args.Operation == "BeginRestoreEntry")
          {
             Console.Write(
                "   {0:MM/dd hh:mm}: Total: {1}, Current: {2} - {3}...",
@@ -251,7 +250,7 @@ namespace SkyFloe.Restore
                args.BackupEntry.Node.GetAbsolutePath()
             );
          }
-         else if (args.Action == "EndRestoreEntry")
+         else if (args.Operation == "EndRestoreEntry")
          {
             Console.WriteLine("done.");
          }

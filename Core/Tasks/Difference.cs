@@ -52,7 +52,7 @@ namespace SkyFloe.Tasks
       private IEnumerable<DiffResult> DiffPathIndex (Backup.Node parentNode, IO.Path parentPath)
       {
          var nodes = this.Archive.BackupIndex.ListNodes(parentNode).ToList();
-         var files = TryExecute(
+         var files = WithRetry(
             "DiffPathIndex", 
             () => IO.FileSystem.Children(parentPath).ToList()
          );
@@ -101,7 +101,7 @@ namespace SkyFloe.Tasks
                   yield return diff;
             else
             {
-               var metadata = TryExecute(
+               var metadata = WithRetry(
                   "DiffIndexPath",
                   () => IO.FileSystem.GetMetadata(path),
                   IO.FileSystem.Metadata.Empty
@@ -137,7 +137,7 @@ namespace SkyFloe.Tasks
                            isChanged = true;
                         break;
                      case DiffMethod.Digest:
-                        isChanged = TryExecute(
+                        isChanged = WithRetry(
                            "CalculateCrc",
                            () => IO.CrcFilter.Calculate(path.ToString()) != entry.Crc32
                         );
