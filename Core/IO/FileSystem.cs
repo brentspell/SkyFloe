@@ -38,6 +38,20 @@ namespace SkyFloe.IO
    public static class FileSystem
    {
       /// <summary>
+      /// Determines whether a file/directory exists
+      /// </summary>
+      /// <param name="path">
+      /// The path to test
+      /// </param>
+      /// <returns>
+      /// True if the path exists as a file or directory
+      /// False otherwise
+      /// </returns>
+      public static Boolean Exists (Path path)
+      {
+         return ((Int32)new FileInfo(path).Attributes != -1);
+      }
+      /// <summary>
       /// Retrieves the file system metadata for a file/directory
       /// </summary>
       /// <param name="path">
@@ -56,22 +70,27 @@ namespace SkyFloe.IO
          return new Metadata(info);
       }
       /// <summary>
-      /// Removes the read-only flag from a file/directory
+      /// Gets/sets the read-only flag for a file/directory
       /// </summary>
       /// <param name="path">
       /// The path to modify
       /// </param>
-      public static void MakeWritable (Path path)
+      /// <param name="readOnly">
+      /// Specifies whether to mark the file as read-only
+      /// </param>
+      public static void SetReadOnly (Path path, Boolean readOnly = true)
       {
          var info = new FileInfo(path);
          if (info.Attributes.HasFlag(FileAttributes.Directory))
             foreach (var child in Directory.EnumerateFiles(
-                  path, 
-                  "*", 
+                  path,
+                  "*",
                   SearchOption.AllDirectories
                )
             )
-               MakeWritable((Path)child);
+               SetReadOnly((Path)child, readOnly);
+         else if (readOnly)
+            info.Attributes |= FileAttributes.ReadOnly;
          else
             info.Attributes &= ~FileAttributes.ReadOnly;
       }
@@ -112,12 +131,7 @@ namespace SkyFloe.IO
       /// </returns>
       public static Stream Open (Path path, FileShare share = FileShare.Read)
       {
-         return new FileStream(
-            path, 
-            FileMode.Open, 
-            FileAccess.Read, 
-            share
-         );
+         return new FileStream(path, FileMode.Open, FileAccess.Read, share);
       }
       /// <summary>
       /// Creates a new file for reading/writing
@@ -131,6 +145,7 @@ namespace SkyFloe.IO
       /// </returns>
       public static Stream Create (Path path)
       {
+         Directory.CreateDirectory(path.Parent);
          return new FileStream(
             path, 
             FileMode.CreateNew, 
@@ -150,6 +165,7 @@ namespace SkyFloe.IO
       /// </returns>
       public static Stream Truncate (Path path)
       {
+         Directory.CreateDirectory(path.Parent);
          return new FileStream(
             path, 
             FileMode.Create, 
@@ -169,6 +185,7 @@ namespace SkyFloe.IO
       /// </returns>
       public static Stream Append (Path path)
       {
+         Directory.CreateDirectory(path.Parent);
          var stream = new FileStream(
             path, 
             FileMode.OpenOrCreate, 
@@ -206,6 +223,7 @@ namespace SkyFloe.IO
       /// </param>
       public static void Copy (Path source, Path target)
       {
+         Directory.CreateDirectory(target.Parent);
          File.Copy(source, target, true);
       }
       /// <summary>
@@ -299,6 +317,7 @@ namespace SkyFloe.IO
          /// </summary>
          public Metadata ()
          {
+            this.Created = this.Updated = DateTime.MaxValue;
          }
          /// <summary>
          /// Initializes a new metadata instance for a path
@@ -311,6 +330,7 @@ namespace SkyFloe.IO
          {
             this.Path = path;
             this.Name = path.FileName;
+            this.Created = this.Updated = DateTime.MaxValue;
          }
          /// <summary>
          /// Initializes a new metadata instance for a path

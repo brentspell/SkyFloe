@@ -8,9 +8,6 @@ namespace SkyFloe.Lab
 {
    class Program
    {
-      static Int32 threadCount = 1;
-      static Int32 iterationCount = 1;
-      static String param = "";
       static List<Clock> testClocks = new List<Clock>();
       static Clock realClock = new Clock();
 
@@ -32,9 +29,9 @@ namespace SkyFloe.Lab
          {
             new Options.OptionSet()
             {
-               { "t|threads=", (Int32 v) => threadCount = v },
-               { "i|iterations=", (Int32 v) => iterationCount = v },
-               { "p|param=", v => param = v }
+               { "t|threads=", (Int32 v) => Test.Threads = v },
+               { "i|iterations=", (Int32 v) => Test.Iterations = v },
+               { "p|Test.Param=", v => Test.Param = v }
             }.Parse(options);
             return true;
          }
@@ -46,27 +43,27 @@ namespace SkyFloe.Lab
          Console.WriteLine("   Usage: SkyFloe.Test {options}");
          Console.WriteLine("      -t|-threads {count}        number of threads to run");
          Console.WriteLine("      -i|-iterations {count}     number of iterations per thread to run");
-         Console.WriteLine("      -p|-param {value}          custom test paramter");
+         Console.WriteLine("      -p|-Test.Param {value}          custom test paramter");
       }
 
       static void ExecuteTests ()
       {
          Console.WriteLine(
             "Running {0} threads, {1} iterations.",
-            threadCount,
-            iterationCount
+            Test.Threads,
+            Test.Iterations
          );
          Console.WriteLine();
          realClock.Start();
          var threads = new List<Thread>();
-         for (var i = 0; i < threadCount; i++)
+         for (var i = 0; i < Test.Threads; i++)
          {
             threads.Add(new Thread(ExecuteThread));
             testClocks.Add(new Clock());
          }
-         for (var i = 0; i < threadCount; i++)
+         for (var i = 0; i < Test.Threads; i++)
             threads[i].Start(i);
-         for (var i = 0; i < threadCount; i++)
+         for (var i = 0; i < Test.Threads; i++)
             threads[i].Join();
          realClock.Stop();
          Console.WriteLine();
@@ -90,7 +87,7 @@ namespace SkyFloe.Lab
          var t = (Int32)param;
          var clock = testClocks[t];
          var test = new Test() { ThreadID = t };
-         for (test.Iteration = 0; test.Iteration < iterationCount; test.Iteration++)
+         for (test.Iteration = 0; test.Iteration < Test.Iterations; test.Iteration++)
          {
             clock.Start();
             test.Run();

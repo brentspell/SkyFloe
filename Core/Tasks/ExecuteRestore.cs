@@ -83,7 +83,7 @@ namespace SkyFloe.Tasks
                if (this.Session.SkipReadOnly)
                   restoreFile = false;
                else
-                  IO.FileSystem.MakeWritable(path);
+                  IO.FileSystem.SetReadOnly(path, false);
          }
          else if (backupEntry.State == SkyFloe.Backup.EntryState.Deleted)
             restoreFile = false;
