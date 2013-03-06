@@ -110,5 +110,19 @@ namespace SkyFloe.Backup
             parentPath += IO.Path.Separator;
          return parentPath + this.Name;
       }
+      /// <summary>
+      /// Compares the node name
+      /// </summary>
+      /// <param name="name">
+      /// name to compare
+      /// </param>
+      /// <returns>
+      /// True if the names match (case insensitive)
+      /// False otherwise
+      /// </returns>
+      public Boolean NameEquals (String name)
+      {
+         return StringComparer.OrdinalIgnoreCase.Equals(this.Name, name);
+      }
    }
 }

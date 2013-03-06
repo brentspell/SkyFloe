@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Core.Test.Tasks
+namespace SkyFloe.Core.Test.Tasks
 {
    [TestClass]
    public class TestTask
@@ -120,7 +120,7 @@ namespace Core.Test.Tasks
          task.OnError += (o, a) => 
          {
             notifyError = true;
-            a.Result = SkyFloe.Engine.ErrorResult.Abort;
+            a.Result = ErrorResult.Abort;
          };
          AssertException(task.Execute);
          Assert.IsFalse(task.Result);
@@ -138,7 +138,7 @@ namespace Core.Test.Tasks
          {
             notifyError = true;
             task.FailExecution = false;
-            a.Result = SkyFloe.Engine.ErrorResult.Retry;
+            a.Result = ErrorResult.Retry;
          };
          task.Execute();
          Assert.IsTrue(task.Result);
@@ -155,7 +155,7 @@ namespace Core.Test.Tasks
          task.OnError += (o, a) =>
          {
             notifyError = true;
-            a.Result = SkyFloe.Engine.ErrorResult.Fail;
+            a.Result = ErrorResult.Fail;
          };
          task.Execute();
          Assert.IsFalse(task.Result);
@@ -192,7 +192,7 @@ namespace Core.Test.Tasks
       public void TestRetryable ()
       {
          var opName = "test";
-         var result = SkyFloe.Engine.ErrorResult.Retry;
+         var result = ErrorResult.Retry;
          var attempt = 0;
          var task = new Task()
          {
@@ -207,21 +207,21 @@ namespace Core.Test.Tasks
             a.Result = result;
          };
          // retry-only
-         result = SkyFloe.Engine.ErrorResult.Abort;
+         result = ErrorResult.Abort;
          AssertException(
             () => task.WithRetry(
                opName, 
                () => { throw new InvalidOperationException("test"); }
             )
          );
-         result = SkyFloe.Engine.ErrorResult.Fail;
+         result = ErrorResult.Fail;
          AssertException(
             () => task.WithRetry(
                opName,
                () => { throw new InvalidOperationException("test"); }
             )
          );
-         result = SkyFloe.Engine.ErrorResult.Retry;
+         result = ErrorResult.Retry;
          attempt = 0;
          task.WithRetry(
             opName,
@@ -232,21 +232,21 @@ namespace Core.Test.Tasks
             }
          );
          // boolean retry
-         result = SkyFloe.Engine.ErrorResult.Abort;
+         result = ErrorResult.Abort;
          AssertException(
             () => task.TryWithRetry(
                opName,
                () => { throw new InvalidOperationException("test"); }
             )
          );
-         result = SkyFloe.Engine.ErrorResult.Fail;
+         result = ErrorResult.Fail;
          Assert.IsFalse(
             task.TryWithRetry(
                opName, 
                () => { throw new InvalidOperationException("test"); }
             )
          );
-         result = SkyFloe.Engine.ErrorResult.Retry;
+         result = ErrorResult.Retry;
          attempt = 0;
          Assert.IsTrue(
             task.TryWithRetry(
@@ -259,7 +259,7 @@ namespace Core.Test.Tasks
             )
          );
          // typed retry
-         result = SkyFloe.Engine.ErrorResult.Abort;
+         result = ErrorResult.Abort;
          AssertException(
             () => Assert.IsNull(
                task.WithRetry<Object>(
@@ -268,14 +268,14 @@ namespace Core.Test.Tasks
                )
             )
          );
-         result = SkyFloe.Engine.ErrorResult.Fail;
+         result = ErrorResult.Fail;
          Assert.IsNull(
             task.WithRetry<Object>(
                opName,
                () => { throw new InvalidOperationException("test"); }
             )
          );
-         result = SkyFloe.Engine.ErrorResult.Retry;
+         result = ErrorResult.Retry;
          attempt = 0;
          Assert.IsNotNull(
             task.WithRetry(
@@ -286,39 +286,6 @@ namespace Core.Test.Tasks
                      throw new InvalidOperationException("test");
                   return new Object();
                }
-            )
-         );
-         // typed retry with custom fail value
-         result = SkyFloe.Engine.ErrorResult.Abort;
-         AssertException(
-            () => Assert.IsNull(
-               task.WithRetry<Object>(
-                  opName,
-                  () => { throw new InvalidOperationException("test"); },
-                  new Object()
-               )
-            )
-         );
-         result = SkyFloe.Engine.ErrorResult.Fail;
-         Assert.IsNotNull(
-            task.WithRetry<Object>(
-               opName,
-               () => { throw new InvalidOperationException("test"); },
-               new Object()
-            )
-         );
-         result = SkyFloe.Engine.ErrorResult.Retry;
-         attempt = 0;
-         Assert.IsNull(
-            task.WithRetry(
-               opName,
-               () =>
-               {
-                  if (attempt++ < 5)
-                     throw new InvalidOperationException("test");
-                  return null;
-               },
-               new Object()
             )
          );
       }
@@ -344,7 +311,7 @@ namespace Core.Test.Tasks
          protected override void DoExecute ()
          {
             ReportProgress(
-               new SkyFloe.Engine.ProgressEventArgs()
+               new ProgressEventArgs()
                {
                   Operation = "BeginExecute"
                }
@@ -360,7 +327,7 @@ namespace Core.Test.Tasks
                }
             );
             ReportProgress(
-               new SkyFloe.Engine.ProgressEventArgs()
+               new ProgressEventArgs()
                {
                   Operation = "EndExecute"
                }
@@ -374,17 +341,13 @@ namespace Core.Test.Tasks
          {
             return base.WithRetry(actionName, action);
          }
-         public new T WithRetry<T> (String actionName, Func<T> action, T failValue)
-         {
-            return base.WithRetry(actionName, action, failValue);
-         }
          public new void WithRetry (String actionName, Action action)
          {
             base.WithRetry(actionName, action);
          }
       }
 
-      private class Archive : SkyFloe.Store.IArchive
+      private class Archive : Store.IArchive
       {
          #region IDisposable Implementation
          public void Dispose ()
@@ -397,19 +360,19 @@ namespace Core.Test.Tasks
          {
             get { throw new NotSupportedException(); }
          }
-         public SkyFloe.Store.IBackupIndex BackupIndex
+         public Store.IBackupIndex BackupIndex
          {
             get { throw new NotSupportedException(); }
          }
-         public SkyFloe.Store.IRestoreIndex RestoreIndex
+         public Store.IRestoreIndex RestoreIndex
          {
             get { throw new NotSupportedException(); }
          }
-         public SkyFloe.Store.IBackup PrepareBackup (SkyFloe.Backup.Session session)
+         public Store.IBackup PrepareBackup (Backup.Session session)
          {
             throw new NotSupportedException();
          }
-         public SkyFloe.Store.IRestore PrepareRestore (SkyFloe.Restore.Session session)
+         public Store.IRestore PrepareRestore (Restore.Session session)
          {
             throw new NotSupportedException();
          }

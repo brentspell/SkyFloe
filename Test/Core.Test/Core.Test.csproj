@@ -4,7 +4,7 @@
     <Platform>x86</Platform>
     <ProjectGuid>{67A5F582-3B17-46DB-BDD1-2B6AED2BF4B8}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>Core.Test</RootNamespace>
+    <RootNamespace>SkyFloe.Core.Test</RootNamespace>
     <AssemblyName>Core.Test</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>

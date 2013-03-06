@@ -7,7 +7,7 @@ using SysPath = System.IO.Path;
 
 using SkyFloe.IO;
 
-namespace Core.Test.IO
+namespace SkyFloe.Core.Test.IO
 {
    [TestClass]
    public class TestPath

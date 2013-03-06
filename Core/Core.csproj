@@ -37,6 +37,7 @@
       <Link>Properties\Version.cs</Link>
     </Compile>
     <Compile Include="Backup\Header.cs" />
+    <Compile Include="ConnectionString.cs" />
     <Compile Include="IO\CompressionStream.cs" />
     <Compile Include="IO\FileSystem.cs" />
     <Compile Include="IO\FilterStream.cs" />

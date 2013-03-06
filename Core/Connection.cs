@@ -1,122 +1,114 @@
-﻿using System;
+﻿//===========================================================================
+// MODULE:  Connection.cs
+// PURPOSE: store connection
+// 
+// Copyright © 2013
+// Brent M. Spell. All rights reserved.
+//
+// This library is free software; you can redistribute it and/or modify it 
+// under the terms of the GNU Lesser General Public License as published 
+// by the Free Software Foundation; either version 3 of the License, or 
+// (at your option) any later version. This library is distributed in the 
+// hope that it will be useful, but WITHOUT ANY WARRANTY; without even the 
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+// See the GNU Lesser General Public License for more details. You should 
+// have received a copy of the GNU Lesser General Public License along with 
+// this library; if not, write to 
+//    Free Software Foundation, Inc. 
+//    51 Franklin Street, Fifth Floor 
+//    Boston, MA 02110-1301 USA
+//===========================================================================
+// System References
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Text.RegularExpressions;
+// Project References
 
 namespace SkyFloe
 {
+   /// <summary>
+   /// The connection
+   /// </summary>
+   /// <remarks>
+   /// This class encapsulates a connection to a SkyFloe backup store. The
+   /// store is identified and initialized using a connection string
+   /// mechanism, to avoid coupling clients directly to store 
+   /// implementations. The connection class also supports operations for
+   /// browsing archives and their contents in a read-only manner.
+   /// </remarks>
    public class Connection : IDisposable
    {
-      private String connectionString;
-      private Store.IStore store;
-      private static Dictionary<String, String> knownStores =
+      private static readonly Dictionary<String, String> knownStores =
          new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase)
          {
             { "FileSystem", "SkyFloe.FileSystemStore,SkyFloe.FileStore" },
             { "AwsGlacier", "SkyFloe.Aws.GlacierStore,SkyFloe.AwsStore" }
          };
+      private ConnectionString connectionString;
+      private Store.IStore store;
 
+      /// <summary>
+      /// Initializes a new connection instance
+      /// </summary>
       public Connection ()
       {
       }
+      /// <summary>
+      /// Opens a new connection
+      /// </summary>
+      /// <param name="connect">
+      /// The connection string to open
+      /// </param>
       public Connection (String connect)
       {
          Open(connect);
       }
+      /// <summary>
+      /// Releases the connection
+      /// </summary>
       public void Dispose ()
       {
          Close();
       }
 
-      public static Dictionary<String, String> Parse (String connect)
-      {
-         // TODO: use regex
-         var paramMap = new Dictionary<String, String>(StringComparer.OrdinalIgnoreCase);
-         foreach (var param in connect.Split(';'))
-         {
-            var sepIdx = param.IndexOf('=');
-            if (sepIdx != -1)
-               paramMap[param.Substring(0, sepIdx).Trim()] =
-                  param.Substring(sepIdx + 1).Trim();
-         }
-         return paramMap;
-      }
-
-      public static void Bind (Dictionary<String, String> paramMap, Object props)
-      {
-         foreach (var param in paramMap
-            .Where(p => !StringComparer.OrdinalIgnoreCase.Equals(p.Key, "Store"))
-         )
-         {
-            var prop = TypeDescriptor.GetProperties(props)
-               .Cast<PropertyDescriptor>()
-               .FirstOrDefault(p => StringComparer.OrdinalIgnoreCase.Equals(p.Name, param.Key));
-            if (prop == null)
-               throw new InvalidOperationException("TODO: connection string param not found");
-            try
-            {
-               prop.SetValue(props, prop.Converter.ConvertFrom(param.Value));
-            }
-            catch (Exception e)
-            {
-               throw new InvalidOperationException("TODO: failed to bind connection string param", e);
-            }
-         }
-      }
-
-      public static Object GetStoreProperties (String store)
-      {
-         // TODO: refactor
-         var  knownStore = (String)null;
-         if (knownStores.TryGetValue(store, out knownStore))
-            store = knownStore;
-         // load and create the store type
-         return Activator.CreateInstance(Type.GetType(store, true));
-      }
-
-      public static String GetConnectionString (String store, Object props)
-      {
-         return String.Join(
-            ";",
-            new[] { String.Format("Store={0}", store) }
-            .Concat(
-               TypeDescriptor.GetProperties(props)
-               .Cast<PropertyDescriptor>()
-               .Select(
-                  p => String.Format(
-                     "{0}={1}", 
-                     p.Name, 
-                     p.Converter.ConvertTo(p.GetValue(props), typeof(String))
-                  )
-               )
-            )
-         );
-      }
-
-      public String ConnectionString
+      /// <summary>
+      /// The current connection string, or null if not open
+      /// </summary>
+      public ConnectionString ConnectionString
       {
          get { return this.connectionString; }
       }
+      /// <summary>
+      /// The display caption for the store
+      /// </summary>
       public String Caption
       {
          get { return this.store.Caption; }
       }
+      /// <summary>
+      /// The internal store implementation
+      /// </summary>
       internal Store.IStore Store
       {
          get { return this.store; }
       }
 
+      /// <summary>
+      /// Connects to a store
+      /// </summary>
+      /// <param name="connect">
+      /// The store connection string
+      /// </param>
       public void Open (String connect)
       {
          if (this.store != null)
             throw new InvalidOperationException("TODO: already connected");
          // parse connection string parameters
-         var  paramMap = Parse(connect);
+         var connectionString = ConnectionString.Parse(connect);
          // determine the store name
-         var storeName = (String)null;
-         if (!paramMap.TryGetValue("Store", out storeName))
-            throw new InvalidOperationException("TODO: store not found");
-         paramMap.Remove("Store");
+         var storeName = connectionString.Store;
          var knownStore = (String)null;
          if (knownStores.TryGetValue(storeName, out knownStore))
             storeName = knownStore;
@@ -124,11 +116,15 @@ namespace SkyFloe
          var storeType = Type.GetType(storeName, true);
          var store = (Store.IStore)Activator.CreateInstance(storeType);
          // bind the store properties and connect
-         Bind(paramMap, store);
+         connectionString.Bind(store);
+         // connect to the store
          store.Open();
-         this.connectionString = connect;
+         this.connectionString = connectionString;
          this.store = store;
       }
+      /// <summary>
+      /// Closes the open connection
+      /// </summary>
       public void Close ()
       {
          if (this.store != null)
@@ -136,13 +132,27 @@ namespace SkyFloe
          this.store = null;
          this.connectionString = null;
       }
-
+      /// <summary>
+      /// Retrieves the list of archives within the store
+      /// </summary>
+      /// <returns>
+      /// The archive name list
+      /// </returns>
       public IEnumerable<String> ListArchives ()
       {
          if (this.store == null)
             throw new InvalidOperationException("TODO: Not connected");
          return this.store.ListArchives();
       }
+      /// <summary>
+      /// Connects to an archive in the store
+      /// </summary>
+      /// <param name="name">
+      /// The name of the archive to connect
+      /// </param>
+      /// <returns>
+      /// The opened archive
+      /// </returns>
       public Archive OpenArchive (String name)
       {
          if (this.store == null)
@@ -150,48 +160,95 @@ namespace SkyFloe
          return new Archive(this.store.OpenArchive(name));
       }
 
+      /// <summary>
+      /// Connected archive
+      /// </summary>
+      /// <remarks>
+      /// This class wraps an underlying archive implementation for
+      /// read-only browsing purposes.
+      /// </remarks>
       public class Archive : IDisposable
       {
          private Store.IArchive archive;
 
+         /// <summary>
+         /// Initializes a new archive instance
+         /// </summary>
+         /// <param name="archive">
+         /// The archive implementation to attach
+         /// </param>
          internal Archive (Store.IArchive archive)
          {
             this.archive = archive;
          }
-
+         /// <summary>
+         /// Releases the resources associated with the archive
+         /// </summary>
          public void Dispose ()
          {
             if (this.archive != null)
                this.archive.Dispose();
             this.archive = null;
          }
-
+         /// <summary>
+         /// The archive name
+         /// </summary>
          public String Name
          { 
             get { return this.archive.Name; }
          }
+         /// <summary>
+         /// The list if storage blobs in the archive
+         /// </summary>
          public IEnumerable<Backup.Blob> Blobs
          {
             get { return this.archive.BackupIndex.ListBlobs(); }
          }
+         /// <summary>
+         /// The list of backup sessions in the archive
+         /// </summary>
          public IEnumerable<Backup.Session> Sessions
          {
             get { return this.archive.BackupIndex.ListSessions(); }
          }
+         /// <summary>
+         /// The list of root nodes in the archive
+         /// </summary>
          public IEnumerable<Backup.Node> Roots
          {
             get { return this.archive.BackupIndex.ListNodes(null); }
          }
-         public IEnumerable<Backup.Node> AllNodes
-         {
-            get { return GetSubtrees(this.Roots); }
-         }
+         /// <summary>
+         /// The list of restore sessions in the archive
+         /// </summary>
          public IEnumerable<Restore.Session> Restores
          {
             get { return this.archive.RestoreIndex.ListSessions(); }
          }
+         /// <summary>
+         /// Enumerates all nodes in the archive
+         /// </summary>
+         /// <returns>
+         /// An enumeration of all backup nodes
+         /// </returns>
+         public IEnumerable<Backup.Node> GetAllNodes ()
+         {
+            return GetSubtrees(this.Roots);
+         }
+         /// <summary>
+         /// Searches for a backup node by its source path
+         /// </summary>
+         /// <param name="path">
+         /// The original source path of the backup node
+         /// </param>
+         /// <returns>
+         /// The requested backup node if found
+         /// Null otherwise
+         /// </returns>
          public Backup.Node LookupNode (IO.Path path)
          {
+            if (path.IsEmpty)
+               throw new ArgumentException("path");
             var node = this.Roots.FirstOrDefault(
                r => new IO.Path(r.Name).IsAncestor(path)
             );
@@ -200,31 +257,76 @@ namespace SkyFloe
                var rootPath = (IO.Path)node.Name;
                foreach (var pathElem in path.Skip(rootPath.Count()))
                {
-                  node = GetChildren(node).FirstOrDefault(
-                     n => StringComparer.OrdinalIgnoreCase.Equals(n.Name, pathElem)
-                  );
+                  node = GetChildren(node).FirstOrDefault(n => n.NameEquals(pathElem));
                   if (node == null)
                      break;
                }
             }
             return node;
          }
+         /// <summary>
+         /// Enumerates the child nodes of a node in the archive
+         /// </summary>
+         /// <param name="parent">
+         /// The parent node to query
+         /// </param>
+         /// <returns>
+         /// An enumeration of the requested child nodes
+         /// </returns>
          public IEnumerable<Backup.Node> GetChildren (Backup.Node parent)
          {
+            if (parent == null)
+               throw new ArgumentNullException("parent");
             return this.archive.BackupIndex.ListNodes(parent);
          }
+         /// <summary>
+         /// Enumerates the descendant nodes of a node in the archive
+         /// </summary>
+         /// <param name="parent">
+         /// The parent node to query
+         /// </param>
+         /// <returns>
+         /// An enumeration of the requested descendant nodes
+         /// </returns>
          public IEnumerable<Backup.Node> GetDescendants (Backup.Node parent)
          {
             return this.archive.BackupIndex.ListNodes(parent).SelectMany(GetSubtree);
          }
+         /// <summary>
+         /// Enumerates a subtree rooted at a given node
+         /// </summary>
+         /// <param name="node">
+         /// The node to query
+         /// </param>
+         /// <returns>
+         /// An enumeration of the node and its descendants
+         /// </returns>
          public IEnumerable<Backup.Node> GetSubtree (Backup.Node node)
          {
             return new[] { node }.Concat(GetDescendants(node));
          }
+         /// <summary>
+         /// Enumerates the subtrees rooted at a set of given nodes
+         /// </summary>
+         /// <param name="nodes">
+         /// The nodes to query
+         /// </param>
+         /// <returns>
+         /// An enumeration of the nodes and their descendants
+         /// </returns>
          public IEnumerable<Backup.Node> GetSubtrees (IEnumerable<Backup.Node> nodes)
          {
             return nodes.SelectMany(GetSubtree);
          }
+         /// <summary>
+         /// Enumerates the backup entries associated with a node
+         /// </summary>
+         /// <param name="node">
+         /// The node to query
+         /// </param>
+         /// <returns>
+         /// An enumeration of the backup entries for the node
+         /// </returns>
          public IEnumerable<Backup.Entry> GetEntries (Backup.Node node)
          {
             return this.archive.BackupIndex.ListNodeEntries(node);

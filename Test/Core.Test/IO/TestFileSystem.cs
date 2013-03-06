@@ -6,7 +6,7 @@ using Stream = System.IO.Stream;
 
 using SkyFloe.IO;
 
-namespace Core.Test.IO
+namespace SkyFloe.Core.Test.IO
 {
    [TestClass]
    public class TestFileSystem

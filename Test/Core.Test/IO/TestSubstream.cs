@@ -6,7 +6,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 using SkyFloe.IO;
 
-namespace Core.Test.IO
+namespace SkyFloe.Core.Test.IO
 {
    [TestClass]
    public class TestSubstream

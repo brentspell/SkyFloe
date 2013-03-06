@@ -238,7 +238,7 @@ namespace SkyFloe.Restore
          }
       }
 
-      static void HandleProgress (Object sender, Engine.ProgressEventArgs args)
+      static void HandleProgress (Object sender, ProgressEventArgs args)
       {
          if (args.Operation == "BeginRestoreEntry")
          {
@@ -257,14 +257,14 @@ namespace SkyFloe.Restore
          retries = failures = 0;
       }
 
-      static void HandleError (Object sender, Engine.ErrorEventArgs args)
+      static void HandleError (Object sender, ErrorEventArgs args)
       {
          if (++retries <= maxRetries)
          {
             System.Threading.Thread.Sleep(retries * 1000);
             Console.WriteLine();
             Console.WriteLine("      Retrying...");
-            args.Result = Engine.ErrorResult.Retry;
+            args.Result = ErrorResult.Retry;
          }
          else if (++failures <= maxFailures && args.Action == "RestoreEntry")
          {
@@ -275,10 +275,10 @@ namespace SkyFloe.Restore
                "         {0}",
                args.Exception.ToString().Replace("\n", "\n         ")
             );
-            args.Result = Engine.ErrorResult.Fail;
+            args.Result = ErrorResult.Fail;
          }
          else
-            args.Result = Engine.ErrorResult.Abort;
+            args.Result = ErrorResult.Abort;
       }
 
       static String FormatLength (Int64 bytes)

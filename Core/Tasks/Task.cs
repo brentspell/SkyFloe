@@ -77,11 +77,11 @@ namespace SkyFloe.Tasks
       /// <summary>
       /// Task progress event handler
       /// </summary>
-      public EventHandler<Engine.ProgressEventArgs> OnProgress { get; set; }
+      public EventHandler<ProgressEventArgs> OnProgress { get; set; }
       /// <summary>
       /// Task error handler
       /// </summary>
-      public EventHandler<Engine.ErrorEventArgs> OnError { get; set; }
+      public EventHandler<ErrorEventArgs> OnError { get; set; }
       #endregion
 
       #region Operations
@@ -118,7 +118,7 @@ namespace SkyFloe.Tasks
       /// <param name="args">
       /// Progress event parameters
       /// </param>
-      protected void ReportProgress (Engine.ProgressEventArgs args)
+      protected void ReportProgress (ProgressEventArgs args)
       {
          if (this.OnProgress != null)
             this.OnProgress(this, args);
@@ -136,13 +136,13 @@ namespace SkyFloe.Tasks
       /// An error code indicating the action that the task should take
       /// (retry the operation, fail the operation, or abort the task)
       /// </returns>
-      protected Engine.ErrorResult ReportError (String action, Exception e)
+      protected ErrorResult ReportError (String action, Exception e)
       {
-         var args = new Engine.ErrorEventArgs()
+         var args = new ErrorEventArgs()
          {
             Action = action,
             Exception = e,
-            Result = Engine.ErrorResult.Abort
+            Result = ErrorResult.Abort
          };
          if (this.OnError != null)
             this.OnError(this, args);
@@ -187,29 +187,7 @@ namespace SkyFloe.Tasks
       /// </returns>
       protected T WithRetry<T> (String opName, Func<T> op)
       {
-         return WithRetry(opName, op, default(T));
-      }
-      /// <summary>
-      /// Attempts a retryable operation with a typed result, 
-      /// notifying the client of any failures that occur
-      /// </summary>
-      /// <param name="opName">
-      /// The name of the action (for notifications)
-      /// </param>
-      /// <param name="op">
-      /// The action to execute
-      /// </param>
-      /// <param name="failValue">
-      /// The value to return in case the user chooses to fail the op
-      /// </param>
-      /// <returns>
-      /// The result of the operation if successful
-      /// failValue if the user chose to fail the operation
-      /// Throws if the user chose to abort the task
-      /// </returns>
-      protected T WithRetry<T> (String opName, Func<T> op, T failValue)
-      {
-         for ( ; ; )
+         for (; ; )
          {
             try
             {
@@ -219,10 +197,10 @@ namespace SkyFloe.Tasks
             {
                switch (ReportError(opName, e))
                {
-                  case Engine.ErrorResult.Retry:
+                  case ErrorResult.Retry:
                      break;
-                  case Engine.ErrorResult.Fail:
-                     return failValue;
+                  case ErrorResult.Fail:
+                     return default(T);
                   default:
                      throw;
                }
@@ -251,7 +229,7 @@ namespace SkyFloe.Tasks
             }
             catch (Exception e)
             {
-               if (ReportError(opName, e) != Engine.ErrorResult.Retry)
+               if (ReportError(opName, e) != ErrorResult.Retry)
                   throw;
             }
          }
