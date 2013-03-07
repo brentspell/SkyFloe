@@ -26,6 +26,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 // Project References
+using Strings = SkyFloe.Resources.Strings;
 
 namespace SkyFloe
 {
@@ -67,7 +68,7 @@ namespace SkyFloe
          @" \s*(;|$)                               ",    // end property with ; or EOF
          RegexOptions.IgnorePatternWhitespace
       );
-      private static readonly Regex QuotePropertyRegex = new Regex("\";");
+      private static readonly Regex QuotePropertyRegex = new Regex(@"["";]|^\s.*$|^.*\s$");
       private Dictionary<String, String> props;
 
       /// <summary>
@@ -101,6 +102,8 @@ namespace SkyFloe
          if (String.IsNullOrWhiteSpace(store))
             throw new ArgumentNullException("store");
          if (props == null)
+            throw new ArgumentException("props");
+         if (props.Any(p => String.IsNullOrWhiteSpace(p.Key)))
             throw new ArgumentException("props");
          this.Store = store;
          this.props = new Dictionary<String, String>(
@@ -144,18 +147,21 @@ namespace SkyFloe
       /// </returns>
       public static ConnectionString Extract (Object store)
       {
+         if (store == null)
+            throw new ArgumentNullException("store");
          var name = store.GetType().AssemblyQualifiedName;
          var props = new List<KeyValuePair<String, String>>();
          foreach (PropertyDescriptor prop in TypeDescriptor.GetProperties(store))
-            props.Add(
-               new KeyValuePair<String, String>(
-                  prop.Name,
-                  (String)prop.Converter.ConvertTo(
-                     prop.GetValue(props), 
-                     typeof(String)
+         {
+            var value = prop.GetValue(store);
+            if (value != null)
+               props.Add(
+                  new KeyValuePair<String, String>(
+                     prop.Name,
+                     (String)prop.Converter.ConvertTo(value, typeof(String))
                   )
-               )
-            );
+               );
+         }
          return new ConnectionString(name, props);
       }
       /// <summary>
@@ -166,12 +172,19 @@ namespace SkyFloe
       /// </param>
       public void Bind (Object store)
       {
+         if (store == null)
+            throw new ArgumentNullException("store");
          foreach (var connectProp in this.props)
          {
             var storeProp = TypeDescriptor.GetProperties(store)
                .Find(connectProp.Key, true);
             if (storeProp == null)
-               throw new KeyNotFoundException("TODO: connection string param not found");
+               throw new KeyNotFoundException(
+                  String.Format(
+                     Strings.ConnectionInvalidProperty, 
+                     connectProp.Key
+                  )
+               );
             storeProp.SetValue(
                store,
                storeProp.Converter.ConvertFrom(connectProp.Value)
@@ -209,12 +222,10 @@ namespace SkyFloe
       /// </returns>
       public override Boolean Equals (Object other)
       {
-         var cstr = other as ConnectionString;
-         if (cstr != null)
-            return Equals(cstr);
-         var str = other as String;
-         if (str != null)
-            return Equals(str);
+         if (other is ConnectionString)
+            return Equals((ConnectionString)other);
+         if (other is String)
+            return Equals((String)other);
          return false;
       }
       /// <summary>
@@ -251,7 +262,7 @@ namespace SkyFloe
       {
          if (cstr == null)
             return false;
-         if (!StringComparer.OrdinalIgnoreCase.Equals(this.Store, cstr.Store))
+         if (!StringComparer.Ordinal.Equals(this.Store, cstr.Store))
             return false;
          if (this.props.Count != cstr.props.Count)
             return false;
@@ -260,7 +271,7 @@ namespace SkyFloe
             var value = (String)null;
             if (!cstr.props.TryGetValue(prop.Key, out value))
                return false;
-            if (prop.Value != value)
+            if (!StringComparer.Ordinal.Equals(prop.Value, value))
                return false;
          }
          return true;
@@ -277,6 +288,8 @@ namespace SkyFloe
       /// </returns>
       public Boolean Equals (String str)
       {
+         if (String.IsNullOrWhiteSpace(str))
+            return false;
          return Equals(Parse(str));
       }
       #endregion
@@ -284,34 +297,46 @@ namespace SkyFloe
       #region Operators
       public static implicit operator String (ConnectionString cstr)
       {
-         return cstr.ToString();
+         return cstr != null ? cstr.ToString() : null;
       }
       public static explicit operator ConnectionString (String str)
       {
-         return Parse(str);
+         return !String.IsNullOrWhiteSpace(str) ? Parse(str) : null;
       }
       public static Boolean operator == (ConnectionString cstr1, ConnectionString cstr2)
       {
+         if (Object.ReferenceEquals(cstr1, null))
+            return Object.ReferenceEquals(cstr2, null);
          return cstr1.Equals(cstr2);
       }
       public static Boolean operator == (ConnectionString cstr, String str)
       {
+         if (Object.ReferenceEquals(cstr, null))
+            return String.IsNullOrWhiteSpace(str);
          return cstr.Equals(str);
       }
       public static Boolean operator == (String str, ConnectionString cstr)
       {
+         if (Object.ReferenceEquals(cstr, null))
+            return String.IsNullOrWhiteSpace(str);
          return cstr.Equals(str);
       }
       public static Boolean operator != (ConnectionString cstr1, ConnectionString cstr2)
       {
+         if (Object.ReferenceEquals(cstr1, null))
+            return !Object.ReferenceEquals(cstr2, null);
          return !cstr1.Equals(cstr2);
       }
       public static Boolean operator != (ConnectionString cstr, String str)
       {
+         if (Object.ReferenceEquals(cstr, null))
+            return !String.IsNullOrWhiteSpace(str);
          return !cstr.Equals(str);
       }
       public static Boolean operator != (String str, ConnectionString cstr)
       {
+         if (Object.ReferenceEquals(cstr, null))
+            return !String.IsNullOrWhiteSpace(str);
          return !cstr.Equals(str);
       }
       #endregion

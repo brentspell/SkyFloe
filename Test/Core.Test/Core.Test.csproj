@@ -44,6 +44,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Connection\TestConnectionString.cs" />
+    <Compile Include="Extensions\IEnumerableExtensions.cs" />
     <Compile Include="IO\TestPath.cs" />
     <Compile Include="IO\TestCompressionStream.cs" />
     <Compile Include="IO\TestFilterStream.cs" />

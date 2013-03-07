@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 // Project References
+using Strings = SkyFloe.Resources.Strings;
 
 namespace SkyFloe.IO
 {
@@ -172,7 +173,7 @@ namespace SkyFloe.IO
       public override Int32 Read (Byte[] buffer, Int32 offset, Int32 count)
       {
          if (!this.streams.Any())
-            throw new InvalidOperationException("TODO: no streams attached");
+            throw new InvalidOperationException(Strings.StreamStackEmpty);
          return this.streams.Peek().Read(buffer, offset, count);
       }
       /// <summary>
@@ -190,7 +191,7 @@ namespace SkyFloe.IO
       public override void Write (Byte[] buffer, Int32 offset, Int32 count)
       {
          if (!this.streams.Any())
-            throw new InvalidOperationException("TODO: no streams attached");
+            throw new InvalidOperationException(Strings.StreamStackEmpty);
          this.streams.Peek().Write(buffer, offset, count);
       }
       /// <summary>

@@ -115,13 +115,13 @@ namespace SkyFloe.Sqlite
                return factory(reader);
          return default(T);
       }
-      protected IEnumerable<T> Query<T> (String command, Func<IDataReader, T> factory)
+      protected IEnumerable<T> Enumerate<T> (String command, Func<IDataReader, T> factory)
       {
          using (var reader = ExecuteReader(command))
             while (reader.Read())
                yield return factory(reader);
       }
-      protected IEnumerable<T> Query<T> (String command, Object[] parameters, Func<IDataReader, T> factory)
+      protected IEnumerable<T> Enumerate<T> (String command, Object[] parameters, Func<IDataReader, T> factory)
       {
          using (var reader = ExecuteReader(command, parameters))
             while (reader.Read())

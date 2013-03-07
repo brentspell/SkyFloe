@@ -62,7 +62,7 @@ namespace SkyFloe.Sqlite
       #region Session Operations
       public IEnumerable<Session> ListSessions ()
       {
-         return Query(
+         return Enumerate(
             "SELECT ID, TotalLength, RestoreLength, State, Flags, RateLimit, Created FROM Session;",
             reader => new Session()
             {
@@ -192,7 +192,7 @@ namespace SkyFloe.Sqlite
       #region Retrieval Operations
       public IEnumerable<Retrieval> ListRetrievals (Session session)
       {
-         return Query(
+         return Enumerate(
             "SELECT ID, Blob, Name, Offset, Length FROM Retrieval WHERE SessionID = @p0 ORDER BY ID;",
             new Object[] { session.ID },
             reader => new Retrieval()
@@ -208,7 +208,7 @@ namespace SkyFloe.Sqlite
       }
       public IEnumerable<Retrieval> ListBlobRetrievals (Session session, String blob)
       {
-         return Query(
+         return Enumerate(
             "SELECT ID, Name, Offset, Length FROM Retrieval WHERE SessionID = @p0 AND Blob = @p1 ORDER BY ID;",
             new Object[] { session.ID, blob },
             reader => new Retrieval()
@@ -276,7 +276,7 @@ namespace SkyFloe.Sqlite
       #region Entry Operations
       public IEnumerable<Entry> ListRetrievalEntries (Retrieval retrieval)
       {
-         return Query(
+         return Enumerate(
             "SELECT ID, BackupEntryID, State, Offset, Length FROM Entry WHERE RetrievalID = @p0 ORDER BY Offset;",
             new Object[] { retrieval.ID },
             reader => new Entry()

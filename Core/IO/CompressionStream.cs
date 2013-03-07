@@ -25,6 +25,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 // Project References
+using Strings = SkyFloe.Resources.Strings;
 
 namespace SkyFloe.IO
 {
@@ -741,7 +742,8 @@ namespace SkyFloe.IO
          /// <summary>
          /// Initializes a new exception instance
          /// </summary>
-         public DataException () : base("TODO: invalid data exception")
+         public DataException () 
+            : base(Strings.CompressionInvalidData)
          {
          }
          /// <summary>

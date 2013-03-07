@@ -72,7 +72,7 @@ namespace SkyFloe.Sqlite
       }
       public IEnumerable<Blob> ListBlobs ()
       {
-         return Query(
+         return Enumerate(
             "SELECT ID, Name, Length, Created, Updated FROM Blob;",
             reader => new Blob()
             {
@@ -148,7 +148,7 @@ namespace SkyFloe.Sqlite
       #region Session Operations
       public IEnumerable<Session> ListSessions ()
       {
-         return Query(
+         return Enumerate(
             "SELECT ID, State, Flags, RateLimit, CheckpointLength, EstimatedLength, ActualLength, Created FROM Session;",
             reader => new Session()
             {
@@ -222,7 +222,7 @@ namespace SkyFloe.Sqlite
       #region Node Operations
       public IEnumerable<Node> ListNodes (Node parent = null)
       {
-         return Query(
+         return Enumerate(
             (parent == null) ?
                "SELECT ID, Type, Name FROM Node WHERE ParentID IS NULL;" :
                "SELECT ID, Type, Name FROM Node WHERE ParentID = @p0;",
@@ -284,7 +284,7 @@ namespace SkyFloe.Sqlite
       #region Entry Operations
       public IEnumerable<Entry> ListNodeEntries (Node node)
       {
-         return Query(
+         return Enumerate(
             "SELECT ID, SessionID, BlobID, State, Offset, Length, Crc32 FROM Entry WHERE NodeID = @p0;",
             new Object[] { node.ID },
             reader => new Entry()

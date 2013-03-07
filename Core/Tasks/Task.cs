@@ -25,6 +25,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 // Project References
+using Strings = SkyFloe.Resources.Strings;
 
 namespace SkyFloe.Tasks
 {
@@ -104,7 +105,7 @@ namespace SkyFloe.Tasks
       public void Execute ()
       {
          if (this.executed)
-            throw new InvalidOperationException("TODO: task already executed");
+            throw new InvalidOperationException(Strings.TaskAlreadyExecuted);
          Validate();
          this.executed = true;
          DoExecute();

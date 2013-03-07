@@ -25,6 +25,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 // Project References
+using Strings = SkyFloe.Resources.Strings;
 
 namespace SkyFloe
 {
@@ -85,7 +86,7 @@ namespace SkyFloe
       /// </summary>
       public String Caption
       {
-         get { return this.store.Caption; }
+         get {  return this.store != null ? this.store.Caption : String.Empty; }
       }
       /// <summary>
       /// The internal store implementation
@@ -104,23 +105,33 @@ namespace SkyFloe
       public void Open (String connect)
       {
          if (this.store != null)
-            throw new InvalidOperationException("TODO: already connected");
-         // parse connection string parameters
-         var connectionString = ConnectionString.Parse(connect);
-         // determine the store name
-         var storeName = connectionString.Store;
-         var knownStore = (String)null;
-         if (knownStores.TryGetValue(storeName, out knownStore))
-            storeName = knownStore;
-         // attempt to load the store type
-         var storeType = Type.GetType(storeName, true);
-         var store = (Store.IStore)Activator.CreateInstance(storeType);
-         // bind the store properties and connect
-         connectionString.Bind(store);
-         // connect to the store
-         store.Open();
-         this.connectionString = connectionString;
-         this.store = store;
+            throw new ConnectionException(Strings.ConnectionAlreadyConnected);
+         Store.IStore store = null;
+         try
+         {
+            // parse connection string parameters
+            var connectionString = ConnectionString.Parse(connect);
+            // determine the store name
+            var storeName = connectionString.Store;
+            var knownStore = (String)null;
+            if (knownStores.TryGetValue(storeName, out knownStore))
+               storeName = knownStore;
+            // attempt to load the store type
+            var storeType = Type.GetType(storeName, true);
+            store = (Store.IStore)Activator.CreateInstance(storeType);
+            // bind the store properties and connect
+            connectionString.Bind(store);
+            // connect to the store
+            store.Open();
+            this.connectionString = connectionString;
+            this.store = store;
+         }
+         catch (Exception e)
+         {
+            if (store != null)
+               store.Dispose();
+            throw new ConnectionException(e);
+         }
       }
       /// <summary>
       /// Closes the open connection
@@ -141,8 +152,15 @@ namespace SkyFloe
       public IEnumerable<String> ListArchives ()
       {
          if (this.store == null)
-            throw new InvalidOperationException("TODO: Not connected");
-         return this.store.ListArchives();
+            throw new ConnectionException(Strings.ConnectionNotConnected);
+         try
+         {
+            return this.store.ListArchives();
+         }
+         catch (Exception e)
+         {
+            throw new ConnectionException(Strings.ConnectionNotConnected, e);
+         }
       }
       /// <summary>
       /// Connects to an archive in the store
@@ -156,8 +174,15 @@ namespace SkyFloe
       public Archive OpenArchive (String name)
       {
          if (this.store == null)
-            throw new InvalidOperationException("TODO: Not connected");
-         return new Archive(this.store.OpenArchive(name));
+            throw new ConnectionException(Strings.ConnectionNotConnected);
+         try
+         {
+            return new Archive(this.store.OpenArchive(name));
+         }
+         catch (Exception e)
+         {
+            throw new ConnectionException(Strings.ConnectionNotConnected, e);
+         }
       }
 
       /// <summary>

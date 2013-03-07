@@ -27,6 +27,7 @@ using System.Threading;
 using System.Transactions;
 using Stream = System.IO.Stream;
 // Project References
+using Strings = SkyFloe.Resources.Strings;
 
 namespace SkyFloe
 {
@@ -102,15 +103,17 @@ namespace SkyFloe
       {
          // validate parameters
          if (this.Connection == null)
-            throw new InvalidOperationException("TODO: not connected to a store");
+            throw new InvalidOperationException(Strings.ConnectionNotConnected);
          if (this.archive != null)
-            throw new InvalidOperationException("TODO: already connected to an archive");
+            throw new InvalidOperationException(Strings.ConnectionAlreadyConnected);
          var store = this.Connection.Store;
          try
          {
             // verify that the archive does not already exist at the store
             if (store.ListArchives().Contains(name, StringComparer.OrdinalIgnoreCase))
-               throw new InvalidOperationException("TODO: archive exists");
+               throw new InvalidOperationException(
+                  String.Format(Strings.EngineArchiveExists, name)
+               );
             // create the archive header and encryption parameters
             var random = RandomNumberGenerator.Create();
             var header = new Backup.Header()
@@ -147,22 +150,24 @@ namespace SkyFloe
       {
          // validate parameters
          if (this.Connection == null)
-            throw new InvalidOperationException("TODO: not connected to a store");
+            throw new InvalidOperationException(Strings.ConnectionNotConnected);
          if (this.archive != null)
-            throw new InvalidOperationException("TODO: already connected to an archive");
+            throw new InvalidOperationException(Strings.ConnectionAlreadyConnected);
          var store = this.Connection.Store;
          try
          {
             // verify that the archive exists at the store and
             // open the archive implementation
             if (!store.ListArchives().Contains(name, StringComparer.OrdinalIgnoreCase))
-               throw new InvalidOperationException("TODO: archive not found");
+               throw new InvalidOperationException(
+                  String.Format(Strings.EngineArchiveNotFound, name)
+               );
             this.archive = store.OpenArchive(name);
             // authenticate the request and attach the encryption algorithm
             var header = this.archive.BackupIndex.FetchHeader();
             using (var hash = CreateHasher(password, header))
                if (!hash.GetBytes(header.PasswordHash.Length).SequenceEqual(header.PasswordHash))
-                  throw new InvalidOperationException("TODO: authentication failed");
+                  throw new UnauthorizedAccessException(Strings.EngineAuthenticationFailed);
             this.crypto = CreateCrypto(password, header);
          }
          catch
@@ -333,7 +338,7 @@ namespace SkyFloe
       public void Execute (Tasks.Task task)
       {
          if (this.archive == null)
-            throw new InvalidOperationException("TODO: not connected to an archive");
+            throw new InvalidOperationException(Strings.ConnectionNotConnected);
          task.Archive = this.archive;
          task.Crypto = this.crypto;
          task.Canceler = this.Canceler;

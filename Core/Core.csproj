@@ -37,7 +37,8 @@
       <Link>Properties\Version.cs</Link>
     </Compile>
     <Compile Include="Backup\Header.cs" />
-    <Compile Include="ConnectionString.cs" />
+    <Compile Include="Connection\ConnectionException.cs" />
+    <Compile Include="Connection\ConnectionString.cs" />
     <Compile Include="IO\CompressionStream.cs" />
     <Compile Include="IO\FileSystem.cs" />
     <Compile Include="IO\FilterStream.cs" />
@@ -49,7 +50,7 @@
     <Compile Include="IO\StreamStack.cs" />
     <Compile Include="Options\Options.cs" />
     <Compile Include="Request\BackupRequest.cs" />
-    <Compile Include="Connection.cs" />
+    <Compile Include="Connection\Connection.cs" />
     <Compile Include="Engine.cs" />
     <Compile Include="IO\CrcFilter.cs" />
     <Compile Include="IO\Substream.cs" />
@@ -62,6 +63,11 @@
     <Compile Include="Request\DiffResult.cs" />
     <Compile Include="Request\RegexFilter.cs" />
     <Compile Include="Request\RestoreRequest.cs" />
+    <Compile Include="Resources\Strings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Strings.resx</DependentUpon>
+    </Compile>
     <Compile Include="Restore\Entry.cs" />
     <Compile Include="Restore\Header.cs" />
     <Compile Include="Restore\PathMap.cs" />
@@ -79,6 +85,13 @@
     <Compile Include="Tasks\ExecuteBackup.cs" />
     <Compile Include="Tasks\ExecuteRestore.cs" />
     <Compile Include="Tasks\Task.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Strings.de-DE.resx" />
+    <EmbeddedResource Include="Resources\Strings.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

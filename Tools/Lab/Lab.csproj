@@ -52,10 +52,6 @@
       <Project>{de3ab975-4449-441b-a763-64c356be2b70}</Project>
       <Name>Sqlite</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\Stores\FileStore\FileStore.csproj">
-      <Project>{6a005674-9556-47a4-aa42-0276d14bacaf}</Project>
-      <Name>FileStore</Name>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

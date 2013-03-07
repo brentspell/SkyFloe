@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Transactions;
 // Project References
+using Strings = SkyFloe.Resources.Strings;
 
 namespace SkyFloe.Tasks
 {
@@ -60,9 +61,13 @@ namespace SkyFloe.Tasks
          {
             var metadata = IO.FileSystem.GetMetadata(source);
             if (!metadata.Exists)
-               throw new InvalidOperationException("TODO: source path not found");
+               throw new InvalidOperationException(
+                  String.Format(Strings.CreateBackupSourcePathNotFound, source)
+               );
             if (!metadata.IsDirectory)
-               throw new InvalidOperationException("TODO: source path not a directory");
+               throw new InvalidOperationException(
+                  String.Format(Strings.CreateBackupSourcePathNotADirectory, source)
+               );
          }
          if (!this.Request.Filter.IsValid)
             throw new ArgumentException("Request.Filter");
@@ -79,7 +84,7 @@ namespace SkyFloe.Tasks
             throw new ArgumentOutOfRangeException("Request.CheckpointLength");
          if (this.Archive.BackupIndex.ListSessions()
                .Any(s => s.State != Backup.SessionState.Completed))
-            throw new InvalidOperationException("TODO: session in progress");
+            throw new InvalidOperationException(Strings.CreateBackupSessionExists);
       }
       /// <summary>
       /// Task execution override

@@ -25,6 +25,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Transactions;
 // Project References
+using Strings = SkyFloe.Resources.Strings;
 
 namespace SkyFloe.Tasks
 {
@@ -263,7 +264,9 @@ namespace SkyFloe.Tasks
          // verify the backup entry's CRC if requested
          if (this.Session.VerifyResults)
             if (IO.CrcFilter.Calculate(path) != backupEntry.Crc32)
-               throw new InvalidOperationException("TODO: CRC does not match");
+               throw new InvalidOperationException(
+                  String.Format(Strings.ExecuteRestoreCrcFailed, path)
+               );
       }
    }
 }
