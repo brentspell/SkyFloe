@@ -40,7 +40,7 @@ namespace SkyFloe.Lab
 
       static void ReportUsage ()
       {
-         Console.WriteLine("   Usage: SkyFloe.Test {options}");
+         Console.WriteLine("   Usage: SkyFloe.Lab {options}");
          Console.WriteLine("      -t|-threads {count}        number of threads to run");
          Console.WriteLine("      -i|-iterations {count}     number of iterations per thread to run");
          Console.WriteLine("      -p|-Test.Param {value}          custom test paramter");
