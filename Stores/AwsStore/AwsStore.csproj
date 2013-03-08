@@ -41,11 +41,11 @@
     </Compile>
     <Compile Include="Glacier\GlacierRestore.cs" />
     <Compile Include="Glacier\GlacierBackup.cs" />
-    <Compile Include="Glacier\GlacierDownloader.cs" />
+    <Compile Include="Glacier\Utilities\GlacierDownloader.cs" />
     <Compile Include="Glacier\GlacierArchive.cs" />
     <Compile Include="Glacier\GlacierStore.cs" />
-    <Compile Include="Glacier\GlacierStream.cs" />
-    <Compile Include="Glacier\GlacierUploader.cs" />
+    <Compile Include="Glacier\Utilities\GlacierStream.cs" />
+    <Compile Include="Glacier\Utilities\GlacierUploader.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

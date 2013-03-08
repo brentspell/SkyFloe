@@ -25,6 +25,16 @@ namespace SkyFloe.Aws
          this.Bucket = "SkyFloe";
       }
 
+      public void Dispose ()
+      {
+         if (this.s3 != null)
+            this.s3.Dispose();
+         if (this.glacier != null)
+            this.glacier.Dispose();
+         this.s3 = null;
+         this.glacier = null;
+      }
+
       #region Connection Properties
       [Required]
       [RegularExpression(@"^[0-9A-Za-z]{20}$")]
@@ -40,16 +50,6 @@ namespace SkyFloe.Aws
       private String VaultPrefix
       {
          get { return this.Bucket + "-"; }
-      }
-
-      public void Dispose ()
-      {
-         if (this.s3 != null)
-            this.s3.Dispose();
-         if (this.glacier != null)
-            this.glacier.Dispose();
-         this.s3 = null;
-         this.glacier = null;
       }
 
       #region IStore Implementation
