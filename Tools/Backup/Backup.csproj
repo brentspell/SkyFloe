@@ -5,7 +5,7 @@
     <ProjectGuid>{A3A1B56F-5504-4232-9FC6-BD8965941D94}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>SkyFloe.Backup</RootNamespace>
-    <AssemblyName>SkyFloe.Backup</AssemblyName>
+    <AssemblyName>SkyFloe-Backup</AssemblyName>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <VisualStudioVersion>11.0</VisualStudioVersion>

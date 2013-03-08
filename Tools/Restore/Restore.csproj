@@ -5,7 +5,7 @@
     <ProjectGuid>{CF7A9909-6953-486E-B7B5-A9078A5F5DC1}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>SkyFloe.Restore</RootNamespace>
-    <AssemblyName>SkyFloe.Restore</AssemblyName>
+    <AssemblyName>SkyFloe-Restore</AssemblyName>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <VisualStudioVersion>11.0</VisualStudioVersion>

@@ -97,7 +97,7 @@ namespace SkyFloe.Restore
 
       static void ReportUsage ()
       {
-         Console.WriteLine("   Usage: SkyFloe.Restore {options}");
+         Console.WriteLine("   Usage: SkyFloe-Restore {options}");
          Console.WriteLine("      -c|-connect {connect}      backup store connection string");
          Console.WriteLine("      -a|-archive {archive}      archive name");
          Console.WriteLine("      -p|-password {password}    archive password");
