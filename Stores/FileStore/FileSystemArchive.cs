@@ -43,7 +43,7 @@ namespace SkyFloe
    /// provides better performance when the archive is a network path.
    /// The archive also provides access to the restore index, stored in the
    /// local file system per user. This restore index provides for pausing/
-   /// resuming restore processes (similar to the backup inde) and recovery
+   /// resuming restore processes (similar to the backup index) and recovery
    /// from crashes during restore.
    /// </remarks>
    public class FileSystemArchive : IArchive

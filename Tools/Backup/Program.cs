@@ -1,15 +1,42 @@
-﻿using System;
+﻿//===========================================================================
+// MODULE:  Program.cs
+// PURPOSE: skyfloe backup CUI
+// 
+// Copyright © 2013
+// Brent M. Spell. All rights reserved.
+//
+// This library is free software; you can redistribute it and/or modify it 
+// under the terms of the GNU Lesser General Public License as published 
+// by the Free Software Foundation; either version 3 of the License, or 
+// (at your option) any later version. This library is distributed in the 
+// hope that it will be useful, but WITHOUT ANY WARRANTY; without even the 
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+// See the GNU Lesser General Public License for more details. You should 
+// have received a copy of the GNU Lesser General Public License along with 
+// this library; if not, write to 
+//    Free Software Foundation, Inc. 
+//    51 Franklin Street, Fifth Floor 
+//    Boston, MA 02110-1301 USA
+//===========================================================================
+// System References
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Tpl = System.Threading.Tasks;
+// Project References
 
 namespace SkyFloe.Backup
 {
+   /// <summary>
+   /// SkyFloe backup program
+   /// </summary>
+   /// <remarks>
+   /// This program drives the backup engine for creating new backups.
+   /// </remarks>
    class Program
    {
       private static String connectionString;
@@ -30,10 +57,20 @@ namespace SkyFloe.Backup
       private static Engine engine;
       private static CancellationTokenSource canceler;
 
-      static Int32 Main (String[] args)
+      /// <summary>
+      /// Program entry point
+      /// </summary>
+      /// <param name="options">
+      /// Program options
+      /// </param>
+      /// <returns>
+      /// 0 if successful
+      /// > 0 otherwise
+      /// </returns>
+      static Int32 Main (String[] options)
       {
          Console.WriteLine("SkyFloe Backup");
-         if (!ParseOptions(args))
+         if (!ParseOptions(options))
          {
             ReportUsage();
             return 1;
@@ -42,8 +79,17 @@ namespace SkyFloe.Backup
             return 1;
          return 0;
       }
-
-      static Boolean ParseOptions (String[] args)
+      /// <summary>
+      /// Parses the command-line options
+      /// </summary>
+      /// <param name="options">
+      /// The program options array
+      /// </param>
+      /// <returns>
+      /// True if the arguments are valid
+      /// False otherwise
+      /// </returns>
+      static Boolean ParseOptions (String[] options)
       {
          // initialize options
          password = "";
@@ -75,7 +121,7 @@ namespace SkyFloe.Backup
                { "t|checkpoint=", (Int32 v) => checkpointLength = v },
                { "l|rate=", (Int32 v) => rateLimit = v },
                { "z|compress", v => compress = (v != null) },
-            }.Parse(args);
+            }.Parse(options);
          }
          catch { return false; }
          // validate options
@@ -99,7 +145,9 @@ namespace SkyFloe.Backup
             return false;
          return true;
       }
-
+      /// <summary>
+      /// Displays a program usage message
+      /// </summary>
       static void ReportUsage ()
       {
          Console.WriteLine("   Usage: SkyFloe-Backup {options}");
@@ -117,7 +165,13 @@ namespace SkyFloe.Backup
          Console.WriteLine("      -l|-rate {limit}           backup rate limit, in KB/sec, default: unlimited");
          Console.WriteLine("      -z|-compress[+/-]          enable backup compression (default: false)");
       }
-
+      /// <summary>
+      /// Performs all backup processing using the configured options
+      /// </summary>
+      /// <returns>
+      /// True if successful
+      /// False otherwise
+      /// </returns>
       static Boolean ExecuteBackup ()
       {
          var backupOk = false;
@@ -126,15 +180,17 @@ namespace SkyFloe.Backup
             Console.SetBufferSize(1000, 1000);
          try
          {
-            var tasks = Tpl.Task.Factory.StartNew(
+            var task = Tpl.Task.Factory.StartNew(
                () =>
                {
                   Connect();
                   Backup.Session session = CreateSession();
-                  ExecuteBackup(session);
+                  ExecuteSession(session);
                }
             );
-            while (!tasks.Wait(1000))
+            // wait until all backup processing completes,
+            // or cancel if the user presses escape
+            while (!task.Wait(1000))
             {
                while (Console.KeyAvailable)
                {
@@ -159,6 +215,10 @@ namespace SkyFloe.Backup
                   e.ToString().Replace("\n", "\n      ")
                );
          }
+         finally
+         {
+            engine.Dispose();
+         }
          if (Debugger.IsAttached)
          {
             Console.WriteLine();
@@ -167,7 +227,9 @@ namespace SkyFloe.Backup
          }
          return backupOk;
       }
-
+      /// <summary>
+      /// Connects to the configured backup archive
+      /// </summary>
       static void Connect ()
       {
          Console.Write("   Connecting to archive {0}...", archiveName);
@@ -181,8 +243,11 @@ namespace SkyFloe.Backup
             engine.OnProgress += HandleProgress;
             engine.OnError += HandleError;
             if (deleteArchive)
+               if (engine.Connection.ListArchives()
+                     .Contains(archiveName, StringComparer.OrdinalIgnoreCase))
                engine.DeleteArchive(archiveName);
-            if (engine.Connection.ListArchives().Contains(archiveName, StringComparer.OrdinalIgnoreCase))
+            if (engine.Connection.ListArchives()
+                  .Contains(archiveName, StringComparer.OrdinalIgnoreCase))
                engine.OpenArchive(archiveName, password);
             else
                engine.CreateArchive(archiveName, password);
@@ -194,7 +259,12 @@ namespace SkyFloe.Backup
             throw;
          }
       }
-
+      /// <summary>
+      /// Creates a new backup session or resumes a session in progress
+      /// </summary>
+      /// <returns>
+      /// The new backup session
+      /// </returns>
       static Backup.Session CreateSession ()
       {
          Console.WriteLine("   Starting the backup. Press escape to cancel/pause.");
@@ -228,20 +298,33 @@ namespace SkyFloe.Backup
             );
          }
       }
-
-      static void ExecuteBackup (Backup.Session session)
+      /// <summary>
+      /// Starts/resumes a backup session
+      /// </summary>
+      /// <param name="session">
+      /// The session to execute
+      /// </param>
+      static void ExecuteSession (Backup.Session session)
       {
          engine.ExecuteBackup(session);
          Console.WriteLine("   Backup complete.");
       }
-
+      /// <summary>
+      /// Dispatches a backup engine progress event
+      /// </summary>
+      /// <param name="sender">
+      /// The event source
+      /// </param>
+      /// <param name="args">
+      /// The event parameters
+      /// </param>
       static void HandleProgress (Object sender, ProgressEventArgs args)
       {
          if (args.Operation == "CreateBackupEntry")
          {
             Console.WriteLine("   Adding {0}.", args.BackupEntry.Node.GetAbsolutePath());
          }
-         if (args.Operation == "BeginBackupEntry")
+         else if (args.Operation == "BeginBackupEntry")
          {
             Console.Write(
                "   {0:MM/dd hh:mm}: Total: {1}, Current: {2} - {3}...",
@@ -265,11 +348,21 @@ namespace SkyFloe.Backup
          }
          retries = failures = 0;
       }
-
+      /// <summary>
+      /// Dispatches a backup engine error event
+      /// </summary>
+      /// <param name="sender">
+      /// The event source
+      /// </param>
+      /// <param name="args">
+      /// The event parameters
+      /// </param>
       static void HandleError (Object sender, ErrorEventArgs args)
       {
          if (++retries <= maxRetries)
          {
+            // we are still within the retry count,
+            // so delay and then retry the operation
             System.Threading.Thread.Sleep(retries * 1000);
             Console.WriteLine();
             Console.WriteLine("      Retrying...");
@@ -277,6 +370,9 @@ namespace SkyFloe.Backup
          }
          else if (++failures <= maxFailures)
          {
+            // we have exceeded the retry count, but we
+            // are within the failure count, fail the
+            // current operation but continue processing
             retries = 0;
             Console.WriteLine();
             Console.WriteLine("      Skipping due to error.");
@@ -289,10 +385,18 @@ namespace SkyFloe.Backup
          else
             args.Result = ErrorResult.Abort;
       }
-
+      /// <summary>
+      /// Formats a byte length value
+      /// </summary>
+      /// <param name="bytes">
+      /// The number of bytes to format
+      /// </param>
+      /// <returns>
+      /// The formatted length
+      /// </returns>
       static String FormatLength (Int64 bytes)
       {
-         var units = new[] { "B", "KB", "MB", "GB", "TB" };
+         var units = new[] { "B ", "KB", "MB", "GB", "TB" };
          var unit = 0;
          var norm = (Double)bytes;
          while (norm >= 1000 & unit < units.Length)
@@ -301,14 +405,13 @@ namespace SkyFloe.Backup
             unit++;
          }
          var format = new StringBuilder();
-         format.Append("{0:#,0");
+         format.Append("{0,4:#,0");
          if (unit > 0 && norm < 10)
             format.Append(".00");
          else if (unit > 0 && norm < 100)
             format.Append(".0");
-         format.Append(" ");
+         format.Append("} ");
          format.Append(units[unit]);
-         format.Append("}");
          return String.Format(format.ToString(), norm);
       }
    }

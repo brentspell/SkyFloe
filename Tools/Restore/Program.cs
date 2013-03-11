@@ -1,4 +1,25 @@
-﻿using System;
+﻿//===========================================================================
+// MODULE:  Program.cs
+// PURPOSE: skyfloe restore CUI
+// 
+// Copyright © 2013
+// Brent M. Spell. All rights reserved.
+//
+// This library is free software; you can redistribute it and/or modify it 
+// under the terms of the GNU Lesser General Public License as published 
+// by the Free Software Foundation; either version 3 of the License, or 
+// (at your option) any later version. This library is distributed in the 
+// hope that it will be useful, but WITHOUT ANY WARRANTY; without even the 
+// implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+// See the GNU Lesser General Public License for more details. You should 
+// have received a copy of the GNU Lesser General Public License along with 
+// this library; if not, write to 
+//    Free Software Foundation, Inc. 
+//    51 Franklin Street, Fifth Floor 
+//    Boston, MA 02110-1301 USA
+//===========================================================================
+// System References
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -6,9 +27,16 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Tpl = System.Threading.Tasks;
+// Project References
 
 namespace SkyFloe.Restore
 {
+   /// <summary>
+   /// SkyFloe restore program
+   /// </summary>
+   /// <remarks>
+   /// This program drives the backup engine for restoring backups.
+   /// </remarks>
    class Program
    {
       private static String connectionString;
@@ -27,12 +55,23 @@ namespace SkyFloe.Restore
       private static Int32 rateLimit;
       private static Int32 retries;
       private static Int32 failures;
+      private static Engine engine;
       private static CancellationTokenSource canceler;
 
-      static Int32 Main (String[] args)
+      /// <summary>
+      /// Program entry point
+      /// </summary>
+      /// <param name="options">
+      /// Program options
+      /// </param>
+      /// <returns>
+      /// 0 if successful
+      /// > 0 otherwise
+      /// </returns>
+      static Int32 Main (String[] options)
       {
          Console.WriteLine("SkyFloe Restore");
-         if (!ParseOptions(args))
+         if (!ParseOptions(options))
          {
             ReportUsage();
             return 1;
@@ -41,8 +80,17 @@ namespace SkyFloe.Restore
             return 1;
          return 0;
       }
-
-      static Boolean ParseOptions (String[] args)
+      /// <summary>
+      /// Parses the command-line options
+      /// </summary>
+      /// <param name="options">
+      /// The program options array
+      /// </param>
+      /// <returns>
+      /// True if the arguments are valid
+      /// False otherwise
+      /// </returns>
+      static Boolean ParseOptions (String[] options)
       {
          // initialize options
          password = "";
@@ -72,7 +120,7 @@ namespace SkyFloe.Restore
                { "k|delete", v => enableDeletes = (v != null) },
                { "i|file=", v => restoreFiles.Add((IO.Path)v) },
                { "l|rate=", (Int32 v) => rateLimit = v },
-            }.Parse(args);
+            }.Parse(options);
          }
          catch { return false; }
          // validate options
@@ -94,7 +142,9 @@ namespace SkyFloe.Restore
             return false;
          return true;
       }
-
+      /// <summary>
+      /// Displays a program usage message
+      /// </summary>
       static void ReportUsage ()
       {
          Console.WriteLine("   Usage: SkyFloe-Restore {options}");
@@ -113,7 +163,13 @@ namespace SkyFloe.Restore
          Console.WriteLine("      -i|-file {path}            specify an individual file to restore (source absolute path)");
          Console.WriteLine("      -l|-rate {limit}           restore rate limit, in KB/sec, default: unlimited");
       }
-
+      /// <summary>
+      /// Performs all restore processing using the configured options
+      /// </summary>
+      /// <returns>
+      /// True if successful
+      /// False otherwise
+      /// </returns>
       static Boolean ExecuteRestore ()
       {
          var restoreOk = false;
@@ -122,79 +178,27 @@ namespace SkyFloe.Restore
             Console.SetBufferSize(1000, 1000);
          try
          {
-            Console.Write("   Connecting to archive {0}...", archiveName);
-            using (var engine = Connect())
-            {
-               Console.WriteLine("done.");
-               var session = engine.Archive.Restores
-                  .FirstOrDefault(s => s.State != SessionState.Completed);
-               if (session != null)
-                  Console.WriteLine(
-                     "   Resuming restore session started {0:MMM d, yyyy h:m tt}.",
-                     session.Created
-                  );
-               else
+            var task = Tpl.Task.Factory.StartNew(
+               () =>
                {
-                  Console.Write("   Creating a new restore session...");
-                  var nodes = new List<Backup.Node>();
-                  if (!restoreFiles.Any())
-                     nodes.AddRange(engine.Archive.Roots);
-                  else
-                  {
-                     foreach (var path in restoreFiles)
-                     {
-                        var node = engine.Archive.LookupNode(path);
-                        if (node == null)
-                           throw new InvalidOperationException(String.Format("Path not found in the archive: {0}.", path));
-                        nodes.Add(node);
-                     }
-                  }
-                  var subtrees = engine.Archive.GetSubtrees(nodes);
-                  session = engine.CreateRestore(
-                     new RestoreRequest()
-                     {
-                        RootPathMap = rootPathMap,
-                        Filter = new RegexFilter()
-                        {
-                           Include = includeFilter,
-                           Exclude = excludeFilter
-                        },
-                        SkipExisting = skipExisting,
-                        SkipReadOnly = skipReadOnly,
-                        VerifyResults = verifyResults,
-                        EnableDeletes = enableDeletes,
-                        RateLimit = rateLimit * 1024,
-                        Entries = subtrees.Select(
-                           n => engine.Archive.GetEntries(n)
-                              .OrderBy(e => e.Session.Created)
-                              .Where(
-                                 e => e.State == Backup.EntryState.Completed ||
-                                       e.State == Backup.EntryState.Deleted
-                              ).Select(e => e.ID)
-                              .DefaultIfEmpty(0)
-                              .Last()
-                        ).Where(id => id != 0),
-                     }
-                  );
-                  Console.WriteLine("done.");
+                  Connect();
+                  ExecuteSession(CreateSession());
                }
-               var tasks = Tpl.Task.Factory.StartNew(
-                  () => engine.ExecuteRestore(session)
-               );
-               while (!tasks.Wait(1000))
+            );
+            // wait until all backup processing completes,
+            // or cancel if the user presses escape
+            while (!task.Wait(1000))
+            {
+               while (Console.KeyAvailable)
                {
-                  while (Console.KeyAvailable)
+                  if (Console.ReadKey(true).Key == ConsoleKey.Escape)
                   {
-                     if (Console.ReadKey(true).Key == ConsoleKey.Escape)
-                     {
-                        Console.WriteLine();
-                        Console.Write("   Canceling...");
-                        canceler.Cancel();
-                     }
+                     Console.WriteLine();
+                     Console.Write("   Canceling...");
+                     canceler.Cancel();
                   }
                }
             }
-            Console.WriteLine("   Restore complete.");
             restoreOk = true;
          }
          catch (Exception e)
@@ -208,6 +212,10 @@ namespace SkyFloe.Restore
                   e.ToString().Replace("\n", "\n      ")
                );
          }
+         finally
+         {
+            engine.Dispose();
+         }
          if (Debugger.IsAttached)
          {
             Console.WriteLine();
@@ -216,10 +224,12 @@ namespace SkyFloe.Restore
          }
          return restoreOk;
       }
-
-      static Engine Connect ()
+      /// <summary>
+      /// Connects to the configured backup archive
+      /// </summary>
+      static void Connect ()
       {
-         var engine = new Engine()
+         engine = new Engine()
          {
             Connection = new Connection(connectionString),
             Canceler = canceler.Token
@@ -229,7 +239,6 @@ namespace SkyFloe.Restore
             engine.OnProgress += HandleProgress;
             engine.OnError += HandleError;
             engine.OpenArchive(archiveName, password);
-            return engine;
          }
          catch
          {
@@ -237,7 +246,105 @@ namespace SkyFloe.Restore
             throw;
          }
       }
-
+      /// <summary>
+      /// Creates a new restore session or resumes a session in progress
+      /// </summary>
+      /// <returns>
+      /// The new restore session
+      /// </returns>
+      static Restore.Session CreateSession ()
+      {
+         var session = engine.Archive.Restores
+            .FirstOrDefault(s => s.State != SessionState.Completed);
+         if (session != null)
+            Console.WriteLine(
+               "   Resuming restore session started {0:MMM d, yyyy h:m tt}.",
+               session.Created
+            );
+         else
+         {
+            Console.Write("   Creating a new restore session...");
+            session = engine.CreateRestore(
+               new RestoreRequest()
+               {
+                  RootPathMap = rootPathMap,
+                  Filter = new RegexFilter()
+                  {
+                     Include = includeFilter,
+                     Exclude = excludeFilter
+                  },
+                  SkipExisting = skipExisting,
+                  SkipReadOnly = skipReadOnly,
+                  VerifyResults = verifyResults,
+                  EnableDeletes = enableDeletes,
+                  RateLimit = rateLimit * 1024,
+                  Entries = GetBackupEntries().Select(e => e.ID),
+               }
+            );
+            Console.WriteLine("done.");
+         }
+         return session;
+      }
+      /// <summary>
+      /// Enumerates the backup entries to add to the restore session
+      /// </summary>
+      /// <returns>
+      /// The list of backup entries to restore
+      /// </returns>
+      static IEnumerable<Backup.Entry> GetBackupEntries ()
+      {
+         // create the initial node list
+         // . if no nodes were specified on the command line, restore all
+         // . otherwise, fetch the requested nodes and restore only those
+         var nodes = new List<Backup.Node>();
+         if (!restoreFiles.Any())
+            nodes.AddRange(engine.Archive.Roots);
+         else
+         {
+            foreach (var path in restoreFiles)
+            {
+               var node = engine.Archive.LookupNode(path);
+               if (node == null)
+                  throw new InvalidOperationException(
+                     String.Format("Path not found in the archive: {0}.", path)
+                  );
+               nodes.Add(node);
+            }
+         }
+         // restore the latest entry for each node that is either
+         // completed or deleted, ignoring any nodes without entries
+         return engine.Archive
+            .GetSubtrees(nodes)
+            .Select(
+               n => engine.Archive.GetEntries(n)
+                  .OrderBy(e => e.Session.Created)
+                  .Where(
+                     e => e.State == Backup.EntryState.Completed ||
+                          e.State == Backup.EntryState.Deleted
+                  ).DefaultIfEmpty(null)
+                  .Last()
+            ).Where(e => e != null);
+      }
+      /// <summary>
+      /// Starts/resumes a restore session
+      /// </summary>
+      /// <param name="session">
+      /// The session to execute
+      /// </param>
+      static void ExecuteSession (Restore.Session session)
+      {
+         engine.ExecuteRestore(session);
+         Console.WriteLine("   Restore complete.");
+      }
+      /// <summary>
+      /// Dispatches a backup engine progress event
+      /// </summary>
+      /// <param name="sender">
+      /// The event source
+      /// </param>
+      /// <param name="args">
+      /// The event parameters
+      /// </param>
       static void HandleProgress (Object sender, ProgressEventArgs args)
       {
          if (args.Operation == "BeginRestoreEntry")
@@ -256,7 +363,15 @@ namespace SkyFloe.Restore
          }
          retries = failures = 0;
       }
-
+      /// <summary>
+      /// Dispatches a backup engine error event
+      /// </summary>
+      /// <param name="sender">
+      /// The event source
+      /// </param>
+      /// <param name="args">
+      /// The event parameters
+      /// </param>
       static void HandleError (Object sender, ErrorEventArgs args)
       {
          if (++retries <= maxRetries)
@@ -280,10 +395,18 @@ namespace SkyFloe.Restore
          else
             args.Result = ErrorResult.Abort;
       }
-
+      /// <summary>
+      /// Formats a byte length value
+      /// </summary>
+      /// <param name="bytes">
+      /// The number of bytes to format
+      /// </param>
+      /// <returns>
+      /// The formatted length
+      /// </returns>
       static String FormatLength (Int64 bytes)
       {
-         var units = new[] { "B", "KB", "MB", "GB", "TB" };
+         var units = new[] { "B ", "KB", "MB", "GB", "TB" };
          var unit = 0;
          var norm = (Double)bytes;
          while (norm >= 1000 & unit < units.Length)
@@ -292,14 +415,13 @@ namespace SkyFloe.Restore
             unit++;
          }
          var format = new StringBuilder();
-         format.Append("{0:#,0");
+         format.Append("{0,4:#,0");
          if (unit > 0 && norm < 10)
             format.Append(".00");
          else if (unit > 0 && norm < 100)
             format.Append(".0");
-         format.Append(" ");
+         format.Append("} ");
          format.Append(units[unit]);
-         format.Append("}");
          return String.Format(format.ToString(), norm);
       }
    }
