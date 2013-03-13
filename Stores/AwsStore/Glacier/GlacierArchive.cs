@@ -59,6 +59,7 @@ namespace SkyFloe.Aws
       private IO.FileSystem.TempStream backupIndexFile;
       private IBackupIndex backupIndex;
       private IRestoreIndex restoreIndex;
+      private IO.StreamCopier copier;
 
       /// <summary>
       /// Initializes a new archive instance
@@ -102,6 +103,7 @@ namespace SkyFloe.Aws
          this.restoreIndex = (IO.FileSystem.GetMetadata(restoreIndexPath).Exists) ?
             Sqlite.RestoreIndex.Open(restoreIndexPath) :
             Sqlite.RestoreIndex.Create(restoreIndexPath, new Restore.Header());
+         this.copier = new IO.StreamCopier();
       }
       /// <summary>
       /// Releases the resources associated with the archive
@@ -172,17 +174,17 @@ namespace SkyFloe.Aws
       {
          // download the existing backup index
          this.backupIndexFile = IO.FileSystem.Temp();
-         using (var s3Stream = this.s3.GetObject(
-               new Amazon.S3.Model.GetObjectRequest()
-               {
-                  BucketName = this.bucket,
-                  Key = this.IndexS3Key
-               }
-            ).ResponseStream
-         )
-         // extract and open the index
+         var s3Stream = this.s3.GetObject(
+            new Amazon.S3.Model.GetObjectRequest()
+            {
+               BucketName = this.bucket,
+               Key = this.IndexS3Key
+            }
+         ).ResponseStream;
+         using (s3Stream)
          using (var gzip = new GZipStream(s3Stream, CompressionMode.Decompress))
-            gzip.CopyTo(this.backupIndexFile);
+            this.copier.CopyAndFlush(gzip, this.backupIndexFile);
+         // open the index
          this.backupIndex = Sqlite.BackupIndex.Open(this.backupIndexFile.Path);
       }
       /// <summary>
@@ -194,13 +196,13 @@ namespace SkyFloe.Aws
          {
             // compress the backup index to a temporary file
             using (var gzipStream = new GZipStream(
-                  checkpointStream, 
-                  CompressionMode.Compress, 
+                  checkpointStream,
+                  CompressionMode.Compress,
                   true
                )
             )
             using (var indexStream = this.BackupIndex.Serialize())
-               indexStream.CopyTo(gzipStream);
+               this.copier.CopyAndFlush(indexStream, gzipStream);
             // upload the backup index to S3
             checkpointStream.Position = 0;
             this.s3.PutObject(

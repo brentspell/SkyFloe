@@ -42,6 +42,7 @@ namespace SkyFloe.Tasks
    {
       private Store.IRestore restore;
       private IO.RateLimiter limiter;
+      private IO.StreamCopier copier;
 
       /// <summary>
       /// The restore session to start/resume
@@ -86,6 +87,7 @@ namespace SkyFloe.Tasks
             txn.Complete();
          }
          this.limiter = new IO.RateLimiter(this.Session.RateLimit);
+         this.copier = new IO.StreamCopier();
          for (; ; )
          {
             this.Canceler.ThrowIfCancellationRequested();
@@ -259,7 +261,7 @@ namespace SkyFloe.Tasks
                      IO.CompressionMode.Decompress
                   )
                );
-            input.CopyTo(output);
+            copier.CopyAndFlush(input, output);
          }
          // verify the backup entry's CRC if requested
          if (this.Session.VerifyResults)

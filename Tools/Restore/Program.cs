@@ -53,6 +53,7 @@ namespace SkyFloe.Restore
       private static Int32 maxRetries;
       private static Int32 maxFailures;
       private static Int32 rateLimit;
+      private static Boolean cleanupSessions;
       private static Int32 retries;
       private static Int32 failures;
       private static Engine engine;
@@ -120,6 +121,7 @@ namespace SkyFloe.Restore
                { "k|delete", v => enableDeletes = (v != null) },
                { "i|file=", v => restoreFiles.Add((IO.Path)v) },
                { "l|rate=", (Int32 v) => rateLimit = v },
+               { "u|cleanup", v => cleanupSessions = (v != null) },
             }.Parse(options);
          }
          catch { return false; }
@@ -162,6 +164,7 @@ namespace SkyFloe.Restore
          Console.WriteLine("      -k|-delete[+/-]            delete files marked as deleted in the archive");
          Console.WriteLine("      -i|-file {path}            specify an individual file to restore (source absolute path)");
          Console.WriteLine("      -l|-rate {limit}           restore rate limit, in KB/sec, default: unlimited");
+         Console.WriteLine("      -u|-cleanup[+/-]           delete any existing restore history");
       }
       /// <summary>
       /// Performs all restore processing using the configured options
@@ -214,7 +217,8 @@ namespace SkyFloe.Restore
          }
          finally
          {
-            engine.Dispose();
+            if (engine != null)
+               engine.Dispose();
          }
          if (Debugger.IsAttached)
          {
@@ -239,6 +243,13 @@ namespace SkyFloe.Restore
             engine.OnProgress += HandleProgress;
             engine.OnError += HandleError;
             engine.OpenArchive(archiveName, password);
+            if (cleanupSessions)
+            {
+               Console.Write("   Deleting existing restore sessions...");
+               foreach (var session in engine.Archive.Restores)
+                  engine.DeleteRestore(session);
+               Console.WriteLine("done.");
+            }
          }
          catch
          {
@@ -259,7 +270,7 @@ namespace SkyFloe.Restore
          if (session != null)
             Console.WriteLine(
                "   Resuming restore session started {0:MMM d, yyyy h:m tt}.",
-               session.Created
+               session.Created.ToLocalTime()
             );
          else
          {
@@ -359,9 +370,9 @@ namespace SkyFloe.Restore
          }
          else if (args.Operation == "EndRestoreEntry")
          {
+            retries = failures = 0;
             Console.WriteLine("done.");
          }
-         retries = failures = 0;
       }
       /// <summary>
       /// Dispatches a backup engine error event

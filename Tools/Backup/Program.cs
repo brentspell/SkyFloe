@@ -217,7 +217,8 @@ namespace SkyFloe.Backup
          }
          finally
          {
-            engine.Dispose();
+            if (engine != null)
+               engine.Dispose();
          }
          if (Debugger.IsAttached)
          {
@@ -232,26 +233,41 @@ namespace SkyFloe.Backup
       /// </summary>
       static void Connect ()
       {
-         Console.Write("   Connecting to archive {0}...", archiveName);
+         Console.Write("   Connecting to the backup store...");
          engine = new Engine()
          {
             Connection = new Connection(connectionString),
             Canceler = canceler.Token
          };
+         Console.WriteLine("done.");
          try
          {
             engine.OnProgress += HandleProgress;
             engine.OnError += HandleError;
-            if (deleteArchive)
-               if (engine.Connection.ListArchives()
-                     .Contains(archiveName, StringComparer.OrdinalIgnoreCase))
+            var exists = engine.Connection
+               .ListArchives()
+               .Contains(archiveName, StringComparer.OrdinalIgnoreCase);
+            // remove the existing archive
+            if (exists && deleteArchive)
+            {
+               Console.Write("   Deleting the existing archive {0}...", archiveName);
                engine.DeleteArchive(archiveName);
-            if (engine.Connection.ListArchives()
-                  .Contains(archiveName, StringComparer.OrdinalIgnoreCase))
+               Console.WriteLine("done.");
+               exists = false;
+            }
+            // open an existing archive or create a new archive
+            if (exists)
+            {
+               Console.Write("   Opening the existing archive {0}...", archiveName);
                engine.OpenArchive(archiveName, password);
+               Console.WriteLine("done.");
+            }
             else
+            {
+               Console.Write("   Creating the archive {0}...", archiveName);
                engine.CreateArchive(archiveName, password);
-            Console.WriteLine("done.");
+               Console.WriteLine("done.");
+            }
          }
          catch
          {
@@ -274,7 +290,7 @@ namespace SkyFloe.Backup
          {
             Console.WriteLine(
                "   Resuming backup session started {0:MMM d, yyyy h:m tt}.",
-               session.Created
+               session.Created.ToLocalTime()
             );
             return session;
          }
@@ -336,6 +352,7 @@ namespace SkyFloe.Backup
          }
          else if (args.Operation == "EndBackupEntry")
          {
+            retries = failures = 0;
             Console.WriteLine("done.");
          }
          else if (args.Operation == "BeginCheckpoint")
@@ -344,9 +361,9 @@ namespace SkyFloe.Backup
          }
          else if (args.Operation == "EndCheckpoint")
          {
+            retries = failures = 0;
             Console.WriteLine("done.");
          }
-         retries = failures = 0;
       }
       /// <summary>
       /// Dispatches a backup engine error event

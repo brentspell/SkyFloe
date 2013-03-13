@@ -38,6 +38,10 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DB", "DB", "{5185F558-63E2-4FF9-A2B4-CE0B7894BC9E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Restore", "Tools\Restore\Restore.csproj", "{CF7A9909-6953-486E-B7B5-A9078A5F5DC1}"
+	ProjectSection(ProjectDependencies) = postProject
+		{6A005674-9556-47A4-AA42-0276D14BACAF} = {6A005674-9556-47A4-AA42-0276D14BACAF}
+		{5934F389-F519-4B17-AC51-8575A202D165} = {5934F389-F519-4B17-AC51-8575A202D165}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

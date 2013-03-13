@@ -378,9 +378,7 @@ namespace SkyFloe.IO
       /// </returns>
       public Boolean Equals (String other)
       {
-         if (String.IsNullOrWhiteSpace(other))
-            other = String.Empty;
-         return Comparer.Equals(ToString(), other ?? String.Empty);
+         return Equals(new IO.Path(other));
       }
       #endregion
 

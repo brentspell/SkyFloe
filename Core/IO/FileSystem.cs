@@ -49,7 +49,17 @@ namespace SkyFloe.IO
       /// </returns>
       public static Boolean Exists (Path path)
       {
-         return ((Int32)new FileInfo(path).Attributes != -1);
+         // test for file existence
+         // . first, see if the file info exists - false for directories
+         // . next, check for -1 attributes (Windows only, 0 on Mono)
+         // . finally, test for the directory attribute
+         var fileInfo = new FileInfo(path);
+         if (fileInfo.Exists)
+            return true;
+         if ((Int32)fileInfo.Attributes != -1)
+            if (fileInfo.Attributes.HasFlag(FileAttributes.Directory))
+               return true;
+         return false;
       }
       /// <summary>
       /// Retrieves the file system metadata for a file/directory
@@ -62,12 +72,13 @@ namespace SkyFloe.IO
       /// </returns>
       public static Metadata GetMetadata (Path path)
       {
-         var info = new FileInfo(path);
-         if ((Int32)info.Attributes == -1)
-            return new Metadata(path);
-         if (info.Attributes.HasFlag(FileAttributes.Directory))
-            return new Metadata(new DirectoryInfo(path));
-         return new Metadata(info);
+         var fileInfo = new FileInfo(path);
+         if (fileInfo.Exists)
+            return new Metadata(fileInfo);
+         if ((Int32)fileInfo.Attributes != -1)
+            if (fileInfo.Attributes.HasFlag(FileAttributes.Directory))
+               return new Metadata(new DirectoryInfo(path));
+         return new Metadata(path);
       }
       /// <summary>
       /// Gets/sets the read-only flag for a file/directory

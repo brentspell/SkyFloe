@@ -207,22 +207,36 @@ namespace SkyFloe.Aws
       public void DeleteArchive (String name)
       {
          // delete the vault archives
-         using (var archive = OpenArchive(name))
-            foreach (var blob in archive.BackupIndex.ListBlobs())
+         List<String> blobs = new List<String>();
+         try
+         { 
+            using (var archive = OpenArchive(name))
+               blobs.AddRange(archive.BackupIndex.ListBlobs().Select(b => b.Name));
+         }
+         catch { }
+         foreach (var blob in blobs)
+            try
+            {
                this.glacier.DeleteArchive(
                   new DeleteArchiveRequest()
                   {
                      VaultName = GetVaultName(name),
-                     ArchiveId = blob.Name
+                     ArchiveId = blob
                   }
                );
-         // delete the archive vault
-         this.glacier.DeleteVault(
-            new DeleteVaultRequest()
-            {
-               VaultName = GetVaultName(name)
             }
-         );
+            catch { }
+         // delete the archive vault
+         try
+         {
+            this.glacier.DeleteVault(
+               new DeleteVaultRequest()
+               {
+                  VaultName = GetVaultName(name)
+               }
+            );
+         }
+         catch { }
          // delete the S3 backup index blob
          this.s3.DeleteObject(
             new DeleteObjectRequest()

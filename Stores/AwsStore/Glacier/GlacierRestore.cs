@@ -105,7 +105,8 @@ namespace SkyFloe.Aws
          var ready = false;
          do
          {
-            ready = CheckRetrieval(entry.Retrieval);
+            if (entry.Retrieval.Name != null)
+               ready = CheckRetrieval(entry.Retrieval);
             StartRetrievals(entry.Retrieval);
             CleanRetrievals(entry.Retrieval);
             if (!ready)
@@ -221,15 +222,18 @@ namespace SkyFloe.Aws
       /// </returns>
       private Boolean CheckRetrieval (Restore.Retrieval retrieval)
       {
-         try
+         switch (this.downloader.QueryJob(retrieval.Name))
          {
-            if (retrieval.Name != null)
-               return this.downloader.QueryJob(retrieval.Name);
-         }
-         catch
-         {
-            retrieval.Name = null;
-            this.archive.RestoreIndex.UpdateRetrieval(retrieval);
+            case JobStatus.Completed:
+               return true;
+            case JobStatus.InProgress:
+               break;
+            default:
+               // the job failed or was not found
+               // remove it so that it can be resubmitted
+               retrieval.Name = null;
+               this.archive.RestoreIndex.UpdateRetrieval(retrieval);
+               break;
          }
          return false;
       }

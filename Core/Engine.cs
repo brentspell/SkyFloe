@@ -184,7 +184,7 @@ namespace SkyFloe
          if (this.archive != null)
             this.archive.Dispose();
          if (this.crypto != null)
-            this.crypto.Dispose();
+            ((IDisposable)this.crypto).Dispose();  // Mono bug 701586 requires cast
          this.archive = null;
          this.crypto = null;
       }
@@ -249,7 +249,7 @@ namespace SkyFloe
          }
          catch
          {
-            aes.Dispose();
+            ((IDisposable)aes).Dispose(); // Mono bug 701586 requires cast
             throw;
          }
       }

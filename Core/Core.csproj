@@ -47,6 +47,7 @@
     <Compile Include="IO\LZ4\Utility.cs" />
     <Compile Include="IO\Path.cs" />
     <Compile Include="IO\RateLimiter.cs" />
+    <Compile Include="IO\StreamCopier.cs" />
     <Compile Include="IO\StreamStack.cs" />
     <Compile Include="Options\Options.cs" />
     <Compile Include="Request\BackupRequest.cs" />

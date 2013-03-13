@@ -30,6 +30,16 @@ using Amazon.Glacier.Model;
 namespace SkyFloe.Aws
 {
    /// <summary>
+   /// Glacier job status enum, returned from QueryJob()
+   /// </summary>
+   public enum JobStatus
+   {
+      InProgress,       // job is still in progress
+      Completed,        // job is complete and ready for download
+      Failed            // job was not found or has failed at AWS somehow
+   }
+
+   /// <summary>
    /// Glacier vault archive downloader
    /// </summary>
    /// <remarks>
@@ -113,44 +123,50 @@ namespace SkyFloe.Aws
       /// The retrieval job identifier
       /// </param>
       /// <returns>
-      /// True if the job has completed
-      /// False if it is in progress
-      /// Throws if the job failed or expired
+      /// The current status of the job
       /// </returns>
-      public Boolean QueryJob (String jobID)
+      public JobStatus QueryJob (String jobID)
       {
          // if we have already started downloading the job, it is completed
          if (this.jobStreams.ContainsKey(jobID))
-            return true;
+            return JobStatus.Completed;
          // request the job status from AWS
-         var jobInfo = this.glacier.DescribeJob(
-            new DescribeJobRequest()
-            {
-               VaultName = this.vault,
-               JobId = jobID
-            }
-         ).DescribeJobResult;
-         if (jobInfo.Completed)
+         try
          {
-            // if the job has completed, create a new GlacierStream
-            // and add it to the completed job mapping
-            // experiments show that AWS streams are chatty and return 
-            // data as soon as it reaches the socket, so buffer it for
-            // more efficient stream processing
-            var range = jobInfo.RetrievalByteRange;
-            var start = range.Substring(0, range.IndexOf('-'));
-            var stop = range.Substring(range.IndexOf('-') + 1);
-            var length = Convert.ToInt64(stop) - Convert.ToInt64(start) + 1;
-            this.jobStreams.Add(
-               jobID, 
-               new BufferedStream(
-                  new GlacierStream(this.glacier, this.vault, jobID, length),
-                  65536
-               )
-            );
-            return true;
+            var jobInfo = this.glacier.DescribeJob(
+               new DescribeJobRequest()
+               {
+                  VaultName = this.vault,
+                  JobId = jobID
+               }
+            ).DescribeJobResult;
+            if (jobInfo.Completed)
+            {
+               // if the job has completed, create a new GlacierStream
+               // and add it to the completed job mapping
+               // experiments show that AWS streams are chatty and return 
+               // data as soon as it reaches the socket, so buffer it for
+               // more efficient stream processing
+               var range = jobInfo.RetrievalByteRange;
+               var start = range.Substring(0, range.IndexOf('-'));
+               var stop = range.Substring(range.IndexOf('-') + 1);
+               var length = Convert.ToInt64(stop) - Convert.ToInt64(start) + 1;
+               this.jobStreams.Add(
+                  jobID,
+                  new GlacierStream(this.glacier, this.vault, jobID, length)
+               );
+               return JobStatus.Completed;
+            }
+            if (StringComparer.OrdinalIgnoreCase.Equals(jobInfo.StatusCode, "InProgress"))
+               return JobStatus.InProgress;
+            return JobStatus.Failed;
          }
-         return false;
+         catch (ResourceNotFoundException)
+         {
+            // if the job was not found, assume AWS expired it,
+            // so that it can be resubmitted
+            return JobStatus.Failed;
+         }
       }
       /// <summary>
       /// Releases a job stream that is no longer needed
@@ -185,11 +201,11 @@ namespace SkyFloe.Aws
       public Stream GetJobStream (String jobID, Int64 offset, Int64 length)
       {
          var stream = (Stream)null;
-         if (this.jobStreams.TryGetValue(jobID, out stream))
+         if (!this.jobStreams.TryGetValue(jobID, out stream))
             throw new InvalidOperationException();
          try
          {
-            return new IO.Substream(stream, offset, length);
+            return new BufferedStream(new IO.Substream(stream, offset, length));
          }
          catch
          {

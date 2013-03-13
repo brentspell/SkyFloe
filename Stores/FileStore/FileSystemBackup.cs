@@ -41,6 +41,7 @@ namespace SkyFloe
    {
       private FileSystemArchive archive;
       private Stream blobFile;
+      private IO.StreamCopier copier;
 
       /// <summary>
       /// Initializes a new backup instance
@@ -55,6 +56,7 @@ namespace SkyFloe
       {
          this.archive = archive;
          this.blobFile = IO.FileSystem.Append(archive.BlobPath);
+         this.copier = new IO.StreamCopier();
       }
       /// <summary>
       /// Releases the resources associated with the backup
@@ -84,7 +86,7 @@ namespace SkyFloe
          var blob = this.archive.BackupIndex.FetchBlob(1);
          this.blobFile.Position = blob.Length;
          // transfer the file data to the blob
-         stream.CopyTo(this.blobFile);
+         this.copier.Copy(stream, this.blobFile);
          // update the backup entry metadata
          entry.Blob = blob;
          entry.Offset = blob.Length;
