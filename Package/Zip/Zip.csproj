@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="Zip.tasks" />
+  <PropertyGroup>
+    <Platform>AnyCPU</Platform>
+    <ProjectGuid>{6498CE89-1179-4701-849B-72440E477264}</ProjectGuid>
+    <PackageName>SkyFloe.zip</PackageName>
+    <VisualStudioVersion>11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutputPath>..\..\Bin\</OutputPath>
+    <TargetPath>$(OutputPath)pkg\$(PackageName)</TargetPath>
+    <PackageExclude>$(OutputPath)pkg\**\*</PackageExclude>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <PackageExclude>$(PackageExclude);$(OutputPath)**\*.pdb</PackageExclude>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="Zip.tasks" />
+  </ItemGroup>
+  <Target Name="__PrepareBuild">
+    <ItemGroup>
+      <__PkgFiles Include="$(OutputPath)**\*" Exclude="$(PackageExclude)" />
+    </ItemGroup>
+  </Target>
+  <Target Name="Build" Inputs="$(MSBuildThisFile);@(__PkgFiles)" Outputs="$(TargetPath)" DependsOnTargets="__PrepareBuild;BeforeBuild;">
+    <MakeDir Directories="$(OutputPath)pkg" />
+    <Zip RootPath="$(OutputPath)" SourceFiles="@(__PkgFiles)" DestinationFile="$(TargetPath)" />
+    <CallTarget Targets="AfterBuild" />
+  </Target>
+  <Target Name="Clean" DependsOnTargets="BeforeClean;">
+    <Delete Files="$(TargetPath)" />
+    <CallTarget Targets="AfterClean" />
+  </Target>
+  <Target Name="Rebuild" DependsOnTargets="Clean;Build;" />
+  <Target Name="BeforeBuild" />
+  <Target Name="AfterBuild" />
+  <Target Name="BeforeClean" />
+  <Target Name="AfterClean" />
+</Project>

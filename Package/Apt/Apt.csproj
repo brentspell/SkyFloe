@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="Apt.tasks" />
+  <PropertyGroup>
+    <Platform>AnyCPU</Platform>
+    <ProjectGuid>{29BE5041-CCAE-4793-A932-EE43965AD47D}</ProjectGuid>
+    <PackageName>skyfloe_1.0_all.deb</PackageName>
+    <PackageLibPath>usr\lib\skyfloe\1.0\</PackageLibPath>
+    <VisualStudioVersion>11.0</VisualStudioVersion>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OutputPath>..\..\Bin\</OutputPath>
+    <IntermediatePath>Obj\$(Platform)\$(Configuration)\</IntermediatePath>
+    <__UnixIntermediatePath>$(IntermediatePath.Replace('\', '/'))</__UnixIntermediatePath>
+    <TargetPath>$(OutputPath)pkg\$(PackageName)</TargetPath>
+    <PackageExclude>$(OutputPath)pkg\**\*</PackageExclude>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <PackageExclude>$(PackageExclude);$(OutputPath)**\*.pdb</PackageExclude>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="Apt.tasks" />
+    <None Include="debian-binary" />
+    <AptControl Include="control\control" />
+    <AptControl Include="control\prerm" />
+    <AptControl Include="control\postinst" />
+    <AptData Include="data\usr\bin\skyfloe-backup" />
+    <AptData Include="data\usr\bin\skyfloe-restore" />
+  </ItemGroup>
+  <ItemGroup />
+  <Target Name="__PrepareBuild">
+    <ItemGroup>
+      <__LibFiles Include="$(OutputPath)**\*" Exclude="$(PackageExclude)" />
+    </ItemGroup>
+  </Target>
+  <Target Name="Build" 
+    Inputs="$(MSBuildThisFile);@(AptControl);@(__LibFiles)" 
+    Outputs="$(TargetPath)" 
+    DependsOnTargets="__PrepareBuild;BeforeBuild;">
+    <MakeDir Directories="$(OutputPath)pkg"/>
+    <Copy SourceFiles="debian-binary" DestinationFolder="$(IntermediatePath)" />
+    <Copy SourceFiles="@(AptControl)" DestinationFolder="$(IntermediatePath)\control" />
+    <Copy SourceFiles="@(AptData)" DestinationFolder="$(IntermediatePath)\%(RelativeDir)" />
+    <Copy SourceFiles="@(__LibFiles)" DestinationFolder="$(IntermediatePath)\data\$(PackageLibPath)%(RecursiveDir)" />
+    <Dos2Unix Path="$(IntermediatePath)\debian-binary" />
+    <Dos2Unix Path="$(IntermediatePath)\%(AptControl.RelativeDir)\%(AptControl.FileName)" />
+    <Dos2Unix Path="$(IntermediatePath)\%(AptData.RelativeDir)\%(AptData.FileName)" />
+    <Exec Command="tar -cvzf &quot;$(__UnixIntermediatePath)control.tar.gz&quot; -C &quot;$(__UnixIntermediatePath)/control&quot; . &gt; nul" />
+    <Exec Command="tar -cvzf &quot;$(__UnixIntermediatePath)data.tar.gz&quot; -C &quot;$(__UnixIntermediatePath)/data&quot; . &gt; nul" />
+    <CreatePackage DebianBinaryPath="$(IntermediatePath)\debian-binary" ControlPath="$(IntermediatePath)control.tar.gz" DataPath="$(IntermediatePath)data.tar.gz" OutputPath="$(TargetPath)" />
+    <CallTarget Targets="AfterBuild" />
+  </Target>
+  <Target Name="Clean" DependsOnTargets="BeforeClean;">
+    <ItemGroup>
+      <__IntermediateFiles Include="$(IntermediatePath)**\*.*" />
+    </ItemGroup>
+    <Delete Files="@(__IntermediateFiles)" />
+    <Delete Files="$(TargetPath)" />
+    <CallTarget Targets="AfterClean" />
+  </Target>
+  <Target Name="Rebuild" DependsOnTargets="Clean;Build;" />
+  <Target Name="BeforeBuild" />
+  <Target Name="AfterBuild" />
+  <Target Name="BeforeClean" />
+  <Target Name="AfterClean" />
+</Project>

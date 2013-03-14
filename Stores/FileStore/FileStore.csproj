@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <Platform>x86</Platform>
+    <Platform>AnyCPU</Platform>
     <ProjectGuid>{6A005674-9556-47A4-AA42-0276D14BACAF}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>SkyFloe</RootNamespace>
@@ -15,13 +15,13 @@
     <WarningLevel>4</WarningLevel>
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <DefineConstants>$(DefineConstants);DEBUG</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -45,9 +45,9 @@
       <Project>{b0e755f5-be17-4756-8b14-43eea8698c5d}</Project>
       <Name>Core</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\DB\Sqlite\Sqlite.csproj">
+    <ProjectReference Include="..\..\DB\Sqlite\Sqlite\Sqlite.csproj">
       <Project>{de3ab975-4449-441b-a763-64c356be2b70}</Project>
-      <Name>Sqlite</Name>
+      <Name>Sqlite %28DB\Sqlite\Sqlite%29</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

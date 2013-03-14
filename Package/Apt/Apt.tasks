@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+   <UsingTask TaskName="CreatePackage" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+      <ParameterGroup>
+         <DebianBinaryPath ParameterType="System.String" Required="true"/>
+         <ControlPath ParameterType="System.String" Required="true"/>
+         <DataPath ParameterType="System.String" Required="true"/>
+         <OutputPath ParameterType="System.String" Required="true"/>
+      </ParameterGroup>
+      <Task>
+         <Code Type="Class" Language="cs"><![CDATA[
+            using System;
+            using System.IO;
+            using System.Text;
+            using Microsoft.Build.Framework;
+
+            public class CreatePackage : ITask
+            {
+               public IBuildEngine BuildEngine { get; set; }
+               public ITaskHost HostObject { get; set; }
+               public String DebianBinaryPath { get; set; }
+               public String ControlPath { get; set; }
+               public String DataPath { get; set; }
+               public String OutputPath { get; set; }
+               public Boolean Execute ()
+               {
+                  try
+                  {
+                     using (var writer = new ARWriter(this.OutputPath))
+                     {
+                        writer.Write(new FileInfo(this.DebianBinaryPath));
+                        writer.Write(new FileInfo(this.ControlPath));
+                        writer.Write(new FileInfo(this.DataPath));
+                     }
+                  }
+                  catch
+                  {
+                     File.Delete(this.OutputPath);
+                     throw;
+                  }
+                  return true;
+               }
+
+               private class ARWriter : IDisposable
+               {
+                  private static readonly DateTime Epoch =
+                     new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
+                  private Stream baseStream;
+                  private StreamWriter textWriter;
+
+                  public ARWriter (String path) : this(File.Create(path))
+                  {
+                  }
+
+                  public ARWriter (Stream baseStream)
+                  {
+                     this.baseStream = baseStream;
+                     this.textWriter = new StreamWriter(this.baseStream, Encoding.ASCII);
+                     this.textWriter.Write("!<arch>\n");
+                     this.textWriter.Flush();
+                  }
+
+                  public void Dispose ()
+                  {
+                     if (this.textWriter != null)
+                        this.textWriter.Close();
+                     this.textWriter = null;
+                     if (this.baseStream != null)
+                        this.baseStream.Close();
+                     this.baseStream = null;
+                  }
+
+                  public void Flush ()
+                  {
+                     this.textWriter.Flush();
+                  }
+
+                  public void Write (Stream stream, String fileName)
+                  {
+                     Write(stream, fileName, DateTime.UtcNow);
+                  }
+
+                  public void Write (Stream stream, String fileName, DateTime time)
+                  {
+                     if (stream == null)
+                        throw new ArgumentNullException("stream");
+                     if (String.IsNullOrWhiteSpace(fileName) || fileName.Length > 16)
+                        throw new ArgumentException("fileName");
+                     var timestamp = (Int32)(time - Epoch).TotalSeconds;
+                     this.textWriter.Write("{0,-16}", fileName);
+                     this.textWriter.Write("{0,-12}", timestamp);
+                     this.textWriter.Write("{0,-6}", 1000);
+                     this.textWriter.Write("{0,-6}", 100);
+                     this.textWriter.Write("{0,-8}", 100755);
+                     this.textWriter.Write("{0,-10}", stream.Length);
+                     this.textWriter.Write("`\n");
+                     this.textWriter.Flush();
+                     stream.CopyTo(baseStream);
+                     if (baseStream.Length % 2 == 1)
+                     {
+                        this.textWriter.Write("\n");
+                        this.textWriter.Flush();
+                     }
+                  }
+
+                  public void Write (FileInfo info)
+                  {
+                     using (var file = info.OpenRead())
+                        Write(file, info.Name, info.LastWriteTimeUtc);
+                  }
+               }
+            }
+         ]]></Code>
+      </Task>
+   </UsingTask>
+   <UsingTask TaskName="Dos2Unix" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+      <ParameterGroup>
+         <Path ParameterType="System.String" Required="true"/>
+      </ParameterGroup>
+      <Task>
+         <Using Namespace="System.IO"/>
+         <Using Namespace="System.Text"/>
+         <Code Type="Fragment" Language="cs"><![CDATA[
+            var tempPath = System.IO.Path.GetTempFileName();
+            try
+            {
+               using (var input = new StreamReader(File.OpenRead(this.Path)))
+               using (var output = new StreamWriter(File.OpenWrite(tempPath), Encoding.ASCII))
+               {
+                  output.NewLine = "\n";
+                  var line = "";
+                  while ((line = input.ReadLine()) != null)
+                     output.WriteLine(line);
+               }
+               File.Delete(this.Path);
+               File.Move(tempPath, this.Path);
+            }
+            finally
+            {
+               File.Delete(tempPath);
+            }
+         ]]></Code>
+      </Task>
+   </UsingTask>
+</Project>

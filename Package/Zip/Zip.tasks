@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+   <UsingTask TaskName="Zip" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll">
+      <ParameterGroup>
+         <RootPath ParameterType="System.String" Required="true"/>
+         <SourceFiles ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true"/>
+         <DestinationFile ParameterType="System.String" Required="true"/>
+      </ParameterGroup>
+      <Task>
+         <Using Namespace="System.IO"/>
+         <Using Namespace="System.IO.Packaging"/>
+         <Reference Include="WindowsBase"/>
+         <Code Type="Fragment" Language="cs"><![CDATA[
+            var root = Path.GetFullPath(this.RootPath);
+            while (root.EndsWith("\\"))
+               root = root.Substring(0, root.Length - 1);
+            try
+            {
+               using (var zip = ZipPackage.Open(this.DestinationFile, FileMode.Create))
+               {
+                  foreach (var item in this.SourceFiles)
+                  {
+                     var path = item.GetMetadata("FullPath");
+                     var uri  = new Uri(path.Substring(root.Length).Replace("\\", "/"), UriKind.Relative);
+                     var part = zip.CreatePart(uri, "", CompressionOption.Maximum);
+                     using (var input = File.OpenRead(path))
+                     using (var output = part.GetStream())
+                        input.CopyTo(output);
+                  }
+               }
+            }
+            catch
+            {
+               File.Delete(this.DestinationFile);
+               throw;
+            }
+         ]]></Code>
+      </Task>
+   </UsingTask>
+</Project>
