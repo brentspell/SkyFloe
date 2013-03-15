@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/bin/mono /usr/lib/skyfloe/1.0/SkyFloe-Backup.exe "$@"

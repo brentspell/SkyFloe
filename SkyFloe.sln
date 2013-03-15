@@ -12,6 +12,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core", "Core\Core.csproj", 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Config", "Config", "{D5248930-B854-46DE-B5DF-724F86CAD3C2}"
 	ProjectSection(SolutionItems) = preProject
+		license.txt = license.txt
 		SkyFloe.ico = SkyFloe.ico
 		SkyFloe.png = SkyFloe.png
 		Version.cs = Version.cs
@@ -69,6 +70,10 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sqlite", "Sqlite", "{0D9141C5-CC43-4B20-AA66-5A9BE440A1BA}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mono.Data.Sqlite", "DB\Sqlite\Mono.Data.Sqlite\Mono.Data.Sqlite.csproj", "{8EB033BA-6658-4727-969F-D3927F3BD0B0}"
+	ProjectSection(ProjectDependencies) = postProject
+		{BD73E57A-2926-48F6-B8E0-0CB847C716F2} = {BD73E57A-2926-48F6-B8E0-0CB847C716F2}
+		{3F5CF288-5061-4D77-A708-845A4C1DC0CC} = {3F5CF288-5061-4D77-A708-845A4C1DC0CC}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zip", "Package\Zip\Zip.csproj", "{6498CE89-1179-4701-849B-72440E477264}"
 	ProjectSection(ProjectDependencies) = postProject
