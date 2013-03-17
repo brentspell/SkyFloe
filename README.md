@@ -9,7 +9,7 @@ and run
 
     sudo apt-get update
     sudo mozroots --import --ask-remove
-    curl http://brentspell.com/apt/public.key | sudo apt-key add -
+    curl -L http://brentspell.com/apt/public.key | sudo apt-key add -
     sudo apt-get install skyfloe
 
 ##Features##
