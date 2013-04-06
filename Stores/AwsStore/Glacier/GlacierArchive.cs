@@ -174,14 +174,16 @@ namespace SkyFloe.Aws
       {
          // download the existing backup index
          this.backupIndexFile = IO.FileSystem.Temp();
-         var s3Stream = this.s3.GetObject(
-            new Amazon.S3.Model.GetObjectRequest()
-            {
-               BucketName = this.bucket,
-               Key = this.IndexS3Key
-            }
-         ).ResponseStream;
-         using (s3Stream)
+         using (var s3response = 
+            this.s3.GetObject(
+               new Amazon.S3.Model.GetObjectRequest()
+               {
+                  BucketName = this.bucket,
+                  Key = this.IndexS3Key
+               }
+            )
+         )
+         using (var s3Stream = s3response.ResponseStream)
          using (var gzip = new GZipStream(s3Stream, CompressionMode.Decompress))
             this.copier.CopyAndFlush(gzip, this.backupIndexFile);
          // open the index

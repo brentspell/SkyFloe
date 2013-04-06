@@ -54,9 +54,11 @@ namespace SkyFloe.IO
             throw new ArgumentOutOfRangeException("bufferSize");
          // allocate the stream buffers
          // the buffer is split to support alternating async reads/writes
-         this.buffers = new Byte[2][];
-         this.buffers[0] = new Byte[bufferSize / 2];
-         this.buffers[1] = new Byte[bufferSize / 2];
+         this.buffers = new Byte[][]
+         {
+            new Byte[bufferSize / 2],
+            new Byte[bufferSize / 2]
+         };
       }
 
       /// <summary>

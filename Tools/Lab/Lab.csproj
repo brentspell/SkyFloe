@@ -28,6 +28,10 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="AWSSDK, Version=1.5.16.1, Culture=neutral, PublicKeyToken=9f476d3089b52be3, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Windows\assembly\GAC_MSIL\AWSSDK\1.5.16.1__9f476d3089b52be3\AWSSDK.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
   </ItemGroup>
   <PropertyGroup>
