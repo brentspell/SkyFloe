@@ -7,8 +7,8 @@ A backup system for low cost, long term, encrypted cloud backup over storage ser
 
 and run
 
-    sudo apt-get update
     sudo mozroots --import --ask-remove
+    sudo apt-get update
     curl -L http://brentspell.com/apt/public.key | sudo apt-key add -
     sudo apt-get install skyfloe
 
