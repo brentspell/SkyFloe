@@ -46,6 +46,7 @@ namespace SkyFloe.Aws
    /// </remarks>
    public class GlacierUploader : IDisposable
    {
+      public const Int32 PartAttemptCount = 5;
       public const Int32 PartSize = 16 * 1024 * 1024;
       private AmazonGlacierClient glacier;
       private String vault;
@@ -155,21 +156,35 @@ namespace SkyFloe.Aws
             this.partStream.SetLength(partLength);
             this.partStream.Position = 0;
             var checksum = TreeHashGenerator.CalculateTreeHash(this.partStream);
-            this.partStream.Position = 0;
-            this.glacier.UploadMultipartPart(
-               new UploadMultipartPartRequest()
+            for (var attempt = 1; ; attempt++)
+            {
+               this.partStream.Position = 0;
+               try
                {
-                  VaultName = this.vault,
-                  UploadId = this.uploadID,
-                  Body = this.partStream,
-                  Range = String.Format(
-                     "bytes {0}-{1}/*",
-                     this.archiveOffset,
-                     this.archiveOffset + partLength - 1
-                  ),
-                  Checksum = checksum
+                  // attempt to upload the current part
+                  this.glacier.UploadMultipartPart(
+                     new UploadMultipartPartRequest()
+                     {
+                        VaultName = this.vault,
+                        UploadId = this.uploadID,
+                        Body = this.partStream,
+                        Range = String.Format(
+                           "bytes {0}-{1}/*",
+                           this.archiveOffset,
+                           this.archiveOffset + partLength - 1
+                        ),
+                        Checksum = checksum
+                     }
+                  );
+                  break;
                }
-            );
+               catch
+               {
+                  // if we have reached the maximum attempt count, throw
+                  if (attempt == PartAttemptCount)
+                     throw;
+               }
+            }
             // now that the upload was successful, we can modify
             // the internal vault archive offset and checksum list 
             // and reset the part buffer stream
