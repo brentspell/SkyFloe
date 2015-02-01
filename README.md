@@ -1,15 +1,15 @@
 ![SkyFloe](https://raw.github.com/bspell1/SkyFloe/master/SkyFloe.png) SkyFloe
 =============================================================================
 
-A backup system for low cost, long term, encrypted cloud backup over storage services such as [Amazon Glacier](http://aws.amazon.com/glacier/). Download the latest binaries [here](http://brentspell.com/download/skyfloe.zip). Install on Debian/Ubuntu using the source
+A backup system for low cost, long term, encrypted cloud backup over storage services such as [Amazon Glacier](http://aws.amazon.com/glacier/). Download the latest binaries [here](http://content.brentspell.com/download/skyfloe.zip). Install on Debian/Ubuntu using the source
 
-    deb [arch=all] http://brentspell.com/apt/ stable main
+    deb [arch=all] http://content.brentspell.com/apt-repo/ stable main
 
 and run
 
     sudo mozroots --import --ask-remove
     sudo apt-get update
-    curl -L http://brentspell.com/apt/public.key | sudo apt-key add -
+    curl -L http://content.brentspell.com/apt-repo/public.key | sudo apt-key add -
     sudo apt-get install skyfloe
 
 ##Features##
